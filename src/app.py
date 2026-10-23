@@ -259,7 +259,9 @@ EARTH_TOGGLE_CSS = """
 /* when the desktop sidebar is open, centre the name over the page content instead of the whole window */
 [data-testid="stApp"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stHeader"]::after { left: calc(50% + 168px); }
 @media (max-width: 760px) { [data-testid="stHeader"]::after { display: none; } }
-[data-testid="stAppDeployButton"], .stDeployButton { display: none !important; }
+/* Hide Streamlit Cloud's Fork / GitHub / Deploy buttons for every visitor */
+[data-testid="stAppDeployButton"], .stDeployButton, [data-testid="stToolbarActions"],
+[data-testid="stToolbarActionButton"] { display: none !important; }
 [data-testid="stToolbar"] { right: .75rem; align-items: center; gap: .25rem; }
 [data-testid="stStatusWidget"] { font-size: .78rem; opacity: .85; }
 [data-testid="stSidebarCollapsedControl"] {
