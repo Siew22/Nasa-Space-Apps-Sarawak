@@ -15,6 +15,7 @@
 > 💡 **Important Note regarding ML Models:**  
 > Our interactive frontend, evidence database, and 2D physics sandbox work **out-of-the-box without requiring pre-downloaded large model weights!**  
 > The core analysis and STEM simulations are completely driven by the first-principles physics engine and empirically curated NASA data.
+> The optional post-test CSV prediction tab requires the saved model and metadata from Step 4.
 
 ### 1. Environment Setup
 We recommend using **Python 3.11** under Linux / WSL2 (Ubuntu) / macOS:
@@ -38,7 +39,13 @@ pip install "pyarrow==16.1.0"
 ```bash
 streamlit run src/app.py
 ```
-Open your browser at **`http://localhost:8501`** to experience all 4 research and educational modules!
+Open your browser at **`http://localhost:8501`** to use the four research modules and the optional post-test CSV prediction tab.
+
+If another frontend needs the backend HTTP API, start it in a separate terminal:
+```bash
+python -m uvicorn app.main:app --reload
+```
+Open **`http://127.0.0.1:8000/docs`** to view and try the API endpoints. The Streamlit dashboard runs independently of this API server.
 
 ### 3. Run Automated Physics Sanity Checks
 Validate the 5 conservation laws and boundary limits of our 2D simulation engine:
@@ -46,12 +53,25 @@ Validate the 5 conservation laws and boundary limits of our 2D simulation engine
 pytest tests/ -v
 ```
 
-### 4. (Optional) Train the Deep Learning Model Locally
-To generate your own TensorFlow neural network weights locally (GPU supported):
+### 4. (Optional) Train the Post-Test Peak Heat-Release Model
+The original four dashboard modules and physics checks work without training. To use the fifth CSV prediction tab or the prediction API, train the included **experimental** TensorFlow model on the measured [MaCFP PMMA cone-calorimeter dataset](https://github.com/MaCFP/matl-db/tree/master/PMMA/Calibration_Data):
+
 ```bash
-# Automatically outputs spacecraft_fire_multitask_v1.keras in models/
-python -m src.train_spacecraft_fire_model
+python -X utf8 -m src.train_spacecraft_fire_model --data data/processed/macfp_measured_cone_experiments.csv
 ```
+
+This uses 54 measured ground-based PMMA burns from 10 laboratories. It evaluates against mean and random-forest baselines with five-fold laboratory-grouped validation, then saves `models/spacecraft_fire_peak_hrr_v1.keras`, its matching `.metadata.json`, and two CSV reports in `reports/`. The old 20-row `spacecraft_fire_benchmark.csv` has identical inputs and labels and is rejected as placeholder training data. On Windows, the installed TensorFlow 2.16 runs this training on CPU unless you configure a supported Linux/WSL2 GPU environment.
+
+Upload a CSV in the fifth tab with these **after-test** columns (header and example row):
+
+```csv
+radiant_heat_flux_kw_m2,real_burn_duration_s,real_mean_hrr_kw_m2
+50,400,500
+```
+
+The tab returns an estimated `predicted_peak_hrr_kw_m2` and a `predicted_high_hazard` flag. The flag simply checks whether the estimated peak is at least **350 kW/m²**; it is not a separately trained classifier. All 54 training burns exceed that threshold, so low-versus-high hazard discrimination has **not** been validated. If the complete heat-release time series is available, calculate the actual peak directly as its maximum instead. Uploading a new CSV runs inference; it does not retrain the model.
+
+The model is limited to post-test PMMA cone measurements within the training range. It is **not validated for spacecraft, microgravity, other materials, or operational fire-safety decisions**. For a separate frontend, start the FastAPI server from Step 2 and use `POST /api/v1/research/predict-fire` in `/docs`; submit `{"rows": [{"radiant_heat_flux_kw_m2": 50, "real_burn_duration_s": 400, "real_mean_hrr_kw_m2": 500}]}`. Deploy both the `.keras` file and matching metadata file to enable predictions online.
 
 ---
 

@@ -1,6 +1,4 @@
-﻿,mae_kw_m2,mae_kw_m2,balanced_accuracy,balanced_accuracy,macro_f1,macro_f1
-,mean,std,mean,std,mean,std
-model,,,,,,
-Dummy_Baseline,0.0,0.0,1.0,0.0,1.0,0.0
-Random_Forest,0.0,0.0,1.0,0.0,1.0,0.0
-TensorFlow_GPU_NN,648.8,0.0,1.0,0.0,1.0,0.0
+model,rows,group_folds,mae_kw_m2,rmse_kw_m2,r2_score,balanced_accuracy,macro_f1
+Dummy_Baseline,54,5,353.3210172299986,453.612626327143,-0.029059920308421416,,
+Random_Forest,54,5,174.58563683969007,278.36850474683473,0.6124653069796633,,
+TensorFlow_NN,54,5,118.92782649287471,180.53077610216977,0.8370055215062012,,

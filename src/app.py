@@ -1,17 +1,20 @@
 import sys
 from pathlib import Path
 
-# 核心路径修正：移出被 Streamlit 自动插入的 src/ 目录，防止 src/app.py 劫持根目录的 app/ 包
+# Streamlit adds src/ to the import path; put the project root first so app/ wins.
 ROOT = Path(__file__).resolve().parents[1]
 src_str = str(ROOT / "src")
 while src_str in sys.path:
     sys.path.remove(src_str)
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+while str(ROOT) in sys.path:
+    sys.path.remove(str(ROOT))
+sys.path.insert(0, str(ROOT))
 if "app" in sys.modules and not hasattr(sys.modules["app"], "__path__"):
     del sys.modules["app"]
 
 import json
+from hashlib import sha256
+from io import BytesIO
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -19,6 +22,13 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app.schemas import SimulationRequest
+from app.services.model_inference import (
+    FEATURE_COLUMNS,
+    MAX_BATCH_ROWS,
+    ModelUnavailableError,
+    get_model_info,
+    predict_fire_rows,
+)
 from app.services.simulation_service import run_simulation
 from app.services.research_engine import (
     get_empirical_material_ranking,
@@ -38,11 +48,12 @@ st.set_page_config(
 st.title("🔥 Flame in Freefall: 微重力燃烧科学与安全平台")
 st.caption("AI-Powered Fire Safety Insights & STEM Educational Physics | NASA Space Apps")
 
-tab_evidence, tab_sweep, tab_simulation, tab_audit = st.tabs([
+tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction = st.tabs([
     "🔬 航天实验证据库 (Evidence)",
     "📈 科研变量分析与物理叙事 (STEM Analysis)",
     "🧪 2D 物理时空模拟沙盒 (Physics Sandbox)",
-    "📊 科学审计与 25 折验证 (Scientific Audit)"
+    "📊 科学审计与 25 折验证 (Scientific Audit)",
+    "🔥 Post-test CSV prediction"
 ])
 
 # =========================================================================
@@ -254,3 +265,68 @@ with tab_audit:
         st.markdown("#### 审计警示与科学诚实声明 (Honesty Declarations)")
         for warn in a_data.get("warnings", []):
             st.warning(f"⚠️ {warn}")
+
+
+# =========================================================================
+# TAB 5: After-test estimates from a separately trained experimental model
+# =========================================================================
+with tab_prediction:
+    st.subheader("Predict peak heat release from a new CSV")
+    st.info(
+        "This experimental model uses measured after-test burn summaries. "
+        "Its current training source is ground-based PMMA cone calorimeter tests; "
+        "it has not been validated for spacecraft or microgravity fires. "
+        "Use it only when the peak is missing from an otherwise complete burn summary. "
+        "If you have the full HRR time series, calculate its maximum directly."
+    )
+    st.caption(
+        "Required columns (in these units): "
+        + ", ".join(f"`{column}`" for column in FEATURE_COLUMNS)
+        + ". The high-hazard flag is a project rule: predicted peak heat release "
+        ">= 350 kW/m². It is not a separately trained classifier."
+    )
+    uploaded_csv = st.file_uploader("Upload after-test CSV", type="csv", key="fire_prediction_csv")
+    if uploaded_csv is None:
+        st.session_state.pop("fire_prediction_result", None)
+    if uploaded_csv is not None:
+        try:
+            upload_hash = sha256(uploaded_csv.getvalue()).hexdigest()
+            previous = st.session_state.get("fire_prediction_result")
+            if previous is not None and previous[0] != upload_hash:
+                st.session_state.pop("fire_prediction_result", None)
+            input_df = pd.read_csv(BytesIO(uploaded_csv.getvalue()))
+            missing_columns = [column for column in FEATURE_COLUMNS if column not in input_df.columns]
+            if missing_columns:
+                raise ValueError("Missing required columns: " + ", ".join(missing_columns))
+            if not 1 <= len(input_df) <= MAX_BATCH_ROWS:
+                raise ValueError(f"CSV must contain 1 to {MAX_BATCH_ROWS} data rows")
+            feature_df = input_df.loc[:, FEATURE_COLUMNS].apply(pd.to_numeric, errors="raise")
+            feature_array = feature_df.to_numpy(dtype=float)
+            if (
+                not np.isfinite(feature_array).all()
+                or (feature_array[:, 0] < 0).any()
+                or (feature_array[:, 1:] <= 0).any()
+            ):
+                raise ValueError("Heat flux must be nonnegative; burn duration and mean HRR must be positive")
+            st.dataframe(input_df.head(10), use_container_width=True)
+            if st.button("Predict fire results", key="run_fire_prediction"):
+                results = predict_fire_rows(feature_df.to_dict(orient="records"))
+                model_info = get_model_info()
+                output_df = pd.concat([input_df.reset_index(drop=True), pd.DataFrame(results)], axis=1)
+                st.session_state["fire_prediction_result"] = (upload_hash, output_df, model_info)
+            saved_result = st.session_state.get("fire_prediction_result")
+            if saved_result is not None and saved_result[0] == upload_hash:
+                _, output_df, model_info = saved_result
+                st.caption(f"Model source: {model_info['source']}. Scope: {model_info['scope']}")
+                st.dataframe(output_df, use_container_width=True)
+                st.download_button(
+                    "Download results CSV",
+                    output_df.to_csv(index=False).encode("utf-8"),
+                    file_name="fire_predictions.csv",
+                    mime="text/csv",
+                    key="download_fire_predictions",
+                )
+        except (pd.errors.ParserError, pd.errors.EmptyDataError, UnicodeDecodeError, ValueError) as exc:
+            st.error(f"Cannot use this CSV: {exc}")
+        except ModelUnavailableError as exc:
+            st.error(str(exc))
