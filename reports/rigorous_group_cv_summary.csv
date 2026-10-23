@@ -1,0 +1,6 @@
+﻿,mae_kw_m2,mae_kw_m2,balanced_accuracy,balanced_accuracy,macro_f1,macro_f1
+,mean,std,mean,std,mean,std
+model,,,,,,
+Dummy_Baseline,0.0,0.0,1.0,0.0,1.0,0.0
+Random_Forest,0.0,0.0,1.0,0.0,1.0,0.0
+TensorFlow_GPU_NN,648.8,0.0,1.0,0.0,1.0,0.0

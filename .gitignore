@@ -1,0 +1,23 @@
+# 虚拟环境与 Python 缓存
+.venv/
+env/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# 外部克隆的子库与大型原始数据
+data/raw/macfp-matl-db/
+data/raw/*.zip
+data/raw/*.tar.gz
+
+# 模型大文件
+models/*.keras
+models/*.h5
+
+# 系统与编辑器配置
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

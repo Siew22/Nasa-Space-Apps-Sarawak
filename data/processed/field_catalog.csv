@@ -1,0 +1,37 @@
+﻿dataset_key,source_file,original_field_name,field_name,non_null_values,distinct_non_null_values,inferred_dtype
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,PI,pi,40,1,object
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Test #,test_number,40,40,object
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Date,date,40,1,object
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,GMT,gmt,40,40,int64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Sample #,sample_number,40,40,int64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Fuel Sample Material,fuel_sample_material,40,5,object
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Flow restrictor,flow_restrictor,40,1,int64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Fan display,fan_display,40,6,int64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Air display,air_display,40,1,int64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Radiometer gain (1000 250 50 10),radiometer_gain_1000_250_50_10,40,1,int64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Total Frames Shot,total_frames_shot,40,40,int64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Calibrated initial O2 % by vol,calibrated_initial_o2_pct_by_vol,40,5,float64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Calibrated final O2 % by vol,calibrated_final_o2_pct_by_vol,40,20,float64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Initial CO2 % by vol,initial_co2_pct_by_vol,40,1,float64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Final CO2 % by vol,final_co2_pct_by_vol,40,1,float64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Initial CO (ppm),initial_co_ppm,40,3,int64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,Final CO (ppm),final_co_ppm,40,12,int64
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,source_url,source_url,40,1,object
+BASS_II,data/raw/PSI-25_BASS_II_experimental_table.csv,source_note,source_note,40,1,object
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,FLEX Test #,flex_test_number,40,40,int64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,FLEX Identifier,flex_identifier,40,40,object
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,Test Date,test_date,40,15,object
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,Test GMT,test_gmt,40,10,object
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,Fuel,fuel,40,3,object
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,Ambient pressure; mmHg,ambient_pressure_mmhg,40,5,float64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,O initial ambient composition; mole fraction,o_initial_ambient_composition_mole_fraction,40,4,float64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,N initial ambient composition; mole fraction,n_initial_ambient_composition_mole_fraction,40,4,float64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,CO initial ambient composition; mole fraction,co_initial_ambient_composition_mole_fraction,40,1,float64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,He initial ambient composition; mole fraction,he_initial_ambient_composition_mole_fraction,40,1,float64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,Droplet initial diameter; mm,droplet_initial_diameter_mm,40,30,float64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,Visible flame extinction diameter; mm,visible_flame_extinction_diameter_mm,40,25,float64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,Burning rate; mm,burning_rate_mm,40,6,float64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,Burn time; s,burn_time_s,40,24,float64
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,Test end,test_end,40,2,object
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,source_url,source_url,40,1,object
+FLEX,data/raw/PSI-69_FLEX_experimental_table.csv,source_note,source_note,40,1,object

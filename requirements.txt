@@ -1,0 +1,22 @@
+# 基础科学计算与数据管道 (锁死 NumPy 1.26 避免 C-API 冲突)
+numpy>=1.26.4,<2.0.0
+pandas>=2.2.2,<3.0.0
+scikit-learn>=1.5.0,<1.6.0
+openpyxl>=3.1.2
+pyarrow>=16.1.0
+
+# 核心机器学习引擎 (带 CUDA 12 / cuDNN 硬件加速)
+tensorflow[and-cuda]==2.16.2
+keras==3.3.3
+
+# 前后端服务与可视化
+fastapi>=0.111.0,<0.116.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0,<3.0.0
+streamlit>=1.35.0,<1.40.0
+plotly>=5.22.0,<6.0.0
+
+# 测试与工具
+httpx>=0.27.0
+pytest>=8.2.0
+pyarrow==16.1.0

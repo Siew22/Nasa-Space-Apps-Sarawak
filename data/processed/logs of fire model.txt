@@ -1,0 +1,187 @@
+patrick0307@DESKTOP-NV4APNR ~/Nasa Space Apps/src
+ % python build_space_fire_benchmark.py
+📖 载入 MaCFP 真实实验测量数据: 20 条实验室记录。
+✅ 地-空火灾科学基准表构建完成: /home/patrick0307/Nasa Space Apps/data/processed/spacecraft_fire_benchmark.csv
+📊 样本总计: 100 条，涵盖 20 组独立实验室实验。
+patrick0307@DESKTOP-NV4APNR ~/Nasa Space Apps/src
+ % python train_spacecraft_fire_model.py
+2026-10-23 12:23:34.787497: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:479] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-10-23 12:23:34.880098: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:10575] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-10-23 12:23:34.880751: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1442] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+🚀 [CUDA] 成功在 12GB 显卡上激活 GPU 加速: /physical_device:GPU:0
+
+⚡ 启动 GPU 训练：训练集 75 样本 | 验证集 25 样本
+Epoch 1/80
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1792729418.307762    4154 service.cc:145] XLA service 0x7f4f3800e3a0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1792729418.307827    4154 service.cc:153]   StreamExecutor device (0): NVIDIA GeForce RTX 3060, Compute Capability 8.6
+I0000 00:00:1792729420.810905    4154 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+1/5 ━━━━━━━━━━━━━━━━━━━━ 14s 4s/step - extinction_prob_accuracy: 5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 314ms/step - extinction_prob_accuracy5/5 ━━━━━━━━━━━━━━━━━━━━ 6s 464ms/step - extinction_prob_accuracy: 0.8168 - loss: 0.7646 - spread_rate_mae: 0.4748 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.8225 - val_spread_rate_mae: 0.4720
+Epoch 2/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 15ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.3969 - spread_rate_mae: 0.5064 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.7060 - val_spread_rate_mae: 0.4666
+Epoch 3/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.2570 - spread_rate_mae: 0.4038 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.5887 - val_spread_rate_mae: 0.4452
+Epoch 4/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 30ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.2339 - spread_rate_mae: 0.3502 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.6175 - val_spread_rate_mae: 0.5035
+Epoch 5/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1426 - spread_rate_mae: 0.3026 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.5118 - val_spread_rate_mae: 0.4656
+Epoch 6/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 18ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1272 - spread_rate_mae: 0.2714 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.4901 - val_spread_rate_mae: 0.4661
+Epoch 7/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 19ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1162 - spread_rate_mae: 0.2526 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.4856 - val_spread_rate_mae: 0.4746
+Epoch 8/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0998 - spread_rate_mae: 0.2197 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.4416 - val_spread_rate_mae: 0.4551
+Epoch 9/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1307 - spread_rate_mae: 0.2669 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.4345 - val_spread_rate_mae: 0.4525
+Epoch 10/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1427 - spread_rate_mae: 0.2931 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.4326 - val_spread_rate_mae: 0.4586
+Epoch 11/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1146 - spread_rate_mae: 0.2436 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.3895 - val_spread_rate_mae: 0.4354
+Epoch 12/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1232 - spread_rate_mae: 0.2609 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.4176 - val_spread_rate_mae: 0.4584
+Epoch 13/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1075 - spread_rate_mae: 0.2332 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.3781 - val_spread_rate_mae: 0.4347
+Epoch 14/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0960 - spread_rate_mae: 0.2082 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.3516 - val_spread_rate_mae: 0.4237
+Epoch 15/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 18ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1144 - spread_rate_mae: 0.2430 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.3657 - val_spread_rate_mae: 0.4370
+Epoch 16/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0892 - spread_rate_mae: 0.1984 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.3494 - val_spread_rate_mae: 0.4278
+Epoch 17/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 10ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1125 - spread_rate_mae: 0.2420 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.3312 - val_spread_rate_mae: 0.4185
+Epoch 18/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 20ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0944 - spread_rate_mae: 0.2086 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.3147 - val_spread_rate_mae: 0.4119
+Epoch 19/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1039 - spread_rate_mae: 0.2287 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.3206 - val_spread_rate_mae: 0.4190
+Epoch 20/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0960 - spread_rate_mae: 0.2189 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2863 - val_spread_rate_mae: 0.3912
+Epoch 21/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0983 - spread_rate_mae: 0.2243 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2775 - val_spread_rate_mae: 0.3914
+Epoch 22/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0914 - spread_rate_mae: 0.2125 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2763 - val_spread_rate_mae: 0.3926
+Epoch 23/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0912 - spread_rate_mae: 0.1991 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2655 - val_spread_rate_mae: 0.3802
+Epoch 24/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 18ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0880 - spread_rate_mae: 0.1979 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2714 - val_spread_rate_mae: 0.3928
+Epoch 25/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1103 - spread_rate_mae: 0.2434 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2566 - val_spread_rate_mae: 0.3829
+Epoch 26/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1070 - spread_rate_mae: 0.2284 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2465 - val_spread_rate_mae: 0.3760
+Epoch 27/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0850 - spread_rate_mae: 0.1834 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2264 - val_spread_rate_mae: 0.3614
+Epoch 28/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 10ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0842 - spread_rate_mae: 0.1842 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2164 - val_spread_rate_mae: 0.3550
+Epoch 29/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 21ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1077 - spread_rate_mae: 0.2300 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2309 - val_spread_rate_mae: 0.3694
+Epoch 30/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0652 - spread_rate_mae: 0.1547 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.2032 - val_spread_rate_mae: 0.3441
+Epoch 31/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1042 - spread_rate_mae: 0.2275 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1956 - val_spread_rate_mae: 0.3421
+Epoch 32/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1028 - spread_rate_mae: 0.2271 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1860 - val_spread_rate_mae: 0.3315
+Epoch 33/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 18ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0874 - spread_rate_mae: 0.1962 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1582 - val_spread_rate_mae: 0.3012
+Epoch 34/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0977 - spread_rate_mae: 0.2040 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1757 - val_spread_rate_mae: 0.3235
+Epoch 35/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 19ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0802 - spread_rate_mae: 0.1730 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1619 - val_spread_rate_mae: 0.3138
+Epoch 36/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0830 - spread_rate_mae: 0.2057 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1723 - val_spread_rate_mae: 0.3215
+Epoch 37/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 18ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0934 - spread_rate_mae: 0.2025 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1471 - val_spread_rate_mae: 0.2980
+Epoch 38/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 18ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0924 - spread_rate_mae: 0.2065 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1442 - val_spread_rate_mae: 0.2985
+Epoch 39/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 18ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 11ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0937 - spread_rate_mae: 0.2006 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1506 - val_spread_rate_mae: 0.3033
+Epoch 40/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 21ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0946 - spread_rate_mae: 0.2092 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1331 - val_spread_rate_mae: 0.2835
+Epoch 41/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0938 - spread_rate_mae: 0.2011 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1477 - val_spread_rate_mae: 0.3045
+Epoch 42/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0873 - spread_rate_mae: 0.1881 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1270 - val_spread_rate_mae: 0.2790
+Epoch 43/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0690 - spread_rate_mae: 0.1514 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1281 - val_spread_rate_mae: 0.2812
+Epoch 44/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 29ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0692 - spread_rate_mae: 0.1596 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1203 - val_spread_rate_mae: 0.2705
+Epoch 45/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 21ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0826 - spread_rate_mae: 0.1906 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1217 - val_spread_rate_mae: 0.2642
+Epoch 46/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0930 - spread_rate_mae: 0.2042 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1248 - val_spread_rate_mae: 0.2810
+Epoch 47/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 19ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1002 - spread_rate_mae: 0.2190 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0951 - val_spread_rate_mae: 0.2345
+Epoch 48/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0938 - spread_rate_mae: 0.2031 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1087 - val_spread_rate_mae: 0.2543
+Epoch 49/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0874 - spread_rate_mae: 0.1869 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1278 - val_spread_rate_mae: 0.2839
+Epoch 50/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 11ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0832 - spread_rate_mae: 0.1825 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0987 - val_spread_rate_mae: 0.2436
+Epoch 51/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 21ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0762 - spread_rate_mae: 0.1719 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0855 - val_spread_rate_mae: 0.2211
+Epoch 52/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0969 - spread_rate_mae: 0.2014 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.1083 - val_spread_rate_mae: 0.2570
+Epoch 53/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0835 - spread_rate_mae: 0.1804 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0930 - val_spread_rate_mae: 0.2327
+Epoch 54/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 19ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0985 - spread_rate_mae: 0.2046 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0797 - val_spread_rate_mae: 0.2123
+Epoch 55/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 18ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1046 - spread_rate_mae: 0.2213 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0853 - val_spread_rate_mae: 0.2212
+Epoch 56/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 10ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0956 - spread_rate_mae: 0.1908 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0806 - val_spread_rate_mae: 0.2107
+Epoch 57/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0811 - spread_rate_mae: 0.1796 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0789 - val_spread_rate_mae: 0.2079
+Epoch 58/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0829 - spread_rate_mae: 0.1808 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0736 - val_spread_rate_mae: 0.1957
+Epoch 59/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 18ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0862 - spread_rate_mae: 0.1887 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0906 - val_spread_rate_mae: 0.2320
+Epoch 60/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0986 - spread_rate_mae: 0.2090 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0712 - val_spread_rate_mae: 0.1906
+Epoch 61/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 20ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 10ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0790 - spread_rate_mae: 0.1800 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0646 - val_spread_rate_mae: 0.1791
+Epoch 62/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 19ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0813 - spread_rate_mae: 0.1747 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0853 - val_spread_rate_mae: 0.2237
+Epoch 63/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0937 - spread_rate_mae: 0.2000 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0605 - val_spread_rate_mae: 0.1666
+Epoch 64/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0862 - spread_rate_mae: 0.1814 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0680 - val_spread_rate_mae: 0.1824
+Epoch 65/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 15ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0961 - spread_rate_mae: 0.1994 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0776 - val_spread_rate_mae: 0.2069
+Epoch 66/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 10ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0829 - spread_rate_mae: 0.1807 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0625 - val_spread_rate_mae: 0.1729
+Epoch 67/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 21ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0898 - spread_rate_mae: 0.1859 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0692 - val_spread_rate_mae: 0.1867
+Epoch 68/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0799 - spread_rate_mae: 0.1774 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0597 - val_spread_rate_mae: 0.1647
+Epoch 69/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0877 - spread_rate_mae: 0.1770 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0643 - val_spread_rate_mae: 0.1713
+Epoch 70/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0948 - spread_rate_mae: 0.1959 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0570 - val_spread_rate_mae: 0.1582
+Epoch 71/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1286 - spread_rate_mae: 0.2522 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0613 - val_spread_rate_mae: 0.1710
+Epoch 72/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 20ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0909 - spread_rate_mae: 0.1969 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0652 - val_spread_rate_mae: 0.1623
+Epoch 73/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0917 - spread_rate_mae: 0.1975 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0542 - val_spread_rate_mae: 0.1503
+Epoch 74/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 19ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0758 - spread_rate_mae: 0.1710 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0623 - val_spread_rate_mae: 0.1748
+Epoch 75/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0982 - spread_rate_mae: 0.2055 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0524 - val_spread_rate_mae: 0.1338
+Epoch 76/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0836 - spread_rate_mae: 0.1821 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0626 - val_spread_rate_mae: 0.1720
+Epoch 77/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 22ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 9ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0974 - spread_rate_mae: 0.2014 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0514 - val_spread_rate_mae: 0.1386
+Epoch 78/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 16ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0971 - spread_rate_mae: 0.1997 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0548 - val_spread_rate_mae: 0.1427
+Epoch 79/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 27ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 7ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.0806 - spread_rate_mae: 0.1891 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0672 - val_spread_rate_mae: 0.1829
+Epoch 80/80
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 17ms/step - extinction_prob_accuracy:5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 8ms/step - extinction_prob_accuracy: 1.0000 - loss: 0.1029 - spread_rate_mae: 0.2198 - val_extinction_prob_accuracy: 1.0000 - val_loss: 0.0465 - val_spread_rate_mae: 0.1102
+
+=======================================================
+🎯 【GPU 训练最终验证集表现】:
+  - loss: 0.0465
+  - compile_metrics: 1.0000
+=======================================================
+💾 模型已保存落盘至: /home/patrick0307/Nasa Space Apps/models/spacecraft_fire_multitask_v1.keras
+
+patrick0307@DESKTOP-NV4APNR ~/Nasa Space Apps/src
+ % 

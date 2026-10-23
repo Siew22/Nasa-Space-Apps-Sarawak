@@ -1,0 +1,100 @@
+{
+  "model_id": "educational_microgravity_buoyancy_diffusion_v1",
+  "model_name": "Educational buoyancy and diffusion scales",
+  "model_version": "1.1.0",
+  "model_type": "reduced_order_educational_model",
+  "not_a_validated_combustion_solver": true,
+  "not_a_flame_height_or_extinction_predictor": true,
+  "units_system": "SI",
+  "constants": {
+    "specific_gas_constant_dry_air_j_kg_k": 287.05,
+    "standard_earth_gravity_m_s2": 9.80665,
+    "reference_thermal_diffusivity_air_m2_s": 2.2e-05,
+    "default_ambient_temperature_k": 300.0,
+    "default_hot_gas_temperature_k": 900.0,
+    "default_pressure_pa": 101325.0,
+    "default_parcel_volume_m3": 1e-05,
+    "default_length_scale_m": 0.02,
+    "default_forced_flow_speed_m_s": 0.02,
+    "default_duration_s": 3.0,
+    "default_steps": 60,
+    "default_diffusion_coefficient_m2_s": 2.2e-05,
+    "default_grid_resolution": 20,
+    "max_grid_cell_frames": 250000,
+    "initial_diffusion_radius_fraction_of_length_scale": 0.25,
+    "grid_padding_sigma": 3.0
+  },
+  "parameter_ranges": {
+    "effective_gravity_m_s2": { "minimum": 0.0, "maximum": 20.0 },
+    "ambient_temperature_k": { "minimum": 200.0, "maximum": 500.0 },
+    "hot_gas_temperature_k": { "minimum": 200.0, "maximum": 3000.0 },
+    "pressure_pa": { "minimum": 1000.0, "maximum": 500000.0 },
+    "parcel_volume_m3": { "exclusive_minimum": 1e-09, "maximum": 1.0 },
+    "length_scale_m": { "exclusive_minimum": 1e-05, "maximum": 10.0 },
+    "forced_flow_speed_m_s": { "minimum": 0.0, "maximum": 100.0 },
+    "diffusion_coefficient_m2_s": { "exclusive_minimum": 0.0, "maximum": 1.0 },
+    "duration_s": { "exclusive_minimum": 0.0, "maximum": 120.0 },
+    "steps": { "minimum": 2, "maximum": 500 },
+    "fps": { "minimum": 1, "maximum": 60 },
+    "grid_resolution": { "minimum": 5, "maximum": 100 }
+  },
+  "equations": [
+    {
+      "id": "ideal_gas_density",
+      "equation": "rho = p / (R_specific * T)",
+      "description": "Estimate gas density assuming dry-air ideal-gas behavior."
+    },
+    {
+      "id": "buoyancy_force",
+      "equation": "F_b = rho_ambient * V * g",
+      "description": "Archimedean buoyancy force scale."
+    },
+    {
+      "id": "hot_gas_weight",
+      "equation": "W_hot = rho_hot * V * g",
+      "description": "Weight estimate for the hot gas parcel."
+    },
+    {
+      "id": "net_buoyancy_force",
+      "equation": "F_net = (rho_ambient - rho_hot) * V * g",
+      "description": "Net upward buoyancy force."
+    },
+    {
+      "id": "reduced_gravity",
+      "equation": "g_prime = g * (rho_ambient - rho_hot) / rho_ambient",
+      "description": "Reduced-gravity density contrast scale."
+    },
+    {
+      "id": "buoyancy_velocity_scale",
+      "equation": "u_b = sqrt(g_prime * L)",
+      "description": "Characteristic buoyancy-driven velocity scale."
+    },
+    {
+      "id": "diffusion_length_scale",
+      "equation": "ell = sqrt(2 * D * t)",
+      "description": "One-dimensional characteristic diffusion length scale."
+    },
+    {
+      "id": "illustrative_hot_gas_centroid_motion",
+      "equation": "x_c(t) = u_forced * t, y_c(t) = u_b * (t - tau * (1 - exp(-t/tau)))",
+      "description": "Bounded characteristic parcel centroid closure."
+    },
+    {
+      "id": "illustrative_2d_gaussian_temperature_field",
+      "equation": "T(x,y,t) = T_amb + delta_T * exp(-((x-x_c)^2 + (y-y_c)^2)/(2*r_diff^2))",
+      "description": "2D educational Gaussian scalar field."
+    }
+  ],
+  "model_assumptions": [
+    "理想气体干空气物性近似，忽略多组分燃烧化学反应放热。",
+    "微重力下浮力加速度 g'=0，流动完全由强迫通风与对称分子扩散控制。",
+    "低阶教育近似模型，用于展示物理力学与热扩散尺度，非 CFD 燃烧反应流数值解。"
+  ],
+  "science_notes": [
+    "NASA describes buoyancy-driven hot-gas rise as a key cause of familiar upward flame shapes on Earth; in microgravity, this circulation is strongly reduced and diffusion becomes more important."
+  ],
+  "reference_urls": [
+    "https://psi.nasa.gov/physci/repo/data/investigations/PSI-25",
+    "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69"
+  ]
+}

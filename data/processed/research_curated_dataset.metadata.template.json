@@ -1,0 +1,96 @@
+{
+  "dataset_name": "REPLACE_WITH_A_PRECISE_DATASET_NAME",
+  "data_status": "curated_empirical_measurements",
+  "record_level_definition": "Explain what one row represents and whether it is an independent run, one time step, or another observation.",
+  "group_definition": "Explain exactly which records share one physical experiment/run and must stay in the same fold.",
+  "contains_synthetic_rows": false,
+  "data_curation_notes": "Describe every cleaning, filtering, unit conversion, formula-derived feature, interpolation, or excluded record. Do not write 'none' unless checked.",
+  "source_datasets": {
+    "BASS_II": {
+      "source_url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-25",
+      "source_doi": "10.60555/4qc4-de67",
+      "license_status": "CC0-1.0",
+      "source_file": "REPLACE_WITH_THE_EXACT_DOWNLOADED_SOURCE_FILENAME"
+    },
+    "FLEX": {
+      "source_url": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69",
+      "source_doi": "10.60555/mbq8-0451",
+      "license_status": "CC0-1.0",
+      "source_file": "REPLACE_WITH_THE_EXACT_DOWNLOADED_SOURCE_FILENAME"
+    }
+  },
+  "features": {
+    "mod_reynolds_number": {
+      "definition": "REPLACE_WITH_THE_EXACT_DEFINITION",
+      "unit": "REPLACE_WITH_UNIT_OR_DIMENSIONLESS",
+      "derivation": "REPLACE_WITH_MEASURED_OR_FORMULA_DERIVATION"
+    },
+    "mod_log_richardson": {
+      "definition": "REPLACE_WITH_THE_EXACT_DEFINITION",
+      "unit": "REPLACE_WITH_UNIT_OR_DIMENSIONLESS",
+      "derivation": "REPLACE_WITH_MEASURED_OR_FORMULA_DERIVATION"
+    },
+    "mod_o2_partial_pressure_kpa": {
+      "definition": "REPLACE_WITH_THE_EXACT_DEFINITION",
+      "unit": "kPa",
+      "derivation": "REPLACE_WITH_MEASURED_OR_FORMULA_DERIVATION"
+    },
+    "mod_buoyancy_velocity_scale": {
+      "definition": "REPLACE_WITH_THE_EXACT_DEFINITION",
+      "unit": "REPLACE_WITH_UNIT",
+      "derivation": "REPLACE_WITH_MEASURED_OR_FORMULA_DERIVATION"
+    },
+    "mod_damkohler_proxy": {
+      "definition": "REPLACE_WITH_THE_EXACT_DEFINITION",
+      "unit": "REPLACE_WITH_UNIT_OR_DIMENSIONLESS",
+      "derivation": "REPLACE_WITH_MEASURED_OR_FORMULA_DERIVATION"
+    }
+  },
+  "target_definitions": {
+    "target_rate_mm_s": {
+      "definition": "REPLACE_WITH_THE_SCIENTIFICALLY_CONSISTENT_TARGET_DEFINITION_ACROSS_ALL_SOURCES",
+      "unit": "mm/s",
+      "measurement_method": "REPLACE_WITH_THE_ORIGINAL_MEASUREMENT_OR_RELIABLE_DERIVATION",
+      "empirical_or_derived": "REPLACE_WITH_empirical_OR_derived_AND_EXPLAIN"
+    },
+    "target_is_extinguished": {
+      "definition": "REPLACE_WITH_THE_SCIENTIFICALLY_CONSISTENT_BINARY_TARGET_DEFINITION",
+      "unit": "binary",
+      "positive_class": "REPLACE_WITH_EXACT_MEANING_OF_1",
+      "measurement_method": "REPLACE_WITH_THE_ORIGINAL_EVENT/STATUS_FIELD_AND_MAPPING"
+    }
+  },
+  "leakage_review": {
+    "reviewer_completed": false,
+    "reviewer": "REPLACE_WITH_REVIEWER_OR_TEAM_ROLE",
+    "no_target_derived_features": false,
+    "no_synthetic_targets": false,
+    "review_notes": "Complete a documented review. The software cannot prove absence of scientific target leakage automatically."
+  },
+  "source_target_mapping": {
+    "BASS_II": {
+      "target_rate_mm_s": {
+        "status": "REPLACE_WITH_measured_derived_or_not_available",
+        "field_or_method": "REPLACE_WITH_ORIGINAL_FIELD_OR_FORMULA",
+        "unit_conversion": "REPLACE_WITH_NONE_OR_EXACT_CONVERSION"
+      },
+      "target_is_extinguished": {
+        "status": "REPLACE_WITH_measured_derived_or_not_available",
+        "field_or_method": "REPLACE_WITH_ORIGINAL_FIELD_OR_RULE",
+        "unit_conversion": "not_applicable"
+      }
+    },
+    "FLEX": {
+      "target_rate_mm_s": {
+        "status": "REPLACE_WITH_measured_derived_or_not_available",
+        "field_or_method": "REPLACE_WITH_ORIGINAL_FIELD_OR_FORMULA",
+        "unit_conversion": "REPLACE_WITH_NONE_OR_EXACT_CONVERSION"
+      },
+      "target_is_extinguished": {
+        "status": "REPLACE_WITH_measured_derived_or_not_available",
+        "field_or_method": "REPLACE_WITH_ORIGINAL_FIELD_OR_RULE",
+        "unit_conversion": "not_applicable"
+      }
+    }
+  }
+}
