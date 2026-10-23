@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 if "app" in sys.modules and not hasattr(sys.modules["app"], "__path__"):
     del sys.modules["app"]
 
+import base64
 import json
 from hashlib import sha256
 from io import BytesIO
@@ -168,6 +169,10 @@ h2, h3 { letter-spacing: -.01em; }
 .orbit::before { content: ""; position: absolute; inset: 40px; border-radius: 50%; border: 1px dashed rgba(255,255,255,.1); }
 .orbit span { position: absolute; top: -7px; left: 50%; width: 14px; height: 14px; border-radius: 50%;
   background: #FF9A4D; box-shadow: 0 0 16px 4px rgba(255,154,77,.8); }
+.hero-earth { position: absolute; right: 22px; top: 22px; width: 92px; height: 92px; pointer-events: none;
+  filter: drop-shadow(0 0 18px rgba(91,182,255,.45)); animation: floaty 6s ease-in-out infinite; }
+@media (max-width: 760px) { .hero-earth, .orbit { display: none; } }
+[data-testid="stLogo"], [data-testid="stSidebarLogo"] { max-height: 3rem; }
 .telemetry { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 4px; }
 .tele { padding: 12px 14px; border-radius: 12px; background: rgba(5,9,22,.55); border: 1px solid rgba(255,255,255,.1);
   border-left: 3px solid #FC3D21; transition: transform .2s ease, border-color .2s ease; }
@@ -185,10 +190,17 @@ h2, h3 { letter-spacing: -.01em; }
 
 /* Plotly Play/Pause buttons: readable in normal, hover and pressed states */
 .updatemenu-button { cursor: pointer; }
-.updatemenu-item-rect { fill: #FF9A4D !important; stroke: #FFB27A !important; rx: 8px; ry: 8px; transition: fill .15s ease; }
-.updatemenu-button:hover .updatemenu-item-rect { fill: #FFC999 !important; }
+/* The thick dark stroke is what creates the visible gap between the two buttons */
+.updatemenu-item-rect { fill: #FFD9B8 !important; stroke: #0B1020 !important; stroke-width: 8px !important; rx: 12px; ry: 12px; transition: fill .15s ease; }
+.updatemenu-button:hover .updatemenu-item-rect { fill: #FF9A4D !important; }
 .updatemenu-button:active .updatemenu-item-rect { fill: #FF7A2B !important; }
 .updatemenu-item-text { fill: #0B1020 !important; font-weight: 700 !important; }
+
+/* Gravity / airflow chips above the 2D chart */
+.cues { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; }
+.cue { padding: 6px 12px; border-radius: 999px; font-size: .82rem; font-weight: 600; border: 1px solid; }
+.cue.g { color: #7CC4FF; border-color: rgba(124,196,255,.45); background: rgba(124,196,255,.1); }
+.cue.a { color: #9DFFB0; border-color: rgba(157,255,176,.45); background: rgba(157,255,176,.1); }
 
 /* Metric text wraps instead of being cut off with "..." */
 [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
@@ -215,10 +227,69 @@ h2, h3 { letter-spacing: -.01em; }
 
 st.set_page_config(
     page_title="Flame in Freefall | NASA Microgravity Combustion Platform",
-    page_icon="🔥",
+    page_icon="🌍",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"  # open on desktop, closed on phones so it doesn't cover the page
 )
+
+ASSETS_DIR = ROOT / "assets"
+EARTH_B64 = base64.b64encode((ASSETS_DIR / "earth_icon.svg").read_bytes()).decode("ascii")
+
+# The Space Apps logo sits in the header (and at the top of the open sidebar).
+# If the file is missing the app still runs, just without the logo.
+_logo_path = next(iter(ASSETS_DIR.glob("space_apps_logo.*")), None)
+if _logo_path is not None:
+    st.logo(str(_logo_path), size="large")
+
+# The Earth icon is the sidebar open/close button; Streamlit's default chevron is hidden.
+EARTH_TOGGLE_CSS = """
+<style>
+/* Header as one tidy frosted bar: [Earth + logo] ... project name ... [status / menu] */
+[data-testid="stHeader"] {
+  height: 3.75rem; background: rgba(11,16,32,.72) !important;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+[data-testid="stHeader"]::after {
+  content: "FLAME IN FREEFALL"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-family: 'Orbitron', 'Inter', sans-serif; font-weight: 700; font-size: .95rem; letter-spacing: .22em;
+  background: linear-gradient(90deg, #FFFFFF, #FFB27A); -webkit-background-clip: text; background-clip: text; color: transparent;
+  white-space: nowrap; pointer-events: none;
+}
+/* when the desktop sidebar is open, centre the name over the page content instead of the whole window */
+[data-testid="stApp"]:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stHeader"]::after { left: calc(50% + 168px); }
+@media (max-width: 760px) { [data-testid="stHeader"]::after { display: none; } }
+[data-testid="stAppDeployButton"], .stDeployButton { display: none !important; }
+[data-testid="stToolbar"] { right: .75rem; align-items: center; gap: .25rem; }
+[data-testid="stStatusWidget"] { font-size: .78rem; opacity: .85; }
+[data-testid="stSidebarCollapsedControl"] {
+  display: flex; flex-direction: row-reverse; justify-content: flex-end; align-items: center;
+  gap: 14px; height: 3.75rem; top: 0; left: 0; padding: 0 1rem; margin: 0;
+}
+[data-testid="stSidebarHeader"] {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 3.75rem; padding: 0 1rem; margin: 0 0 .4rem 0;
+}
+[data-testid="stSidebarCollapsedControl"] [data-testid="stLogo"],
+[data-testid="stSidebarHeader"] [data-testid="stLogo"] { height: 2.7rem !important; width: auto !important; margin: 0 !important; }
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="stSidebarCollapseButton"] button {
+  width: 46px; height: 46px; min-width: 46px; min-height: 46px; padding: 0; border: 0 !important;
+  border-radius: 50%; overflow: hidden; font-size: 0 !important; color: transparent !important;
+  background: url("data:image/svg+xml;base64,__EARTH__") center / contain no-repeat !important;
+  filter: drop-shadow(0 0 10px rgba(91,182,255,.5));
+  transition: transform .25s ease, filter .25s ease;
+}
+[data-testid="stSidebarCollapsedControl"] button *,
+[data-testid="stSidebarCollapseButton"] button * { display: none !important; }
+[data-testid="stSidebarCollapsedControl"] button:hover,
+[data-testid="stSidebarCollapseButton"] button:hover { transform: scale(1.12) rotate(14deg); filter: drop-shadow(0 0 16px rgba(91,182,255,.85)); }
+/* Streamlit only reveals the collapse button on hover on desktop; keep the Earth always visible */
+[data-testid="stSidebarCollapseButton"] { display: flex !important; opacity: 1 !important; visibility: visible !important; }
+[data-testid="stSidebarCollapseButton"] button { display: block !important; opacity: 1 !important; visibility: visible !important; }
+</style>
+""".replace("__EARTH__", EARTH_B64)
+st.markdown(EARTH_TOGGLE_CSS, unsafe_allow_html=True)
 
 with st.sidebar:
     lang_choice = st.radio("Language / 语言", ["English", "中文"], horizontal=True, key="ui_lang")
@@ -285,6 +356,7 @@ st.markdown(
     f"""
 <div class="hero">
   <div class="orbit"><span></span></div>
+  <img class="hero-earth" alt="" src="data:image/svg+xml;base64,{EARTH_B64}">
   <div class="badge-row">
     <span class="badge">NASA SPACE APPS CHALLENGE · SARAWAK 2026</span>
     <span class="live"><i></i>{tr("SYSTEM ONLINE", "系统在线")}</span>
@@ -545,16 +617,15 @@ def render_simulation():
                 go.Scatter(
                     x=[cx_cm[i]], y=[cy_cm[i]], mode="markers+text",
                     marker=dict(color="#00E5FF", size=13, symbol="cross", line=dict(width=1, color="white")),
-                    text=[centroid_label], textposition="top right", textfont=dict(color="#00E5FF"),
+                    text=[centroid_label], textfont=dict(color="#00E5FF"),
+                    # keep the label inside the chart: flip it left once the plume nears the right edge
+                    textposition="top left" if cx_cm[i] > (x_cm[0] + x_cm[-1]) / 2 else "top right",
                     showlegend=False, hoverinfo="skip",
                 ),
             ]
 
         def frame_title(i: int) -> str:
-            return tr(
-                f"t = {sim['times'][i]:.2f} s  ·  2D temperature field and centroid",
-                f"t = {sim['times'][i]:.2f} s  ·  2D 温度场与质心位移",
-            )
+            return f"t = {sim['times'][i]:.2f} s"
 
         start = int(n_frames * 0.7)
         fig_2d = go.Figure(
@@ -570,23 +641,15 @@ def render_simulation():
             marker=dict(color="white", size=14, symbol="star", line=dict(width=1, color="#FF6A2B")),
             text=[tr("Fire starts here", "起火点")], textposition="bottom right", textfont=dict(color="white"),
         ))
-        # Direction cues drawn on the chart itself: where gravity and airflow point.
-        if sim_g > 0:
-            fig_2d.add_annotation(xref="paper", yref="paper", x=0.03, y=0.78, ax=0, ay=-48, showarrow=True,
-                                  arrowhead=3, arrowwidth=3, arrowcolor="#7CC4FF")
-            fig_2d.add_annotation(xref="paper", yref="paper", x=0.045, y=0.88, showarrow=False, xanchor="left",
-                                  text=tr(f"Gravity {sim_g:.1f} m/s²", f"重力 {sim_g:.1f} m/s²"),
-                                  font=dict(color="#7CC4FF", size=12))
-        else:
-            fig_2d.add_annotation(xref="paper", yref="paper", x=0.02, y=0.93, showarrow=False, xanchor="left",
-                                  text=tr("Gravity ≈ 0 (weightless)", "重力 ≈ 0（失重）"),
-                                  font=dict(color="#7CC4FF", size=12))
-        if sim_u > 0:
-            fig_2d.add_annotation(xref="paper", yref="paper", x=0.30, y=0.07, ax=-52, ay=0, showarrow=True,
-                                  arrowhead=3, arrowwidth=3, arrowcolor="#9DFFB0")
-            fig_2d.add_annotation(xref="paper", yref="paper", x=0.31, y=0.07, showarrow=False, xanchor="left",
-                                  text=tr(f"Cabin airflow {sim_u:.2f} m/s", f"舱内气流 {sim_u:.2f} m/s"),
-                                  font=dict(color="#9DFFB0", size=12))
+        # Direction cues sit above the chart as wrapping chips, so they never overlap the plot.
+        grav_chip = (tr(f"⬇ Gravity {sim_g:.1f} m/s²", f"⬇ 重力 {sim_g:.1f} m/s²") if sim_g > 0
+                     else tr("⬇ Gravity ≈ 0 (weightless)", "⬇ 重力 ≈ 0（失重）"))
+        flow_chip = (tr(f"➡ Cabin airflow {sim_u:.2f} m/s", f"➡ 舱内气流 {sim_u:.2f} m/s") if sim_u > 0
+                     else tr("➡ No airflow", "➡ 无气流"))
+        st.markdown(
+            f'<div class="cues"><span class="cue g">{grav_chip}</span><span class="cue a">{flow_chip}</span></div>',
+            unsafe_allow_html=True,
+        )
         play_args = dict(frame=dict(duration=140, redraw=True), transition=dict(duration=0),
                          fromcurrent=True, mode="immediate")
         fig_2d.update_layout(
@@ -596,20 +659,20 @@ def render_simulation():
             yaxis_title=tr("Height (cm) ↑  away from gravity", "高度 (cm) ↑  背离重力方向"),
             xaxis=dict(title_standoff=8, automargin=True),
             yaxis=dict(scaleanchor="x", scaleratio=1, automargin=True), height=560,
-            margin=dict(l=10, r=10, t=50, b=130),  # bottom strip reserved for the play controls
+            margin=dict(l=10, r=10, t=64, b=110),  # top-right: Play/Pause, bottom: time slider
             updatemenus=[dict(
-                type="buttons", direction="left", x=0.0, y=0.0, xanchor="left", yanchor="top",
-                pad=dict(t=78, l=0, r=8), bgcolor="#FF9A4D", bordercolor="#FFB27A", active=-1,
-                font=dict(color="#0B1020", size=12),
+                type="buttons", direction="left", x=1.0, y=1.0, xanchor="right", yanchor="bottom",
+                pad=dict(t=0, b=14, l=0, r=0), bgcolor="#FFD9B8", bordercolor="#FF9A4D", borderwidth=2,
+                active=-1, font=dict(color="#0B1020", size=13),
                 buttons=[
-                    dict(label=tr("▶ Play", "▶ 播放"), method="animate", args=[None, play_args]),
-                    dict(label=tr("⏸ Pause", "⏸ 暂停"), method="animate",
+                    dict(label=tr("   ▶ Play   ", "   ▶ 播放   "), method="animate", args=[None, play_args]),
+                    dict(label=tr("   ⏸ Pause   ", "   ⏸ 暂停   "), method="animate",
                          args=[[None], dict(frame=dict(duration=0), mode="immediate")]),
                 ],
             )],
             sliders=[dict(
-                active=start, x=0.30, y=0.0, len=0.68, xanchor="left", yanchor="top",
-                pad=dict(t=70, b=0, l=0, r=0), currentvalue=dict(visible=False),
+                active=start, x=0.02, y=0.0, len=0.96, xanchor="left", yanchor="top",
+                pad=dict(t=64, b=0, l=0, r=0), currentvalue=dict(visible=False),
                 bgcolor="rgba(255,255,255,0.15)", activebgcolor="#FF6A2B", bordercolor="rgba(255,255,255,0.25)",
                 tickcolor="rgba(0,0,0,0)", ticklen=0, font=dict(size=10, color="#aab3cc"),
                 steps=[dict(method="animate", label=(f"{sim['times'][i]:.1f}s" if i % 3 == 0 or i == n_frames - 1 else ""),
