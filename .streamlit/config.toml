@@ -10,5 +10,9 @@ font = "sans serif"
 headless = true
 enableXsrfProtection = true
 
+[client]
+# "viewer" hides the developer toolbar (Fork, GitHub, Deploy) for everyone, including the app owner
+toolbarMode = "viewer"
+
 [browser]
 gatherUsageStats = false
