@@ -1,9 +1,23 @@
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.settings import allowed_origins
+
 app = FastAPI(title="Flame in Freefall API")
+
+# Allow browser frontends (Streamlit or a separate SPA) to call this API from
+# their deployed origins. Origins come from the FRONTEND_ORIGINS env var;
+# see app/settings.py for the localhost defaults.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class FirePredictionRow(BaseModel):

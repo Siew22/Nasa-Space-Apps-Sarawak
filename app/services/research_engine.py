@@ -87,12 +87,14 @@ def run_parametric_sensitivity_sweep(
     fixed_gravity_m_s2: float = 0.0,
     fixed_flow_speed_m_s: float = 0.05,
     fixed_o2_pct: float = 21.0,
-    fixed_pressure_kpa: float = 101.3
+    fixed_pressure_kpa: float = 101.3,
+    lang: str = "zh"
 ) -> dict[str, Any]:
     """
     面向 STEM 教学的参数敏感性动态扫描与第一性原理解析：
     计算流动与燃烧无量纲数随变量的连续响应曲线，并输出物理机制叙述。
     """
+    en = lang == "en"
     sweep_values = np.linspace(range_min, range_max, steps)
     curve_points = []
     
@@ -127,10 +129,13 @@ def run_parametric_sensitivity_sweep(
         # 当 u 极低且 g=0 时，扩散受限发生窒息，蔓延强度骤降至 0
         if g == 0.0 and u < 0.02 and o2 <= 21.0:
             flame_spread_index = 0.0
-            regime = "窒息自熄区 (Quenching / Starvation)"
+            regime = "Quenching / Starvation" if en else "窒息自熄区 (Quenching / Starvation)"
         else:
             flame_spread_index = round(0.1 + (oxygen_flux * 0.035), 4)
-            regime = "强迫对流主导 (Forced Flow)" if log_ri < 0.0 else "浮力自然对流主导 (Buoyant Plume)"
+            if log_ri < 0.0:
+                regime = "Forced flow dominated" if en else "强迫对流主导 (Forced Flow)"
+            else:
+                regime = "Buoyant plume dominated" if en else "浮力自然对流主导 (Buoyant Plume)"
 
         curve_points.append({
             "sweep_value": round(float(val), 4),
@@ -144,7 +149,30 @@ def run_parametric_sensitivity_sweep(
 
     # 生成面向学生的物理因果机制叙述 (Scientific Narration for STEM Students)
     narration = []
-    if sweep_param == "flow_speed":
+    if en:
+        if sweep_param == "flow_speed":
+            narration.append(
+                "[Ventilation is a double-edged sword in space]: At microgravity (g=0) there is no buoyant "
+                "convection to lift hot gas. When ventilation speed is near 0, the oxygen consumed by the flame "
+                "cannot be replenished, and CO/CO2 accumulates around the fuel, so the flame suffocates and "
+                "self-extinguishes (oxygen starvation). As ventilation increases, forced convection brings in "
+                "fresh oxygen and flame spread accelerates markedly."
+            )
+        elif sweep_param == "gravity":
+            narration.append(
+                "[How gravity shapes the flame (Richardson number)]: At microgravity (g=0, log(Ri) < -1) the flow "
+                "is controlled entirely by forced ventilation and the flame is spherical or blunt. As gravity rises "
+                "to Earth normal (g=9.81 m/s2, log(Ri) > 1), buoyancy takes over: density differences accelerate "
+                "hot gas upward and form the tall, tapered plume we know on the ground."
+            )
+        elif sweep_param == "oxygen":
+            narration.append(
+                "[Safety limits of oxygen-enriched cabins]: Crewed spacecraft and pre-EVA procedures often use "
+                "reduced-pressure, oxygen-enriched atmospheres (e.g. 30-34% O2). Raising oxygen concentration "
+                "widens the flammability limit exponentially, so a weak airflow that would barely sustain a flame "
+                "in normal air can drive vigorous flame spread in an enriched atmosphere."
+            )
+    elif sweep_param == "flow_speed":
         narration.append(
             "【风速对太空燃烧的双刃剑效应】：在微重力（g=0）下，不存在热烟气上升的浮力对流。"
             "当通风风速接近 0 时，燃烧消耗掉的氧气无法及时通过气流补充，而产生的大量 CO/CO₂ 滞留在火源周围，"
