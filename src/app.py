@@ -196,6 +196,35 @@ h2, h3 { letter-spacing: -.01em; }
 .updatemenu-button:active .updatemenu-item-rect { fill: #FF7A2B !important; }
 .updatemenu-item-text { fill: #0B1020 !important; font-weight: 700 !important; }
 
+/* Ranking cards: animated object + stat bars */
+.rank-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin: 6px 0 14px; }
+.rank-card { padding: 16px; border-radius: 18px; background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.015));
+  border: 1px solid rgba(255,255,255,.09); transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+.rank-card:hover { transform: translateY(-5px); border-color: rgba(255,106,43,.55); box-shadow: 0 14px 34px rgba(255,106,43,.15); }
+.rank-head { display: flex; align-items: center; gap: 12px; }
+.medal { font-size: 1.9rem; line-height: 1; min-width: 2.2rem; text-align: center; font-weight: 800; color: #aab3cc; }
+.rank-name { font-weight: 700; font-size: 1.02rem; color: #fff; }
+.rank-sub { font-size: .78rem; color: #8f9ab8; }
+img.rank-obj { display: block; width: 100%; max-width: 260px; height: auto; margin: 4px auto; }
+.stats { display: grid; gap: 9px; }
+.stat-top { display: flex; justify-content: space-between; font-size: .8rem; color: #aab3cc; }
+.stat-top b { color: #fff; font-weight: 700; }
+.stat-bar { height: 7px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 4px; }
+.stat-bar i { display: block; height: 100%; border-radius: 99px; animation: grow 1.2s cubic-bezier(.2,.8,.2,1) both; transform-origin: left; }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* File uploader as a clear drag-and-drop zone */
+[data-testid="stFileUploaderDropzone"] {
+  border: 2px dashed rgba(255,106,43,.55) !important; border-radius: 16px !important;
+  background: rgba(255,106,43,.06) !important; padding: 22px !important;
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+[data-testid="stFileUploaderDropzone"]:hover { background: rgba(255,106,43,.12) !important; border-color: #FF9A4D !important;
+  box-shadow: 0 0 0 4px rgba(255,106,43,.12); }
+[data-testid="stFileUploaderDropzone"] button { background: linear-gradient(135deg, #FF6A2B, #FF9A4D) !important;
+  color: #fff !important; border: 0 !important; border-radius: 12px !important; font-weight: 600; }
+[data-testid="stFileUploaderDropzone"] svg { color: #FF9A4D; }
+
 /* Animated cone-calorimeter diagrams in the prediction tab */
 img.flame-card { width: 100%; height: auto; border-radius: 16px; margin-bottom: 14px;
   box-shadow: 0 10px 30px rgba(0,0,0,.35); transition: transform .25s ease, box-shadow .25s ease; }
@@ -521,6 +550,161 @@ def render_flame_gallery(rows: list[dict], ref_peak: float, threshold: float, ma
                       f"显示前 {max_cards} 条（共 {len(rows)} 条）。完整结果见下表。"))
 
 
+def _svg_img(svg: str, cls: str) -> str:
+    return f'<img class="{cls}" alt="" src="data:image/svg+xml;base64,{base64.b64encode(svg.encode("utf-8")).decode("ascii")}">'
+
+
+def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float, cycle: float) -> str:
+    """Spinning fuel droplet inside a spherical microgravity flame.
+
+    The droplet shrinks from its mean initial diameter to the measured extinction
+    diameter, where the flame goes out. Methanol burns with a faint blue, low-soot
+    flame; the alkanes with a sooty yellow one. Relative speeds only; time is compressed.
+    """
+    is_methanol = "methanol" in fuel.lower()
+    flame = "#7FB8FF" if is_methanol else "#FFB347"
+    liquid_hi, liquid_lo = ("#E3F1FF", "#6FA8E8") if is_methanol else ("#FFF1C9", "#D9963B")
+    s = max(0.2, min(0.95, d_ext / d0)) if d0 > 0 else 0.5
+    shell_r = 46 + 18 * (rate / rate_max if rate_max > 0 else 0.5)
+    soot = 3 if is_methanol else 7
+    dots = "".join(
+        f'<circle cx="{110 + (shell_r + 14) * np.cos(2 * np.pi * k / soot):.1f}" '
+        f'cy="{100 + (shell_r + 14) * np.sin(2 * np.pi * k / soot):.1f}" r="{1.6 if is_methanol else 2.4}" '
+        f'fill="{"#BFE0FF" if is_methanol else "#5a4a3a"}" opacity="0.9"/>'
+        for k in range(soot)
+    )
+    ext_txt = tr(f"EXTINCTION · {d_ext:.2f} mm", f"熄火 · {d_ext:.2f} mm")
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 210" font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">
+<defs>
+  <radialGradient id="liq" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="{liquid_hi}"/><stop offset="1" stop-color="{liquid_lo}"/></radialGradient>
+  <radialGradient id="glow"><stop offset="0.55" stop-color="{flame}" stop-opacity="0"/><stop offset="0.8" stop-color="{flame}" stop-opacity="0.55"/><stop offset="1" stop-color="{flame}" stop-opacity="0"/></radialGradient>
+  <filter id="soft"><feGaussianBlur stdDeviation="2.6"/></filter>
+  <clipPath id="ball"><circle cx="110" cy="100" r="26"/></clipPath>
+</defs>
+<style>
+  .sh {{ transform-box: view-box; transform-origin: 110px 100px; animation: shell {cycle:.1f}s ease-in infinite; }}
+  .dr {{ transform-box: view-box; transform-origin: 110px 100px; animation: shrink {cycle:.1f}s ease-in infinite; }}
+  .mer {{ transform-box: view-box; transform-origin: 110px 100px; animation: spin 2.6s linear infinite; }}
+  .orb {{ transform-box: view-box; transform-origin: 110px 100px; animation: orbit 7s linear infinite; }}
+  .ext {{ opacity: 0; animation: ext {cycle:.1f}s steps(1) infinite; }}
+  @keyframes shrink {{ 0% {{ transform: scale(1) }} 80% {{ transform: scale({s:.3f}) }} 100% {{ transform: scale({s:.3f}) }} }}
+  @keyframes shell {{ 0% {{ transform: scale(1); opacity: .95 }} 78% {{ transform: scale({0.55 + 0.45 * s:.3f}); opacity: .9 }} 84% {{ opacity: 0 }} 100% {{ opacity: 0 }} }}
+  @keyframes spin {{ 0% {{ transform: scaleX(1) }} 50% {{ transform: scaleX(-1) }} 100% {{ transform: scaleX(1) }} }}
+  @keyframes orbit {{ to {{ transform: rotate(360deg) }} }}
+  @keyframes ext {{ 0% {{ opacity: 0 }} 82% {{ opacity: 1 }} 98% {{ opacity: 0 }} }}
+</style>
+<g class="sh">
+  <circle cx="110" cy="100" r="{shell_r + 22:.1f}" fill="url(#glow)"/>
+  <circle cx="110" cy="100" r="{shell_r:.1f}" fill="none" stroke="{flame}" stroke-width="7" opacity="0.8" filter="url(#soft)"/>
+  <circle cx="110" cy="100" r="{shell_r:.1f}" fill="none" stroke="#FFFFFF" stroke-width="1.2" opacity="0.35"/>
+  <g class="orb">{dots}</g>
+</g>
+<g class="dr">
+  <circle cx="110" cy="100" r="26" fill="url(#liq)"/>
+  <g clip-path="url(#ball)" fill="none" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="1.2">
+    <ellipse class="mer" cx="110" cy="100" rx="26" ry="26"/>
+    <ellipse class="mer" cx="110" cy="100" rx="26" ry="26" style="animation-delay:-0.87s"/>
+    <ellipse class="mer" cx="110" cy="100" rx="26" ry="26" style="animation-delay:-1.73s"/>
+    <ellipse cx="110" cy="100" rx="26" ry="8"/>
+  </g>
+  <ellipse cx="101" cy="90" rx="7" ry="4.5" fill="#FFFFFF" opacity="0.7"/>
+</g>
+<text class="ext" x="110" y="200" text-anchor="middle" fill="#FC3D21" font-size="11" font-weight="800" letter-spacing="1">{ext_txt}</text>
+</svg>"""
+
+
+def solid_svg(material: str, co_mean: float, co_max_all: float) -> str:
+    """Rotating solid sample with a flame front spreading along it and CO puffs rising."""
+    name = material.lower()
+    micron = next((int(t) for t in name.split() if t.isdigit()), 0)
+    if "rod" in name:
+        thick, fill, extra = 22, "url(#rod)", ""
+    elif "fabric" in name:
+        thick, fill, extra = 12, "url(#weave)", ""
+    else:
+        thick, fill, extra = 3 + micron / 60, "#9fd0ff", ' fill-opacity="0.6"'
+    top = 112 - thick / 2
+    n_puffs = 2 + int(round(4 * (co_mean / co_max_all if co_max_all > 0 else 0.5)))
+    puffs = "".join(
+        f'<circle class="puff" cx="{38 + 6 * k}" cy="{top - 6:.1f}" r="{5 + 2 * k}" fill="#8a93a8" '
+        f'style="animation-delay:{-0.55 * k:.2f}s"/>'
+        for k in range(n_puffs)
+    )
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 36 180 148">
+<defs>
+  <linearGradient id="rod" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f4f4"/><stop offset="0.5" stop-color="#c9ccd6"/><stop offset="1" stop-color="#7d8296"/></linearGradient>
+  <pattern id="weave" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#d9c9a8"/><path d="M0 0 L6 6 M6 0 L0 6" stroke="#a8946c" stroke-width="1"/></pattern>
+  <linearGradient id="fl" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FFF3B0"/><stop offset="0.4" stop-color="#FF8A2B"/><stop offset="1" stop-color="#FF3B1F" stop-opacity="0.1"/></linearGradient>
+</defs>
+<style>
+  .rot {{ transform-box: view-box; transform-origin: 110px 112px; animation: rot 6s ease-in-out infinite; }}
+  .char {{ transform-box: view-box; transform-origin: 40px 112px; animation: char 6s linear infinite; }}
+  .front {{ animation: front 6s linear infinite; }}
+  .flk {{ transform-box: view-box; transform-origin: 40px {top:.1f}px; animation: flk .35s ease-in-out infinite alternate; }}
+  .puff {{ opacity: 0; transform-box: view-box; animation: puff 1.8s ease-out infinite; }}
+  @keyframes rot {{ 0% {{ transform: scaleX(1) }} 25% {{ transform: scaleX(0.08) }} 50% {{ transform: scaleX(-1) }} 75% {{ transform: scaleX(0.08) }} 100% {{ transform: scaleX(1) }} }}
+  @keyframes char {{ from {{ transform: scaleX(0) }} to {{ transform: scaleX(1) }} }}
+  @keyframes front {{ from {{ transform: translateX(0) }} to {{ transform: translateX(140px) }} }}
+  @keyframes flk {{ from {{ transform: scaleY(0.9) }} to {{ transform: scaleY(1.12) }} }}
+  @keyframes puff {{ 0% {{ opacity: .7; transform: translate(0, 0) scale(.6) }} 100% {{ opacity: 0; transform: translate(-14px, -64px) scale(1.6) }} }}
+</style>
+<ellipse cx="110" cy="146" rx="74" ry="7" fill="#000" opacity="0.35"/>
+<g class="rot">
+  <rect x="40" y="{top:.1f}" width="140" height="{thick:.1f}" rx="{min(thick / 2, 11):.1f}" fill="{fill}"{extra} stroke="#ffffff" stroke-opacity="0.35"/>
+  <rect class="char" x="40" y="{top:.1f}" width="140" height="{thick:.1f}" rx="{min(thick / 2, 11):.1f}" fill="#2a1a12" opacity="0.85"/>
+  <g class="front">
+    {puffs}
+    <g class="flk"><path d="{_flame_path(40, top, 11, 46)}" fill="url(#fl)"/><path d="{_flame_path(40, top, 5, 24)}" fill="#FFF6C8"/></g>
+  </g>
+</g>
+</svg>"""
+
+
+def ranking_cards_html(track_key: str, ranking: list[dict], d0_by_fuel: dict) -> str:
+    """Card per material/fuel: animated object, medal, and stat bars around it."""
+    medals = ["🥇", "🥈", "🥉"]
+
+    def bar(label: str, value: str, frac: float, color: str) -> str:
+        pct = max(4.0, min(100.0, 100 * frac))
+        return (f'<div class="stat"><div class="stat-top"><span>{label}</span><b>{value}</b></div>'
+                f'<div class="stat-bar"><i style="width:{pct:.0f}%;background:{color}"></i></div></div>')
+
+    cards = []
+    if track_key == "liquid_droplet":
+        rate_max = max(r["mean_burning_rate_mm_s"] for r in ranking)
+        ext_max = max((r["mean_extinction_diameter_mm"] or 0) for r in ranking) or 1.0
+        for r in ranking:
+            d0 = float(d0_by_fuel.get(r["fuel_name"], 2.0))
+            d_ext = float(r["mean_extinction_diameter_mm"] or d0 * 0.5)
+            # bigger burning rate -> droplet reaches extinction faster (shorter loop)
+            cycle = 4.5 + 3.0 * (1 - r["mean_burning_rate_mm_s"] / rate_max) + 1.5
+            obj = _svg_img(droplet_svg(r["fuel_name"], r["mean_burning_rate_mm_s"], rate_max, d0, d_ext, cycle), "rank-obj")
+            stats = (bar(tr("Burning rate", "燃烧速率"), f'{r["mean_burning_rate_mm_s"]:.3f}', r["mean_burning_rate_mm_s"] / rate_max, "#FF8A3D")
+                     + bar(tr("Extinction diameter", "熄火直径"), f"{d_ext:.2f} mm", d_ext / ext_max, "#7CC4FF")
+                     + bar(tr("Start diameter", "初始直径"), f"{d0:.2f} mm", min(1.0, d0 / 2.5), "#9DA8C8")
+                     + bar(tr("Tests ending in extinction", "以熄火结束的试验"), f'{r["empirical_extinction_ratio"] * 100:.0f}%', r["empirical_extinction_ratio"], "#FC3D21"))
+            name, count = r["fuel_name"], r["empirical_test_count"]
+            cards.append((r["rank"], name, count, obj, stats))
+    else:
+        co_max_all = max(r["max_co_production_ppm"] for r in ranking)
+        for r in ranking:
+            obj = _svg_img(solid_svg(r["material_name"], r["mean_co_production_ppm"], co_max_all), "rank-obj")
+            stats = (bar(tr("Mean CO", "平均 CO"), f'{r["mean_co_production_ppm"]:.1f} ppm', r["mean_co_production_ppm"] / co_max_all, "#FF8A3D")
+                     + bar(tr("Peak CO", "峰值 CO"), f'{r["max_co_production_ppm"]:.0f} ppm', r["max_co_production_ppm"] / co_max_all, "#FC3D21")
+                     + bar(tr("O₂ consumed", "O₂ 消耗"), f'{r["mean_o2_depletion_pct"]:.2f} %vol', min(1.0, r["mean_o2_depletion_pct"] / 1.0), "#7CC4FF"))
+            cards.append((r["rank"], r["material_name"], r["empirical_test_count"], obj, stats))
+
+    html = []
+    for rank, name, count, obj, stats in cards:
+        medal = medals[rank - 1] if rank <= 3 else f"#{rank}"
+        html.append(
+            f'<div class="rank-card"><div class="rank-head"><span class="medal">{medal}</span>'
+            f'<div><div class="rank-name">{name}</div><div class="rank-sub">{tr(f"{count} flight tests", f"{count} 次飞行试验")}</div></div></div>'
+            f'{obj}<div class="stats">{stats}</div></div>'
+        )
+    return f'<div class="rank-grid">{"".join(html)}</div>'
+
+
 tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction = st.tabs([
     tr("🔬 Evidence Explorer", "🔬 航天实验证据库 (Evidence)"),
     tr("📈 STEM Analysis", "📈 科研变量分析与物理叙事 (STEM Analysis)"),
@@ -583,7 +767,21 @@ def render_evidence():
         ))
         ranking_data = load_ranking(track_key)
         if ranking_data:
-            st.dataframe(pd.DataFrame(ranking_data), use_container_width=True, hide_index=True)
+            st.caption(tr(
+                "Live view of each ranked fuel, using the mean values measured in orbit. "
+                + ("Each droplet spins inside its spherical microgravity flame and shrinks until it reaches its "
+                   "measured extinction diameter, where the flame goes out." if track_key == "liquid_droplet" else
+                   "Each sample rotates while a flame front spreads along it; more smoke puffs = more CO measured."),
+                "基于在轨实测平均值的动态展示。"
+                + ("每个液滴在球形微重力火焰中旋转并逐渐缩小，直到达到实测熄火直径时火焰熄灭。" if track_key == "liquid_droplet" else
+                   "每个样品旋转展示，火焰沿样品蔓延；烟团越多表示实测 CO 越高。"),
+            ))
+            flex_df = records_df[records_df["dataset_key"] == "FLEX"]
+            d0_by_fuel = (flex_df.groupby("fuel")["droplet_initial_diameter_mm"].mean().to_dict()
+                          if "droplet_initial_diameter_mm" in flex_df else {})
+            st.markdown(ranking_cards_html(track_key, ranking_data, d0_by_fuel), unsafe_allow_html=True)
+            with st.expander(tr("Show ranking as a data table", "以数据表查看排名")):
+                st.dataframe(pd.DataFrame(ranking_data), use_container_width=True, hide_index=True)
 
         st.markdown(tr("#### Raw observation table (auditable detail)", "#### 原始观测数据表 (可审计明细)"))
         st.dataframe(track_df, use_container_width=True, hide_index=True)
@@ -993,7 +1191,10 @@ with tab_prediction:
                 or (feature_array[:, 1:] <= 0).any()
             ):
                 raise ValueError("Heat flux must be nonnegative; burn duration and mean HRR must be positive")
-            st.dataframe(input_df.head(10), use_container_width=True)
+            st.success(tr(f"✅ CSV loaded: {len(input_df)} burn(s) ready. Press the button to predict.",
+                          f"✅ 已载入 CSV：{len(input_df)} 条燃烧数据。点击按钮开始预测。"))
+            with st.expander(tr("Preview uploaded data", "预览上传的数据")):
+                st.dataframe(input_df.head(10), use_container_width=True)
             if st.button(tr("Predict fire results", "预测火灾结果"), key="run_fire_prediction"):
                 results = predict_fire_rows(feature_df.to_dict(orient="records"))
                 model_info = get_model_info()
@@ -1020,8 +1221,8 @@ with tab_prediction:
                     ref_peak=float(training.get("peak_hrr_max_kw_m2") or 3000.0),
                     threshold=float(model_info.get("hazard_threshold_kw_m2") or 350.0),
                 )
-                st.markdown(tr("#### Results table", "#### 结果表"))
-                st.dataframe(output_df, use_container_width=True)
+                with st.expander(tr("Show results as a data table", "以数据表查看结果")):
+                    st.dataframe(output_df, use_container_width=True)
                 st.download_button(
                     tr("Download results CSV", "下载结果 CSV"),
                     output_df.to_csv(index=False).encode("utf-8"),
