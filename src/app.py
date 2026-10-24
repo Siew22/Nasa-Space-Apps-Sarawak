@@ -556,108 +556,161 @@ def _svg_img(svg: str, cls: str) -> str:
 
 
 def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float, cycle: float) -> str:
-    """Spinning fuel droplet inside a spherical microgravity flame.
+    """Free-floating fuel droplet inside its spherical microgravity flame (FLEX).
 
-    The droplet shrinks from its mean initial diameter to the measured extinction
-    diameter, where the flame goes out. Methanol burns with a faint blue, low-soot
-    flame; the alkanes with a sooty yellow one. Relative speeds only; time is compressed.
+    Proportions follow NASA's FLEX description: a 2-4 mm droplet inside a flame ball
+    "about the size of a large olive", so the flame is drawn ~6x the droplet diameter.
+    Alkanes show a luminous yellow-orange soot shell with a blue rim; methanol burns
+    with a faint, soot-free blue flame. The droplet shrinks from its measured start
+    diameter to the measured extinction diameter, where the flame goes out.
+    Relative speeds only; time is compressed. Illustration, not footage.
     """
     is_methanol = "methanol" in fuel.lower()
-    flame = "#7FB8FF" if is_methanol else "#FFB347"
-    liquid_hi, liquid_lo = ("#E3F1FF", "#6FA8E8") if is_methanol else ("#FFF1C9", "#D9963B")
     s = max(0.2, min(0.95, d_ext / d0)) if d0 > 0 else 0.5
-    shell_r = 46 + 18 * (rate / rate_max if rate_max > 0 else 0.5)
-    soot = 3 if is_methanol else 7
-    dots = "".join(
-        f'<circle cx="{110 + (shell_r + 14) * np.cos(2 * np.pi * k / soot):.1f}" '
-        f'cy="{100 + (shell_r + 14) * np.sin(2 * np.pi * k / soot):.1f}" r="{1.6 if is_methanol else 2.4}" '
-        f'fill="{"#BFE0FF" if is_methanol else "#5a4a3a"}" opacity="0.9"/>'
-        for k in range(soot)
-    )
+    flame_r = 40 + 14 * (rate / rate_max if rate_max > 0 else 0.5)
+    drop_r = 7.0
+    if is_methanol:
+        stops = ('<stop offset="0" stop-color="#3f6dff" stop-opacity="0"/>'
+                 '<stop offset="0.72" stop-color="#3f6dff" stop-opacity="0.04"/>'
+                 '<stop offset="0.9" stop-color="#5c8dff" stop-opacity="0.32"/>'
+                 '<stop offset="0.97" stop-color="#8fb8ff" stop-opacity="0.55"/>'
+                 '<stop offset="1" stop-color="#8fb8ff" stop-opacity="0"/>')
+        soot = ""
+        liquid_hi, liquid_lo = "#EEF6FF", "#9cc4f0"
+    else:
+        stops = ('<stop offset="0" stop-color="#ff9a3d" stop-opacity="0"/>'
+                 '<stop offset="0.55" stop-color="#ff9a3d" stop-opacity="0.04"/>'
+                 '<stop offset="0.76" stop-color="#ffb347" stop-opacity="0.55"/>'
+                 '<stop offset="0.87" stop-color="#ffd27a" stop-opacity="0.9"/>'
+                 '<stop offset="0.94" stop-color="#6fa0ff" stop-opacity="0.45"/>'
+                 '<stop offset="1" stop-color="#6fa0ff" stop-opacity="0"/>')
+        soot = (f'<circle cx="110" cy="100" r="{flame_r * 0.5:.1f}" fill="none" stroke="#7a3b12" '
+                f'stroke-width="3" opacity="0.35" filter="url(#soft)"/>')
+        liquid_hi, liquid_lo = "#FFF6DD", "#E2B86A"
     ext_txt = tr(f"EXTINCTION · {d_ext:.2f} mm", f"熄火 · {d_ext:.2f} mm")
+    size_txt = tr(f"droplet {d0:.1f} mm · flame ~ olive-sized", f"液滴 {d0:.1f} mm · 火焰约橄榄大小")
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 210" font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">
 <defs>
+  <radialGradient id="fl">{stops}</radialGradient>
   <radialGradient id="liq" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="{liquid_hi}"/><stop offset="1" stop-color="{liquid_lo}"/></radialGradient>
-  <radialGradient id="glow"><stop offset="0.55" stop-color="{flame}" stop-opacity="0"/><stop offset="0.8" stop-color="{flame}" stop-opacity="0.55"/><stop offset="1" stop-color="{flame}" stop-opacity="0"/></radialGradient>
-  <filter id="soft"><feGaussianBlur stdDeviation="2.6"/></filter>
-  <clipPath id="ball"><circle cx="110" cy="100" r="26"/></clipPath>
+  <filter id="soft"><feGaussianBlur stdDeviation="2"/></filter>
 </defs>
 <style>
-  .sh {{ transform-box: view-box; transform-origin: 110px 100px; animation: shell {cycle:.1f}s ease-in infinite; }}
+  .fl {{ transform-box: view-box; transform-origin: 110px 100px; animation: shell {cycle:.1f}s ease-in infinite; }}
+  .br {{ transform-box: view-box; transform-origin: 110px 100px; animation: breathe 1.3s ease-in-out infinite alternate; }}
   .dr {{ transform-box: view-box; transform-origin: 110px 100px; animation: shrink {cycle:.1f}s ease-in infinite; }}
-  .mer {{ transform-box: view-box; transform-origin: 110px 100px; animation: spin 2.6s linear infinite; }}
-  .orb {{ transform-box: view-box; transform-origin: 110px 100px; animation: orbit 7s linear infinite; }}
   .ext {{ opacity: 0; animation: ext {cycle:.1f}s steps(1) infinite; }}
+  @keyframes shell {{ 0% {{ transform: scale(1); opacity: 1 }} 78% {{ transform: scale({0.6 + 0.4 * s:.3f}); opacity: .95 }} 84% {{ opacity: 0 }} 100% {{ opacity: 0 }} }}
+  @keyframes breathe {{ from {{ transform: scale(0.98) }} to {{ transform: scale(1.025) }} }}
   @keyframes shrink {{ 0% {{ transform: scale(1) }} 80% {{ transform: scale({s:.3f}) }} 100% {{ transform: scale({s:.3f}) }} }}
-  @keyframes shell {{ 0% {{ transform: scale(1); opacity: .95 }} 78% {{ transform: scale({0.55 + 0.45 * s:.3f}); opacity: .9 }} 84% {{ opacity: 0 }} 100% {{ opacity: 0 }} }}
-  @keyframes spin {{ 0% {{ transform: scaleX(1) }} 50% {{ transform: scaleX(-1) }} 100% {{ transform: scaleX(1) }} }}
-  @keyframes orbit {{ to {{ transform: rotate(360deg) }} }}
   @keyframes ext {{ 0% {{ opacity: 0 }} 82% {{ opacity: 1 }} 98% {{ opacity: 0 }} }}
 </style>
-<g class="sh">
-  <circle cx="110" cy="100" r="{shell_r + 22:.1f}" fill="url(#glow)"/>
-  <circle cx="110" cy="100" r="{shell_r:.1f}" fill="none" stroke="{flame}" stroke-width="7" opacity="0.8" filter="url(#soft)"/>
-  <circle cx="110" cy="100" r="{shell_r:.1f}" fill="none" stroke="#FFFFFF" stroke-width="1.2" opacity="0.35"/>
-  <g class="orb">{dots}</g>
-</g>
+<g class="fl"><g class="br">
+  <circle cx="110" cy="100" r="{flame_r:.1f}" fill="url(#fl)"/>
+  {soot}
+</g></g>
 <g class="dr">
-  <circle cx="110" cy="100" r="26" fill="url(#liq)"/>
-  <g clip-path="url(#ball)" fill="none" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="1.2">
-    <ellipse class="mer" cx="110" cy="100" rx="26" ry="26"/>
-    <ellipse class="mer" cx="110" cy="100" rx="26" ry="26" style="animation-delay:-0.87s"/>
-    <ellipse class="mer" cx="110" cy="100" rx="26" ry="26" style="animation-delay:-1.73s"/>
-    <ellipse cx="110" cy="100" rx="26" ry="8"/>
-  </g>
-  <ellipse cx="101" cy="90" rx="7" ry="4.5" fill="#FFFFFF" opacity="0.7"/>
+  <circle cx="110" cy="100" r="{drop_r}" fill="url(#liq)"/>
+  <circle cx="108" cy="98" r="2" fill="#FFFFFF" opacity="0.8"/>
 </g>
-<text class="ext" x="110" y="200" text-anchor="middle" fill="#FC3D21" font-size="11" font-weight="800" letter-spacing="1">{ext_txt}</text>
+<text x="110" y="178" text-anchor="middle" fill="#8f9ab8" font-size="9.5">{size_txt}</text>
+<text class="ext" x="110" y="198" text-anchor="middle" fill="#FC3D21" font-size="11" font-weight="800" letter-spacing="1">{ext_txt}</text>
 </svg>"""
 
 
 def solid_svg(material: str, co_mean: float, co_max_all: float) -> str:
-    """Rotating solid sample with a flame front spreading along it and CO puffs rising."""
+    """Solid sample burning in the BASS-II flow duct (side view), modelled on NASA ISS photos.
+
+    In microgravity the flame is a blue, bullet/lens-shaped envelope lying along the
+    airflow with an orange glow where it is hottest; smoke is carried downstream by the
+    flow (nothing rises). Rods burn at the rounded tip; thin films burn on both faces and
+    vanish; the cotton-fiberglass fabric leaves its fiberglass mesh behind. Number of
+    smoke wisps scales with the measured mean CO. Illustration, not footage.
+    """
     name = material.lower()
     micron = next((int(t) for t in name.split() if t.isdigit()), 0)
-    if "rod" in name:
-        thick, fill, extra = 22, "url(#rod)", ""
-    elif "fabric" in name:
-        thick, fill, extra = 12, "url(#weave)", ""
-    else:
-        thick, fill, extra = 3 + micron / 60, "#9fd0ff", ' fill-opacity="0.6"'
-    top = 112 - thick / 2
-    n_puffs = 2 + int(round(4 * (co_mean / co_max_all if co_max_all > 0 else 0.5)))
-    puffs = "".join(
-        f'<circle class="puff" cx="{38 + 6 * k}" cy="{top - 6:.1f}" r="{5 + 2 * k}" fill="#8a93a8" '
-        f'style="animation-delay:{-0.55 * k:.2f}s"/>'
-        for k in range(n_puffs)
+    co_frac = co_mean / co_max_all if co_max_all > 0 else 0.5
+    n_smoke = 2 + int(round(3 * co_frac))
+    cy = 75.0
+    flow = "".join(
+        f'<line class="flow" x1="0" y1="{y}" x2="220" y2="{y}" style="animation-delay:{-0.5 * i:.1f}s"/>'
+        for i, y in enumerate((36, 52, 98, 114))
     )
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 36 180 148">
-<defs>
-  <linearGradient id="rod" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f4f4"/><stop offset="0.5" stop-color="#c9ccd6"/><stop offset="1" stop-color="#7d8296"/></linearGradient>
-  <pattern id="weave" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#d9c9a8"/><path d="M0 0 L6 6 M6 0 L0 6" stroke="#a8946c" stroke-width="1"/></pattern>
-  <linearGradient id="fl" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FFF3B0"/><stop offset="0.4" stop-color="#FF8A2B"/><stop offset="1" stop-color="#FF3B1F" stop-opacity="0.1"/></linearGradient>
-</defs>
-<style>
-  .rot {{ transform-box: view-box; transform-origin: 110px 112px; animation: rot 6s ease-in-out infinite; }}
-  .char {{ transform-box: view-box; transform-origin: 40px 112px; animation: char 6s linear infinite; }}
-  .front {{ animation: front 6s linear infinite; }}
-  .flk {{ transform-box: view-box; transform-origin: 40px {top:.1f}px; animation: flk .35s ease-in-out infinite alternate; }}
-  .puff {{ opacity: 0; transform-box: view-box; animation: puff 1.8s ease-out infinite; }}
-  @keyframes rot {{ 0% {{ transform: scaleX(1) }} 25% {{ transform: scaleX(0.08) }} 50% {{ transform: scaleX(-1) }} 75% {{ transform: scaleX(0.08) }} 100% {{ transform: scaleX(1) }} }}
-  @keyframes char {{ from {{ transform: scaleX(0) }} to {{ transform: scaleX(1) }} }}
-  @keyframes front {{ from {{ transform: translateX(0) }} to {{ transform: translateX(140px) }} }}
-  @keyframes flk {{ from {{ transform: scaleY(0.9) }} to {{ transform: scaleY(1.12) }} }}
-  @keyframes puff {{ 0% {{ opacity: .7; transform: translate(0, 0) scale(.6) }} 100% {{ opacity: 0; transform: translate(-14px, -64px) scale(1.6) }} }}
-</style>
-<ellipse cx="110" cy="146" rx="74" ry="7" fill="#000" opacity="0.35"/>
-<g class="rot">
-  <rect x="40" y="{top:.1f}" width="140" height="{thick:.1f}" rx="{min(thick / 2, 11):.1f}" fill="{fill}"{extra} stroke="#ffffff" stroke-opacity="0.35"/>
-  <rect class="char" x="40" y="{top:.1f}" width="140" height="{thick:.1f}" rx="{min(thick / 2, 11):.1f}" fill="#2a1a12" opacity="0.85"/>
-  <g class="front">
-    {puffs}
-    <g class="flk"><path d="{_flame_path(40, top, 11, 46)}" fill="url(#fl)"/><path d="{_flame_path(40, top, 5, 24)}" fill="#FFF6C8"/></g>
+    defs_common = (
+        '<linearGradient id="env" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4f8dff" stop-opacity="0"/>'
+        '<stop offset="0.35" stop-color="#4f8dff" stop-opacity="0.9"/><stop offset="1" stop-color="#7fb2ff" stop-opacity="0.95"/></linearGradient>'
+        '<radialGradient id="glow"><stop offset="0" stop-color="#ffb070" stop-opacity="0.85"/><stop offset="1" stop-color="#ff7a3d" stop-opacity="0"/></radialGradient>'
+        '<filter id="soft"><feGaussianBlur stdDeviation="1.6"/></filter>'
+    )
+    css_common = (
+        ".flow { stroke: rgba(160,180,230,.22); stroke-width: 1; stroke-dasharray: 10 16; animation: flow 1.6s linear infinite; }"
+        "@keyframes flow { to { stroke-dashoffset: -52; } }"
+        ".breathe { transform-box: fill-box; transform-origin: 30% 50%; animation: breathe 1.2s ease-in-out infinite alternate; }"
+        "@keyframes breathe { from { transform: scale(0.96, 0.94); } to { transform: scale(1.04, 1.06); } }"
+        ".smoke { opacity: 0; transform-box: fill-box; transform-origin: center; animation: smoke 2.4s ease-out infinite; }"
+        "@keyframes smoke { 0% { opacity: .45; transform: translate(0, 0) scale(.6); } 100% { opacity: 0; transform: translate(46px, 0) scale(1.8); } }"
+    )
+
+    if "rod" in name:
+        # Delrin rod: white acetal rod with a rounded (hemispherical) tip, clamped at the base, burning at the tip.
+        tip_x, rad = 150.0, 9.0
+        smoke = "".join(
+            f'<ellipse class="smoke" cx="{tip_x + 34:.0f}" cy="{cy + (k - n_smoke / 2) * 5:.1f}" rx="7" ry="4" fill="#7d8597" '
+            f'style="animation-delay:{-0.6 * k:.1f}s"/>' for k in range(n_smoke)
+        )
+        body = f"""
+  <rect x="6" y="{cy - 8}" width="18" height="16" rx="2" fill="#4a5270"/>
+  <path d="M24 {cy - rad} H{tip_x} A{rad} {rad} 0 0 1 {tip_x} {cy + rad} H24 Z" fill="url(#delrin)"/>
+  <path d="M{tip_x - 18} {cy - rad} H{tip_x} A{rad} {rad} 0 0 1 {tip_x} {cy + rad} H{tip_x - 18} Z" fill="#3a2a22" opacity="0.55"/>
+  {smoke}
+  <g class="breathe">
+    <path d="M96 {cy - 22} Q {tip_x + 2} {cy - 30} {tip_x + 30} {cy} Q {tip_x + 2} {cy + 30} 96 {cy + 22}" fill="rgba(255,150,120,0.10)" stroke="url(#env)" stroke-width="3" filter="url(#soft)"/>
   </g>
-</g>
+  <ellipse cx="{tip_x + 3}" cy="{cy}" rx="11" ry="13" fill="url(#glow)"/>"""
+        extra_defs = ('<linearGradient id="delrin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/>'
+                      '<stop offset="0.55" stop-color="#e6e7ec"/><stop offset="1" stop-color="#a9adbb"/></linearGradient>')
+        extra_css = ""
+    else:
+        # Thin sheet held at one end; the flame front travels downstream along it, burning both faces.
+        is_fabric = "fabric" in name
+        thick = 4.0 if is_fabric else 1.2 + micron / 120
+        x0, x1 = 20.0, 205.0
+        flame_ry = 10 + thick * 1.6
+        mesh = (f'<line x1="{x0}" y1="{cy}" x2="{x1}" y2="{cy}" stroke="#9aa0ad" stroke-width="{thick:.1f}" '
+                f'stroke-dasharray="2 2" opacity="0.7"/>') if is_fabric else ""
+        sheet_fill = "url(#weave)" if is_fabric else "#bfe0ff"
+        sheet_op = "1" if is_fabric else "0.55"
+        smoke = "".join(
+            f'<ellipse class="smoke" cx="{x0 + 30}" cy="{cy + (k - n_smoke / 2) * 5:.1f}" rx="6" ry="3.5" fill="#7d8597" '
+            f'style="animation-delay:{-0.55 * k:.1f}s"/>' for k in range(n_smoke)
+        )
+        body = f"""
+  <rect x="6" y="{cy - 10}" width="14" height="20" rx="2" fill="#4a5270"/>
+  {mesh}
+  <rect class="unburnt" x="{x0}" y="{cy - thick / 2:.2f}" width="{x1 - x0}" height="{thick:.2f}" fill="{sheet_fill}" fill-opacity="{sheet_op}"/>
+  <g class="front">
+    {smoke}
+    <g class="breathe">
+      <ellipse cx="{x0 + 12}" cy="{cy}" rx="28" ry="{flame_ry:.1f}" fill="rgba(255,150,120,0.10)" stroke="url(#env)" stroke-width="2.5" filter="url(#soft)"/>
+    </g>
+    <ellipse cx="{x0 + 2}" cy="{cy - thick / 2 - 3:.1f}" rx="9" ry="5" fill="url(#glow)"/>
+    <ellipse cx="{x0 + 2}" cy="{cy + thick / 2 + 3:.1f}" rx="9" ry="5" fill="url(#glow)"/>
+  </g>"""
+        extra_defs = ('<pattern id="weave" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="#d9c9a8"/>'
+                      '<path d="M0 0 L5 5 M5 0 L0 5" stroke="#a8946c" stroke-width="0.8"/></pattern>')
+        extra_css = (f".unburnt {{ transform-box: view-box; transform-origin: {x1}px {cy}px; animation: burn 7s linear infinite; }}"
+                     "@keyframes burn { from { transform: scaleX(1); } to { transform: scaleX(0); } }"
+                     ".front { animation: front 7s linear infinite; }"
+                     f"@keyframes front {{ from {{ transform: translateX(0); }} to {{ transform: translateX({x1 - x0}px); }} }}")
+
+    flow_lbl = tr("airflow →", "气流 →")
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 150" font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">
+<defs>{defs_common}{extra_defs}</defs>
+<style>{css_common}{extra_css}</style>
+<rect x="0" y="20" width="220" height="110" rx="6" fill="#070b18" stroke="#2a3355"/>
+{flow}
+<text x="8" y="32" fill="#8f9ab8" font-size="9">{flow_lbl}</text>
+{body}
 </svg>"""
 
 
@@ -769,13 +822,15 @@ def render_evidence():
         ranking_data = load_ranking(track_key)
         if ranking_data:
             st.caption(tr(
-                "Live view of each ranked fuel, using the mean values measured in orbit. "
-                + ("Each droplet spins inside its spherical microgravity flame and shrinks until it reaches its "
+                "Animated illustration modelled on NASA flight photos and driven by the measured averages "
+                "(not real footage). "
+                + ("Each tiny droplet sits inside its olive-sized spherical flame and shrinks until it reaches its "
                    "measured extinction diameter, where the flame goes out." if track_key == "liquid_droplet" else
-                   "Each sample rotates while a flame front spreads along it; more smoke puffs = more CO measured."),
-                "基于在轨实测平均值的动态展示。"
-                + ("每个液滴在球形微重力火焰中旋转并逐渐缩小，直到达到实测熄火直径时火焰熄灭。" if track_key == "liquid_droplet" else
-                   "每个样品旋转展示，火焰沿样品蔓延；烟团越多表示实测 CO 越高。"),
+                   "Side view inside the flow duct: in microgravity the flame is a blue envelope lying along the airflow, "
+                   "and smoke is carried downstream rather than rising. More smoke = more CO measured."),
+                "动画示意图，参照 NASA 在轨照片绘制，并由实测平均值驱动（非真实影像）。"
+                + ("每个微小液滴位于橄榄大小的球形火焰中，逐渐缩小至实测熄火直径时火焰熄灭。" if track_key == "liquid_droplet" else
+                   "流道内侧视图：微重力下火焰是沿气流方向的蓝色包络，烟雾随气流向下游飘散而不会上升。烟越多表示实测 CO 越高。"),
             ))
             flex_df = records_df[records_df["dataset_key"] == "FLEX"]
             d0_by_fuel = (flex_df.groupby("fuel")["droplet_initial_diameter_mm"].mean().to_dict()
