@@ -42,56 +42,73 @@
     {
       "id": "ideal_gas_density",
       "equation": "rho = p / (R_specific * T)",
-      "description": "Estimate gas density assuming dry-air ideal-gas behavior."
+      "description": "Estimate gas density assuming dry-air ideal-gas behavior.",
+      "description_zh": "按干空气理想气体近似估算气体密度。"
     },
     {
       "id": "buoyancy_force",
       "equation": "F_b = rho_ambient * V * g",
-      "description": "Archimedean buoyancy force scale."
+      "description": "Archimedean buoyancy force scale.",
+      "description_zh": "阿基米德浮力的量级。"
     },
     {
       "id": "hot_gas_weight",
       "equation": "W_hot = rho_hot * V * g",
-      "description": "Weight estimate for the hot gas parcel."
+      "description": "Weight estimate for the hot gas parcel.",
+      "description_zh": "热气体团的重量估算。"
     },
     {
       "id": "net_buoyancy_force",
       "equation": "F_net = (rho_ambient - rho_hot) * V * g",
-      "description": "Net upward buoyancy force."
+      "description": "Net upward buoyancy force.",
+      "description_zh": "净向上浮力。"
     },
     {
       "id": "reduced_gravity",
       "equation": "g_prime = g * (rho_ambient - rho_hot) / rho_ambient",
-      "description": "Reduced-gravity density contrast scale."
+      "description": "Reduced-gravity density contrast scale.",
+      "description_zh": "由密度差得到的约化重力量级。"
     },
     {
       "id": "buoyancy_velocity_scale",
       "equation": "u_b = sqrt(g_prime * L)",
-      "description": "Characteristic buoyancy-driven velocity scale."
+      "description": "Characteristic buoyancy-driven velocity scale.",
+      "description_zh": "浮力驱动的特征速度量级。"
     },
     {
       "id": "diffusion_length_scale",
       "equation": "ell = sqrt(2 * D * t)",
-      "description": "One-dimensional characteristic diffusion length scale."
+      "description": "One-dimensional characteristic diffusion length scale.",
+      "description_zh": "一维特征扩散长度。"
     },
     {
       "id": "illustrative_hot_gas_centroid_motion",
       "equation": "x_c(t) = u_forced * t, y_c(t) = u_b * (t - tau * (1 - exp(-t/tau)))",
-      "description": "Bounded characteristic parcel centroid closure."
+      "description": "Bounded characteristic parcel centroid closure.",
+      "description_zh": "有界的热气体团质心运动闭合式（示意）。"
     },
     {
       "id": "illustrative_2d_gaussian_temperature_field",
       "equation": "T(x,y,t) = T_amb + delta_T * exp(-((x-x_c)^2 + (y-y_c)^2)/(2*r_diff^2))",
-      "description": "2D educational Gaussian scalar field."
+      "description": "2D educational Gaussian scalar field.",
+      "description_zh": "二维教学用高斯标量场（示意）。"
     }
   ],
   "model_assumptions": [
+    "Gas is treated as ideal dry air; heat released by multi-species combustion chemistry is ignored.",
+    "In microgravity the buoyancy acceleration g' = 0, so motion is governed only by forced ventilation and symmetric molecular diffusion.",
+    "A low-order educational approximation for showing buoyancy and thermal-diffusion scales; not a CFD solution of reacting combustion flow."
+  ],
+  "model_assumptions_zh": [
     "理想气体干空气物性近似，忽略多组分燃烧化学反应放热。",
     "微重力下浮力加速度 g'=0，流动完全由强迫通风与对称分子扩散控制。",
     "低阶教育近似模型，用于展示物理力学与热扩散尺度，非 CFD 燃烧反应流数值解。"
   ],
   "science_notes": [
     "NASA describes buoyancy-driven hot-gas rise as a key cause of familiar upward flame shapes on Earth; in microgravity, this circulation is strongly reduced and diffusion becomes more important."
+  ],
+  "science_notes_zh": [
+    "NASA 指出，浮力驱动的热气体上升是地球上常见向上火焰形状的主要原因；在微重力下，这种循环大幅减弱，扩散的作用变得更加重要。"
   ],
   "reference_urls": [
     "https://psi.nasa.gov/physci/repo/data/investigations/PSI-25",
