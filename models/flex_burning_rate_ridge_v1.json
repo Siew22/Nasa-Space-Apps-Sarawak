@@ -1,0 +1,188 @@
+{
+  "format_version": 1,
+  "task_id": "flex_droplet_burning_rate_constant",
+  "title": "FLEX droplet burning-rate constant (microgravity, ISS)",
+  "title_zh": "FLEX 液滴燃烧速率常数（微重力，国际空间站）",
+  "model_family": "ridge",
+  "task_type": "regression",
+  "formula": "prediction = intercept + sum(coef * (x_imputed - scaler_mean) / scaler_scale)",
+  "feature_columns": [
+    "is_heptane",
+    "pressure_mmhg",
+    "x_o2",
+    "x_co2",
+    "x_he",
+    "d0_mm"
+  ],
+  "feature_units": {
+    "is_heptane": "1 = heptane, 0 = methanol",
+    "pressure_mmhg": "mmHg",
+    "x_o2": "mole fraction",
+    "x_co2": "mole fraction",
+    "x_he": "mole fraction",
+    "d0_mm": "mm"
+  },
+  "imputer_median": [
+    0.0,
+    759.2,
+    0.2,
+    0.0,
+    0.0,
+    3.01
+  ],
+  "scaler_mean": [
+    0.4117647058823529,
+    698.5878431372549,
+    0.20129411764705885,
+    0.11529411764705882,
+    0.04941176470588234,
+    2.9818431372549026
+  ],
+  "scaler_scale": [
+    0.4921529567847503,
+    226.66724364673158,
+    0.047694819925762015,
+    0.16226525054374819,
+    0.114230790888805,
+    0.6799654942960671
+  ],
+  "coef": [
+    0.01359759547327622,
+    0.00674698342621628,
+    0.08959343245909526,
+    -0.02330002381852463,
+    0.05544061890771444,
+    -0.04614415811483993
+  ],
+  "intercept": 0.5023529411764706,
+  "output": "burning_rate_constant_mm2_s",
+  "output_unit": "mm^2/s",
+  "decision_threshold": null,
+  "score_is_calibrated_probability": null,
+  "score_note": null,
+  "hyperparameters": {
+    "alpha": 10.0
+  },
+  "hyperparameter_selection": {
+    "method": "mean MAE over group-disjoint 5-fold splits of all rows, seeds [42, 101, 2024, 3060, 9999] (src/group_cv.py randomized_group_kfold)",
+    "candidates": [
+      {
+        "params": {
+          "alpha": 0.1
+        },
+        "mean_score": 0.04788259478557881,
+        "folds": 25
+      },
+      {
+        "params": {
+          "alpha": 1.0
+        },
+        "mean_score": 0.04780592683373505,
+        "folds": 25
+      },
+      {
+        "params": {
+          "alpha": 10.0
+        },
+        "mean_score": 0.0474261231019094,
+        "folds": 25
+      }
+    ]
+  },
+  "training_data": {
+    "file": "data/processed/tasks/flex_tests.csv",
+    "csv_sha256": "abba94b6441a9f7a236fac0c2a549add80918fbb4020105b713cdea00105c89f",
+    "row_filter_column": "use_burning_rate_task",
+    "rows": 255,
+    "independent_group_column": "group_test_date",
+    "independent_groups": 80,
+    "feature_ranges": {
+      "is_heptane": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "pressure_mmhg": {
+        "min": 526.3,
+        "max": 2319.7
+      },
+      "x_o2": {
+        "min": 0.12,
+        "max": 0.34
+      },
+      "x_co2": {
+        "min": 0.0,
+        "max": 0.7
+      },
+      "x_he": {
+        "min": 0.0,
+        "max": 0.45
+      },
+      "d0_mm": {
+        "min": 1.1,
+        "max": 4.53
+      }
+    },
+    "target_mean": 0.5023529411764706,
+    "target_min": 0.05,
+    "target_max": 1.06
+  },
+  "cross_validation": {
+    "source": "reports/cv_summary.json",
+    "generated_at_utc": "2026-10-24T09:05:36+00:00",
+    "protocol": "5 seeds x 5 outer folds of whole test days; tuning on inner validation only",
+    "model": {
+      "mae": {
+        "n": 25,
+        "mean": 0.047712576900057896,
+        "std": 0.008845889110343372,
+        "min": 0.035705829564353926,
+        "max": 0.06737637042116978
+      },
+      "rmse": {
+        "n": 25,
+        "mean": 0.07194488791958928,
+        "std": 0.017131560593356316,
+        "min": 0.046076925552881225,
+        "max": 0.11245241688105552
+      },
+      "r2": {
+        "n": 25,
+        "mean": 0.7014897712556634,
+        "std": 0.10788963054666957,
+        "min": 0.3827454408494385,
+        "max": 0.808600472679605
+      }
+    },
+    "baseline_family": "mean_baseline",
+    "baseline": {
+      "mae": {
+        "n": 25,
+        "mean": 0.10885926444618452,
+        "std": 0.01579463022515506,
+        "min": 0.07919999999999999,
+        "max": 0.13352311481621826
+      },
+      "rmse": {
+        "n": 25,
+        "mean": 0.1389893279154146,
+        "std": 0.01730551716794093,
+        "min": 0.09978659203535184,
+        "max": 0.16887877643976343
+      },
+      "r2": {
+        "n": 25,
+        "mean": -0.1033138781071907,
+        "std": 0.13581950309725122,
+        "min": -0.510446465460419,
+        "max": -0.004062666632810963
+      }
+    }
+  },
+  "scope": "Microgravity droplet combustion on the ISS (NASA FLEX, PSI-69): n-heptane or methanol droplets in the tested pressure and gas-mixture ranges only.",
+  "scope_zh": "国际空间站上的微重力液滴燃烧（NASA FLEX，PSI-69）：仅适用于正庚烷或甲醇液滴，以及已测试的压力与气体混合范围。",
+  "trained_with": {
+    "scikit_learn": "1.5.2",
+    "script": "src/train_flex_models.py"
+  },
+  "trained_at_utc": "2026-10-24T16:15:55+00:00"
+}

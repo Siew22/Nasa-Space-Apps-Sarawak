@@ -13,7 +13,9 @@ if "app" in sys.modules and not hasattr(sys.modules["app"], "__path__"):
     del sys.modules["app"]
 
 import base64
+import html
 import json
+import math
 from hashlib import sha256
 from io import BytesIO
 import numpy as np
@@ -31,11 +33,14 @@ from app.services.model_inference import (
     get_model_info,
     predict_fire_rows,
 )
+from app.services import flex_inference as flex
+from app.services.insights import crew_insights
 from app.services.simulation_service import run_simulation
 from app.settings import read_json_config
 from app.services.provenance import dataset_status, load_report as load_provenance_report
 from app.services.research_engine import (
     get_empirical_material_ranking,
+    ranking_insights,
     run_parametric_sensitivity_sweep
 )
 
@@ -197,6 +202,7 @@ h2, h3 { letter-spacing: -.01em; }
 .tele:hover { transform: translateY(-3px); border-left-color: #FF9A4D; }
 .tele-v { font-size: 1.45rem; font-weight: 800; color: #fff; line-height: 1.1; }
 .tele-l { font-size: .68rem; letter-spacing: .12em; color: #8f9ab8; margin-top: 4px; text-transform: uppercase; }
+.telemetry.compact .tele-v { font-size: 1.15rem; }  /* AI prediction results */
 .briefing { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 4px 0 22px; }
 .bcard { padding: 16px 18px; border-radius: 16px; background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
   border: 1px solid rgba(255,255,255,.09); transition: transform .25s ease, border-color .25s ease; }
@@ -290,6 +296,46 @@ img.flame-card:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba
 .cue { padding: 6px 12px; border-radius: 999px; font-size: .82rem; font-weight: 600; border: 1px solid; }
 .cue.g { color: #7CC4FF; border-color: rgba(124,196,255,.45); background: rgba(124,196,255,.1); }
 .cue.a { color: #9DFFB0; border-color: rgba(157,255,176,.45); background: rgba(157,255,176,.1); }
+
+/* Front page: crew fire-safety takeaways */
+.insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 4px 0 26px; }
+.icard { display: flex; flex-direction: column; padding: 16px 18px; border-radius: 16px;
+  background: linear-gradient(160deg, #1a2140, #121830); border: 1px solid rgba(255,255,255,.09);
+  border-top: 3px solid #FF9A4D; transition: transform .25s ease, border-color .25s ease; }
+.icard:hover { transform: translateY(-4px); border-color: rgba(252,61,33,.6); }
+.ihead { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 700; font-size: 1.02rem; line-height: 1.3; }
+.iicon { font-size: 1.35rem; }
+.icard p { margin: 10px 0 0; font-size: .88rem; color: #c3cbe0; line-height: 1.5; }
+.icard p.iact { color: #FFC59A; font-weight: 600; }
+.ifoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: auto; padding-top: 12px;
+  font-size: .76rem; color: #8f9ab8; }
+
+/* Audit tab: prediction-task overview table */
+.tasks { overflow-x: auto; margin: 2px 0 20px; border-radius: 14px; border: 1px solid rgba(255,255,255,.09);
+  background: linear-gradient(160deg, #1a2140, #121830); }
+.tasks table { width: 100%; min-width: 660px; border-collapse: collapse; margin: 0; }
+.tasks th { text-align: left; padding: 12px 16px; font-size: .68rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: #8f9ab8; border: none; border-bottom: 1px solid rgba(255,255,255,.09); }
+.tasks td { padding: 14px 16px; vertical-align: top; font-size: .88rem; color: #c3cbe0; border: none;
+  border-bottom: 1px solid rgba(255,255,255,.06); }
+.tasks tr:last-child td { border-bottom: none; }
+.tasks tbody tr:hover { background: rgba(255,255,255,.03); }
+.tasks .t { color: #fff; font-weight: 600; line-height: 1.35; }
+.tasks .sub { color: #8f9ab8; font-size: .78rem; line-height: 1.45; margin-top: 5px; }
+.tasks .sub code { font-size: .74rem; }
+.tasks .size { white-space: nowrap; }
+.pill { display: inline-block; white-space: nowrap; padding: 3px 10px; border-radius: 999px; font-size: .7rem;
+  font-weight: 700; letter-spacing: .06em; border: 1px solid; }
+.pill.ok { color: #7dffa8; border-color: rgba(125,255,168,.4); background: rgba(125,255,168,.08); }
+.pill.no { color: #aab3cc; border-color: rgba(170,179,204,.35); background: rgba(170,179,204,.08); }
+.pill.warn { color: #FFB27A; border-color: rgba(255,178,122,.45); background: rgba(255,178,122,.1); }
+.pill.info { color: #7CC4FF; border-color: rgba(124,196,255,.45); background: rgba(124,196,255,.1); }
+.pill.env { font-weight: 600; letter-spacing: .02em; margin-top: 6px; }
+/* Audit tab: report downloads as equal-size tiles */
+.st-key-report_files .stDownloadButton > button { height: 3.4rem; padding: 0 .8rem; line-height: 1.25; }
+.st-key-report_files .stDownloadButton p { font-size: .85rem; }
+@media (max-width: 1280px) { .st-key-report_files .stDownloadButton > button { height: 4.3rem; } }  /* names wrap to 3 lines */
+@media (max-width: 640px) { .st-key-report_files .stDownloadButton > button { height: 3rem; } }    /* columns stack: 1 line */
 
 /* Metric text wraps instead of being cut off with "..." */
 [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
@@ -419,10 +465,11 @@ with st.sidebar:
     )
     st.divider()
     st.warning(tr(
-        "Educational and research use only. The prediction model is experimental, "
-        "trained on ground-based PMMA tests, and not validated for spacecraft "
+        "Educational and research use only. The prediction models are experimental: the FLEX models cover ISS "
+        "droplet tests only, the PMMA model ground tests only, and none is validated for spacecraft "
         "fire-safety decisions.",
-        "仅供教育与科研使用。预测模型为实验性质，基于地面 PMMA 测试训练，未经航天器消防安全决策验证。",
+        "仅供教育与科研使用。预测模型均为实验性质：FLEX 模型仅涵盖国际空间站液滴试验，PMMA 模型仅涵盖地面试验，"
+        "均未经航天器消防安全决策验证。",
     ))
     st.caption(tr(
         "Independent project for the NASA Space Apps Challenge. Not affiliated with or endorsed by NASA.",
@@ -470,6 +517,16 @@ STATUS_LABELS = {
 def status_badge(code: str) -> str:
     icon, en, zh = STATUS_LABELS.get(code, ("⚪", code, code))
     return f"{icon} **{tr(en, zh)}**"
+
+
+STATUS_TONE = {"VERIFIED_SOURCE": "ok", "REAL_MEASUREMENT": "ok", "EVALUATED": "ok", "NOT_EVALUATED": "no",
+               "UNVERIFIED_SOURCE": "warn", "SYNTHETIC_DEMO": "warn"}
+
+
+def status_pill(code: str) -> str:
+    """HTML version of status_badge, for tables built with HTML."""
+    _, en, zh = STATUS_LABELS.get(code, ("", code, code))
+    return f'<span class="pill {STATUS_TONE.get(code, "info")}">{html.escape(tr(en, zh))}</span>'
 
 
 # Plain-language text for the machine-readable codes written by src/provenance_audit.py and
@@ -1388,13 +1445,43 @@ def model_panel_html(m: dict, base: dict, how: str, unit: str, is_base: bool) ->
             + f'<p class="mnote"><b>{tr("How it did", "表现如何")}</b> {did}</p></div>')
 
 
-tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction = st.tabs([
-    tr("🔬 Evidence Explorer", "🔬 航天实验证据库 (Evidence)"),
-    tr("📈 STEM Analysis", "📈 科研变量分析与物理叙事 (STEM Analysis)"),
-    tr("🧪 2D Physics Sandbox", "🧪 2D 物理时空模拟沙盒 (Physics Sandbox)"),
-    tr("📊 Scientific Audit", "📊 科学审计与 25 折验证 (Scientific Audit)"),
-    tr("🔥 Post-test CSV prediction", "🔥 试验后 CSV 预测"),
-])
+TAB_LABELS = {
+    "evidence": ("🔬 Evidence Explorer", "🔬 航天实验证据库 (Evidence)"),
+    "stem": ("📈 STEM Analysis", "📈 科研变量分析与物理叙事 (STEM Analysis)"),
+    "sandbox": ("🧪 2D Physics Sandbox", "🧪 2D 物理时空模拟沙盒 (Physics Sandbox)"),
+    "audit": ("📊 Scientific Audit", "📊 科学审计与 25 折验证 (Scientific Audit)"),
+    "ai": ("🤖 AI Predictions", "🤖 AI 预测"),
+}
+
+
+@st.cache_data(show_spinner=False)
+def cached_insights(lang_code: str) -> list:
+    return crew_insights(lang_code)
+
+
+def insights_html(items: list) -> str:
+    """One card per takeaway: what it means, the computed evidence, what to do, and where to check it."""
+    cards = []
+    for it in items:
+        evidence = it["evidence"]
+        if it["dataset"] and ds_status(it["dataset"])["status"] != "VERIFIED_SOURCE":
+            evidence = ds_status(it["dataset"])["status"]  # never call unverified data a real measurement
+        cards.append(
+            f'<div class="icard"><div class="ihead"><span class="iicon">{it["icon"]}</span>{html.escape(it["title"])}</div>'
+            f'<p>{html.escape(it["text"])}</p><p class="iact">➜ {html.escape(it["action"])}</p>'
+            f'<div class="ifoot">{status_pill(evidence)}<span>{html.escape(tr("Evidence:", "证据："))} '
+            f'{html.escape(tr(*TAB_LABELS[it["tab"]]))}</span></div></div>')
+    return f'<div class="insights">{"".join(cards)}</div>'
+
+
+st.markdown(tr("### 🧑‍🚀 What this means for crew fire safety", "### 🧑‍🚀 这对乘员防火安全意味着什么"))
+st.caption(tr("Six takeaways. Every number is computed live from NASA's data, the AI models or the physics model; the badge "
+              "says which kind of evidence it is, and the tab name says where to check it.",
+              "六条要点。每个数字都由 NASA 数据、AI 模型或物理模型实时计算；标签说明证据类型，页面名称说明在哪里核查。"))
+st.markdown(insights_html(cached_insights(lang)), unsafe_allow_html=True)
+
+tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction = st.tabs(
+    [tr(*TAB_LABELS[k]) for k in ("evidence", "stem", "sandbox", "audit", "ai")])
 
 # =========================================================================
 # TAB 1: 航天实验证据库 (真实数据分轨)
@@ -1480,6 +1567,17 @@ def render_evidence():
             st.markdown(ranking_cards_html(track_key, ranking_data), unsafe_allow_html=True)
             with st.expander(tr("Show ranking as a data table", "以数据表查看排名")):
                 st.dataframe(pd.DataFrame(ranking_data), use_container_width=True, hide_index=True)
+
+            insight = ranking_insights(track_key, ranking_data, lang)
+            if insight["points"]:
+                st.markdown(tr("#### What the ranking means", "#### 排名说明了什么"))
+                st.markdown("\n".join(f"- {p}" for p in insight["points"]))
+                if insight["safety"]:
+                    st.info("💡 " + insight["safety"])
+                st.caption(tr("Every number above is computed from the loaded table. ", "以上数字均由已载入的数据表计算。")
+                           + (tr("That table is not verified NASA data in this build, so these are not scientific findings. ",
+                                 "本版本该表并非已核实的 NASA 数据，因此这些并非科学结论。") if is_placeholder else "")
+                           + insight["caveat"])
 
         st.markdown(tr("#### Data provenance", "#### 数据来源"))
         full_track = records_df[records_df["dataset_key"] == ds_key]
@@ -1717,9 +1815,12 @@ def render_sweep():
         )
         st.plotly_chart(fig_curve, use_container_width=True, config={"displayModeBar": False, "responsive": True})
 
-    st.markdown(tr("##### 3. Scientific narration for STEM students", "##### 3. 面向 STEM 学生的物理因果叙述"))
-    for text in sweep_results["scientific_narration"]:
-        st.success(f"📘 {text}")
+    st.markdown(tr("##### 3. What the curves show", "##### 3. 曲线说明了什么"))
+    st.success("📘 " + tr("**Read from this sweep** (the numbers change when you move the sliders):",
+                          "**从本次扫描读出**（移动滑块后数字会随之改变）：")
+               + "\n" + "\n".join(f"- {text}" for text in sweep_results["scientific_narration"]))
+    if sweep_results.get("safety_note"):
+        st.info("💡 " + sweep_results["safety_note"])
 
     st.markdown(tr("##### 4. Solved sweep points", "##### 4. 连续参数求解点明细"))
     with st.expander(tr(f"📋 Show the {len(points_df)} solved points as a table", f"📋 以表格查看全部 {len(points_df)} 个求解点")):
@@ -2025,6 +2126,69 @@ def _unit_display(unit: str) -> str:
     return unit.replace("^2", "²").replace("kW/m2", "kW/m²")
 
 
+GROUP_NAMES = {"laboratory": ("labs", "个实验室"), "group_test_date": ("test days", "个试验日")}
+TASK_DATA = {  # dataset_key -> short name, where the flames burned, pill colour
+    "MACFP_PMMA_CONE": (("MaCFP PMMA", "MaCFP PMMA"), ("Ground lab · 1 g", "地面实验室 · 1 g"), "warn"),
+    "FLEX": (("NASA FLEX", "NASA FLEX"), ("Microgravity · ISS", "微重力 · 国际空间站"), "info"),
+    "BASS_II": (("NASA BASS-II", "NASA BASS-II"), ("Microgravity · ISS", "微重力 · 国际空间站"), "info"),
+}
+
+
+def _md_code(text: str) -> str:
+    """Escape text for HTML and turn `code` spans into <code> tags."""
+    parts = html.escape(text).split("`")
+    return "".join(f"<code>{p}</code>" if i % 2 else p for i, p in enumerate(parts))
+
+
+def deployed_models() -> dict[str, str]:
+    """task_id -> the model family the AI Predictions tab runs (only when its saved model file is present)."""
+    out = {}
+    if (ROOT / "models" / "spacecraft_fire_peak_hrr_v1.keras").exists():
+        out["macfp_pmma_peak_hrr"] = "tf_nn_deployed_config"
+    for path in (flex.BURNING_RATE_PATH, flex.EXTINCTION_PATH):
+        try:
+            model = flex.load_model(path)
+        except flex.FlexModelUnavailable:
+            continue
+        out[model["task_id"]] = model["model_family"]
+    return out
+
+
+def task_overview_html(tasks: list[dict], reg_by_id: dict) -> str:
+    """One row per prediction task: what it predicts, which data, how much, and both computed statuses."""
+    deployed = deployed_models()
+    rows = []
+    for t in tasks:
+        reg = reg_by_id.get(t["task_id"], {})
+        ds_key = t.get("dataset_key") or reg.get("dataset_key", "")
+        name, env, tone = TASK_DATA.get(ds_key, ((ds_key, ds_key), ("", ""), "info"))
+        if t["task_type"] == "regression":
+            unit = _unit_display((reg.get("target") or {}).get("unit", ""))
+            kind = tr(f"Predicts a number ({unit})", f"预测数值（{unit}）") if unit else tr("Predicts a number", "预测数值")
+        else:
+            kind = tr("Predicts yes / no", "预测是 / 否")
+        if t.get("rows_used") is not None:
+            g_en, g_zh = GROUP_NAMES.get(t.get("group_column"), (t.get("group_column"), t.get("group_column")))
+            size = tr(f"{t['rows_used']} rows · {t['independent_groups']} {g_en}",
+                      f"{t['rows_used']} 行 · {t['independent_groups']} {g_zh}")
+        else:
+            size = "—"
+        reasons = "<br>".join(_md_code(code_text(r)) for r in t.get("reasons", []))
+        if t["task_id"] in deployed:
+            reasons = (reasons + "<br>" if reasons else "") + html.escape(
+                tr("▶ Runs in 🤖 AI Predictions: ", "▶ 用于 🤖 AI 预测：") + tr(*MODEL_LABELS.get(deployed[t["task_id"]], ("", ""))))
+        rows.append(
+            f'<tr><td><div class="t">{html.escape(cfg_text(reg, "title", t["task_id"]))}</div><div class="sub">{kind}</div></td>'
+            f'<td><div class="t">{html.escape(tr(*name))}</div><span class="pill env {tone}">{html.escape(tr(*env))}</span>'
+            f'<div class="sub size">{size}</div></td>'
+            f'<td>{status_pill(t["evaluation_status"])}' + (f'<div class="sub">{reasons}</div>' if reasons else "") + "</td>"
+            f'<td>{status_pill(ds_status(ds_key)["status"])}</td></tr>'
+        )
+    head = "".join(f"<th>{h}</th>" for h in (tr("Task", "任务"), tr("Data", "数据"), tr("Model evaluation", "模型评估"),
+                                              tr("Data source", "数据来源")))
+    return f'<div class="tasks"><table><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
+
+
 def render_task_results(t: dict, reg: dict) -> None:
     ttype = t["task_type"]
     target = reg.get("target") or {}
@@ -2051,8 +2215,7 @@ def render_task_results(t: dict, reg: dict) -> None:
     c1, c2, c3, c4 = st.columns(4)
     c1.metric(tr("Rows used", "使用行数"), str(t["rows_used"]),
               help=tr("Rows with a valid target/label after the documented exclusions.", "按记录的排除规则处理后，目标/标签有效的行数。"))
-    group_names = {"laboratory": ("labs", "个实验室"), "group_test_date": ("test days", "个试验日")}
-    g_en, g_zh = group_names.get(t["group_column"], (t["group_column"], t["group_column"]))
+    g_en, g_zh = GROUP_NAMES.get(t["group_column"], (t["group_column"], t["group_column"]))
     c2.metric(tr("Independent groups", "独立分组"), tr(f"{t['independent_groups']} {g_en}", f"{t['independent_groups']} {g_zh}"))
     c3.metric(tr("Outer test folds (5 seeds × 5)", "外层测试折（5 种子 × 5）"), str(t["outer_folds_total"]))
     c4.metric(tr("Leakage re-check", "泄漏复查"), tr(f"{issues} issues in {live['splits']} splits", f"{live['splits']} 次划分中 {issues} 个问题"),
@@ -2188,15 +2351,10 @@ def render_audit():
     reg_by_id = {t["task_id"]: t for t in REGISTRY.get("tasks", [])}
     tasks = CV_SUMMARY.get("tasks", [])
     st.markdown(tr("#### Prediction tasks", "#### 预测任务"))
-    lines = []
-    for t in tasks:
-        reg = reg_by_id.get(t["task_id"], {})
-        ds_key = t.get("dataset_key") or reg.get("dataset_key", "")
-        reasons = "; ".join(code_text(r) for r in t.get("reasons", []))
-        lines.append(f"- **{cfg_text(reg, 'title', t['task_id'])}** · {status_badge(t['evaluation_status'])} · "
-                     + tr("data: ", "数据：") + status_badge(ds_status(ds_key)["status"])
-                     + (f"  \n  ↳ {reasons}" if reasons else ""))
-    st.markdown("\n".join(lines))
+    n_done = sum(t["evaluation_status"] == "EVALUATED" for t in tasks)
+    st.caption(tr(f"{n_done} of {len(tasks)} tasks could be evaluated; the others show why not.",
+                  f"{len(tasks)} 个任务中有 {n_done} 个可以评估；其余任务注明了无法评估的原因。"))
+    st.markdown(task_overview_html(tasks, reg_by_id), unsafe_allow_html=True)
 
     evaluated = [t for t in tasks if t["evaluation_status"] == "EVALUATED"]
     if evaluated:
@@ -2208,12 +2366,15 @@ def render_audit():
     st.markdown(tr("#### Reports", "#### 报告文件"))
     files = ["experiment_split_manifest.csv", "cv_fold_metrics.csv", "cv_predictions.csv", "cv_summary.json",
              "cv_protocol.json", "data_audit_report.json", "data_provenance_audit.json", "provenance_mapping.csv"]
-    cols = st.columns(4)
-    for i, name in enumerate(files):
-        path = REPORTS_DIR / name
-        if path.exists():
-            cols[i % 4].download_button(f"⬇ {name}", path.read_bytes(), file_name=name, key=f"dl_{name}",
-                                        mime="text/csv" if name.endswith(".csv") else "application/json")
+    with st.container(key="report_files"):  # equal-size tiles, styled by .st-key-report_files
+        for start in range(0, len(files), 4):  # one st.columns per row, so phones (stacked columns) keep the list order
+            for col, name in zip(st.columns(4), files[start:start + 4]):
+                path = REPORTS_DIR / name
+                if path.exists():
+                    wrappable = name.replace("_", "_\u200b")  # zero-width space: long names break at underscores, not mid-word
+                    col.download_button(f"⬇ {wrappable}", path.read_bytes(), file_name=name, key=f"dl_{name}",
+                                        mime="text/csv" if name.endswith(".csv") else "application/json",
+                                        use_container_width=True)
 
     with st.expander(tr("Retired evaluation on synthetic data: why it was removed", "已退役的合成数据评估：为何移除")):
         st.markdown(tr("Earlier versions scored models on 80 formula-generated rows labelled as NASA data, with a BASS-II target "
@@ -2230,144 +2391,347 @@ with tab_audit:
 
 
 # =========================================================================
-# TAB 5: After-test estimates from a separately trained experimental model
+# TAB 5, part 1: the deployed FLEX models (microgravity droplet flames, ISS)
+# =========================================================================
+FLEX_PRESETS = [  # real FLEX test atmospheres, each run several times (pressure mmHg, O2 %, CO2 %, He %)
+    (("Normal air · 1 atm", "正常空气 · 1 atm"), (760, 21, 0, 0)),
+    (("Low oxygen · 1 atm", "低氧 · 1 atm"), (760, 15, 0, 0)),
+    (("CO₂-diluted · 0.71 atm", "CO₂ 稀释 · 0.71 atm"), (540, 23, 25, 0)),
+    (("Helium-diluted · 1 atm", "氦气稀释 · 1 atm"), (760, 17, 0, 20)),
+    (("Oxygen-rich · 0.71 atm", "富氧 · 0.71 atm"), (540, 34, 0, 0)),
+    (("High pressure, heavy CO₂ · 2.7 atm", "高压、高 CO₂ · 2.7 atm"), (2070, 21, 70, 0)),
+]
+FLEX_INPUT_LABELS = {
+    "pressure_mmhg": ("Pressure", "压力"), "x_o2": ("Oxygen", "氧气"), "x_co2": ("CO₂", "CO₂"),
+    "x_he": ("Helium", "氦气"), "d0_mm": ("Droplet size", "液滴大小"),
+}
+
+
+def _apply_flex_preset(lang_key: str) -> None:
+    vals = st.session_state["flex_vals"]
+    vals["preset"] = st.session_state[f"flex_preset_{lang_key}"]
+    p, o2, co2, he = FLEX_PRESETS[vals["preset"]][1]
+    vals.update(p_atm=round(p / 760, 2), o2=o2, co2=co2, he=he)
+    for name in ("p_atm", "o2", "co2", "he"):  # the sliders re-read flex_vals on this rerun
+        st.session_state.pop(f"flex_{name}_{lang_key}", None)
+
+
+def _flex_input_label(column: str, value: float, average: float) -> str:
+    """'O₂ 21% (avg 19%)': the bar is this test's value measured against the average training test."""
+    if column == "is_heptane":
+        return tr("Fuel: heptane", "燃料：正庚烷") if value == 1 else tr("Fuel: methanol", "燃料：甲醇")
+    shown = {"pressure_mmhg": lambda v: f"{v / 760:.2f} atm", "d0_mm": lambda v: f"{v:.1f} mm"}.get(
+        column, lambda v: f"{100 * v:.0f}%")
+    return tr(f"{FLEX_INPUT_LABELS[column][0]} {shown(value)} (avg {shown(average)})",
+              f"{FLEX_INPUT_LABELS[column][1]} {shown(value)}（平均 {shown(average)}）")
+
+
+def _contribution_chart(contrib: dict, inputs: dict, means: list, title: str, unit: str,
+                        more_fire_positive: bool) -> go.Figure:
+    """Signed bars, one per input. Orange = more fire (faster burning / keeps burning), blue = less fire."""
+    names = [_flex_input_label(c, inputs[c], m) for c, m in zip(contrib, means)]
+    vals = list(contrib.values())
+    colors = ["#d95926" if (v > 0) == more_fire_positive else "#3987e5" for v in vals]
+    fig = go.Figure(go.Bar(x=vals, y=names, orientation="h", marker_color=colors,
+                           text=[f"{v:+.3f}" for v in vals], textposition="outside", cliponaxis=False,
+                           hovertemplate="%{y}: %{x:+.3f} " + unit + "<extra></extra>"))
+    span = max(abs(v) for v in vals) * 1.35 or 1.0
+    fig.add_vline(x=0, line=dict(color="#8f9ab8", width=1))
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=290,
+        title=dict(text=title, font=dict(size=13, color="#c9d2ea"), x=0, xanchor="left"),
+        margin=dict(l=10, r=20, t=44, b=30), showlegend=False, font=dict(color="#c9d2ea"),
+        xaxis=dict(range=[-span, span], zeroline=False, gridcolor="rgba(255,255,255,0.06)",
+                   title=dict(text=unit, font=dict(size=11, color="#8f9ab8")), tickfont=dict(color="#8f9ab8", size=10)),
+        yaxis=dict(autorange="reversed", automargin=True, tickfont=dict(color="#c9d2ea", size=12)),
+    )
+    return fig
+
+
+@st.fragment
+def render_flex_predictor() -> None:
+    st.subheader(tr("Microgravity droplet flame: how fast does it burn, and does it go out?",
+                    "微重力液滴火焰：燃烧有多快？会不会熄灭？"))
+    st.caption(status_badge("MODEL_PREDICTION") + tr(
+        " · two models trained on NASA FLEX droplet tests aboard the International Space Station (PSI-69, verified "
+        "source). Pick a test condition; the AI answers, shows why, and shows the closest real NASA tests.",
+        " · 两个模型基于国际空间站上的 NASA FLEX 液滴试验训练（PSI-69，已核实来源）。选择试验条件后，AI 给出预测、"
+        "说明原因，并列出最接近的真实 NASA 试验。"))
+    try:
+        ranges = flex.input_ranges()
+        k_meta, e_meta = flex.load_model(flex.BURNING_RATE_PATH), flex.load_model(flex.EXTINCTION_PATH)
+    except flex.FlexModelUnavailable as exc:
+        st.error(str(exc))
+        return
+
+    # The chosen values live in flex_vals; widget keys carry the language, because a widget whose label changes is a
+    # new widget to Streamlit and would otherwise reset to its minimum when the language is switched.
+    p0, o20, co20, he0 = FLEX_PRESETS[0][1]
+    vals = st.session_state.setdefault("flex_vals", {"preset": 0, "heptane": True, "p_atm": round(p0 / 760, 2),
+                                                      "o2": o20, "co2": co20, "he": he0, "d0": 3.0})
+
+    c_in, c_out = st.columns([1, 1.4], gap="large")
+    with c_in:
+        st.markdown(tr("##### 1. Test condition", "##### 1. 试验条件"))
+        fuel = st.radio(tr("Fuel droplet", "燃料液滴"), [tr("n-Heptane", "正庚烷"), tr("Methanol", "甲醇")],
+                        index=0 if vals["heptane"] else 1, horizontal=True, key=f"flex_fuel_{lang}")
+        heptane = vals["heptane"] = fuel == tr("n-Heptane", "正庚烷")
+        st.selectbox(tr("Load a tested NASA atmosphere", "载入 NASA 测试过的气氛"), range(len(FLEX_PRESETS)),
+                     index=vals["preset"], format_func=lambda i: tr(*FLEX_PRESETS[i][0]), key=f"flex_preset_{lang}",
+                     on_change=_apply_flex_preset, args=(lang,))
+        p_lo, p_hi = ranges["pressure_mmhg"]
+        p_atm = vals["p_atm"] = st.slider(tr("Pressure (atm)", "压力 (atm)"), math.ceil(p_lo / 7.6) / 100,
+                                          math.floor(p_hi / 7.6) / 100, value=vals["p_atm"], step=0.01,
+                                          key=f"flex_p_atm_{lang}")
+        o2 = vals["o2"] = st.slider(tr("Oxygen O₂ (%)", "氧气 O₂ (%)"), int(round(ranges["x_o2"][0] * 100)),
+                                    int(round(ranges["x_o2"][1] * 100)), value=vals["o2"], step=1, key=f"flex_o2_{lang}")
+        co2 = vals["co2"] = st.slider(tr("Carbon dioxide CO₂ (%)", "二氧化碳 CO₂ (%)"), 0, int(round(ranges["x_co2"][1] * 100)),
+                                      value=vals["co2"], step=1, key=f"flex_co2_{lang}")
+        he = vals["he"] = st.slider(tr("Helium He (%)", "氦气 He (%)"), 0, int(round(ranges["x_he"][1] * 100)),
+                                    value=vals["he"], step=1, key=f"flex_he_{lang}")
+        d0 = vals["d0"] = st.slider(tr("Droplet diameter at ignition (mm)", "点火时液滴直径 (mm)"),
+                                    math.ceil(ranges["d0_mm"][0] * 10) / 10, math.floor(ranges["d0_mm"][1] * 10) / 10,
+                                    value=vals["d0"], step=0.1, key=f"flex_d0_{lang}")
+        n2 = 100 - o2 - co2 - he
+        if n2 < 0:
+            st.error(tr(f"O₂ + CO₂ + He add up to {o2 + co2 + he}%. Lower one of them to 100% or less.",
+                        f"O₂ + CO₂ + He 合计 {o2 + co2 + he}%，请降低其中一项，使总和不超过 100%。"))
+            return
+        st.caption(tr(f"Nitrogen fills the rest: **{n2}%** · {p_atm * 760:.0f} mmHg",
+                      f"其余为氮气：**{n2}%** · {p_atm * 760:.0f} mmHg"))
+    inputs = {"is_heptane": 1.0 if heptane else 0.0, "pressure_mmhg": p_atm * 760, "x_o2": o2 / 100,
+              "x_co2": co2 / 100, "x_he": he / 100, "d0_mm": float(d0)}
+    try:
+        pred, near = flex.predict(inputs), flex.nearest_tests(inputs)
+    except ValueError as exc:
+        c_out.error(str(exc))
+        return
+
+    cv_k, cv_e = k_meta["cross_validation"], e_meta["cross_validation"]
+    with c_out:
+        st.markdown(tr("##### 2. What the AI predicts", "##### 2. AI 的预测"))
+        goes_out = pred["flame_goes_out"]
+        cards = [
+            (f"{pred['burning_rate_mm2_s']:.3f} mm²/s", tr("Burning rate K", "燃烧速率 K")),
+            (tr("Goes out early", "提前熄灭") if goes_out else tr("Burns to the end", "燃烧至耗尽"),
+             tr(f"Flame-out call · score {pred['extinction_score']:.2f}", f"熄火判断 · 得分 {pred['extinction_score']:.2f}")),
+            (f"≈ {pred['burnout_time_s']:.0f} s", tr("To burn out, if it stays lit", "若不熄灭，烧尽所需时间")),
+        ]
+        st.markdown('<div class="telemetry compact">' + "".join(
+            f'<div class="tele"><div class="tele-v">{html.escape(v)}</div><div class="tele-l">{html.escape(l)}</div></div>'
+            for v, l in cards) + "</div>", unsafe_allow_html=True)
+        st.caption(tr(
+            "K is how fast the droplet's surface area shrinks (bigger = burns faster). The flame-out call says whether the "
+            f"flame goes out while fuel is left (score ≥ {pred['extinction_threshold']:.2f}) or burns until the droplet is "
+            f"used up. Burn-out time uses the d²-law: d₀² / K for this {d0:.1f} mm droplet.",
+            "K 表示液滴表面积缩小的速度（越大燃烧越快）。熄火判断表示火焰是在仍有燃料时熄灭"
+            f"（得分 ≥ {pred['extinction_threshold']:.2f}），还是一直燃烧到液滴耗尽。烧尽时间按 d² 定律计算：d₀² / K，"
+            f"液滴直径 {d0:.1f} mm。"))
+
+        fuel_name = tr("n-heptane", "正庚烷") if heptane else tr("methanol", "甲醇")
+        if near["tests"]:
+            k_txt = (tr(f"measured K **{near['k_mean']:.3f}** mm²/s (range {near['k_min']:.2f}–{near['k_max']:.2f})",
+                        f"实测 K **{near['k_mean']:.3f}** mm²/s（范围 {near['k_min']:.2f}–{near['k_max']:.2f}）")
+                     if near["k_readings"] else tr("no K readings", "无 K 读数"))
+            st.info("🛰 " + tr(
+                f"**Real NASA tests close to this:** {near['tests']} {fuel_name} tests at a similar pressure and gas mix "
+                f"(droplets {near['d0_min']:.1f}–{near['d0_max']:.1f} mm): {k_txt}. Flame went out in **{near['went_out']}**, "
+                f"burned to the end in **{near['burned_out']}**, disrupted in {near['disrupted']}.",
+                f"**与此相近的真实 NASA 试验：** {near['tests']} 次{fuel_name}试验，压力与气体组成相近"
+                f"（液滴 {near['d0_min']:.1f}–{near['d0_max']:.1f} mm）：{k_txt}。火焰熄灭 **{near['went_out']}** 次，"
+                f"燃烧至耗尽 **{near['burned_out']}** 次，中断 {near['disrupted']} 次。"))
+        else:
+            st.warning(tr(
+                "**No NASA test was run close to this combination.** The AI is combining what it learned from other "
+                "conditions, so treat this prediction with extra caution.",
+                "**NASA 没有在接近此组合的条件下做过试验。** AI 是在综合其他条件下学到的规律，请对该预测格外谨慎。"))
+        st.caption(tr(
+            f"**How good is it?** Scored on test days it never saw ({cv_k['model']['r2']['n']} grouped folds): the "
+            f"burning-rate model explains about **{cv_k['model']['r2']['mean']:.0%}** of the variation, typical error "
+            f"±{cv_k['model']['mae']['mean']:.3f} mm²/s (guessing the average: ±{cv_k['baseline']['mae']['mean']:.3f}). "
+            f"The flame-out model's balanced accuracy is **{cv_e['model']['balanced_accuracy']['mean']:.2f}** "
+            f"(coin flip: 0.50), ROC-AUC {cv_e['model']['roc_auc']['mean']:.2f}. Details: Scientific Audit tab.",
+            f"**准确度如何？** 在模型从未见过的试验日上评分（{cv_k['model']['r2']['n']} 个分组折）：燃烧速率模型约解释 "
+            f"**{cv_k['model']['r2']['mean']:.0%}** 的变化，典型误差 ±{cv_k['model']['mae']['mean']:.3f} mm²/s"
+            f"（只猜平均值：±{cv_k['baseline']['mae']['mean']:.3f}）。熄火模型的平衡准确率为 "
+            f"**{cv_e['model']['balanced_accuracy']['mean']:.2f}**（抛硬币：0.50），ROC-AUC {cv_e['model']['roc_auc']['mean']:.2f}。"
+            "详见科学审计页。"))
+
+    st.markdown(tr("##### 3. Why the AI says this", "##### 3. AI 为什么这样判断"))
+    st.caption(tr("Both models are linear, so each prediction splits exactly into one push per input, measured from a test "
+                  "with average conditions. Orange = more fire (faster burning, or keeps burning); blue = less fire.",
+                  "两个模型都是线性的，因此每个预测都能精确分解为各输入的推动量（以平均条件的试验为起点）。"
+                  "橙色 = 火更强（燃烧更快或持续燃烧）；蓝色 = 火更弱。"))
+    ch1, ch2 = st.columns(2)
+    ch1.plotly_chart(_contribution_chart(
+        pred["burning_rate_contributions"], inputs, k_meta["scaler_mean"],
+        tr(f"Burning rate: change from the average test ({pred['burning_rate_at_average_test']:.3f} mm²/s)",
+           f"燃烧速率：相对平均试验（{pred['burning_rate_at_average_test']:.3f} mm²/s）的变化"),
+        "mm²/s", more_fire_positive=True), use_container_width=True, config={"displayModeBar": False})
+    ch2.plotly_chart(_contribution_chart(
+        pred["extinction_contributions"], inputs, e_meta["scaler_mean"],
+        tr("Flame-out: push toward going out (+) or burning to the end (−)", "熄火：推向熄灭 (+) 或燃烧至耗尽 (−)"),
+        tr("log-odds", "对数几率"), more_fire_positive=False), use_container_width=True, config={"displayModeBar": False})
+
+    td = e_meta["training_data"]["class_counts"]
+    st.caption(tr(
+        f"The flame-out score comes from a class-balanced model (NASA's tests are {td['1']} flame-outs to {td['0']} burn-outs), "
+        "so it ranks the risk and 0.5 is the tested decision line, but it is not a probability. "
+        + str(k_meta["scope"]) + " Not for other fuels, solid materials or whole-cabin fires. "
+        f"Models: `{flex.BURNING_RATE_PATH.name}` (Ridge, alpha = {k_meta['hyperparameters']['alpha']:g}) and "
+        f"`{flex.EXTINCTION_PATH.name}` (logistic regression, C = {e_meta['hyperparameters']['C']:g}), "
+        "built by `src/train_flex_models.py` with the same recipe the cross-validation tested.",
+        f"熄火得分来自类别平衡模型（NASA 试验中熄灭 {td['1']} 次、燃尽 {td['0']} 次），因此它用于排序风险，0.5 是经过测试的判断线，"
+        "但并不是概率。" + str(k_meta["scope_zh"]) + "不适用于其他燃料、固体材料或整个舱室的火灾。"
+        f"模型：`{flex.BURNING_RATE_PATH.name}`（岭回归，alpha = {k_meta['hyperparameters']['alpha']:g}）与 "
+        f"`{flex.EXTINCTION_PATH.name}`（逻辑回归，C = {e_meta['hyperparameters']['C']:g}），"
+        "由 `src/train_flex_models.py` 按交叉验证测试过的同一方案构建。"))
+
+
+# =========================================================================
+# TAB 5, part 2: After-test estimates from a separately trained experimental model
 # =========================================================================
 with tab_prediction:
-    st.subheader(tr("Predict peak heat release from a new CSV", "根据新 CSV 预测峰值热释放率"))
-    st.info(tr(
-        "This experimental model uses measured after-test burn summaries. "
-        "Its current training source is ground-based PMMA cone calorimeter tests; "
-        "it has not been validated for spacecraft or microgravity fires. "
-        "Use it only when the peak is missing from an otherwise complete burn summary. "
-        "If you have the full HRR time series, calculate its maximum directly.",
-        "该实验性模型使用试验后实测的燃烧汇总数据。当前训练数据来自地面 PMMA 锥形量热仪试验，"
-        "尚未针对航天器或微重力火灾验证。仅当完整燃烧汇总中缺少峰值时使用；"
-        "若已有完整 HRR 时间序列，请直接取其最大值。",
-    ))
-    st.caption(tr(
-        "Required columns (in these units): "
-        + ", ".join(f"`{column}`" for column in FEATURE_COLUMNS)
-        + ". The high-hazard flag is a project rule: predicted peak heat release "
-        ">= 350 kW/m². It is not a separately trained classifier.",
-        "必需列（按此单位）："
-        + ", ".join(f"`{column}`" for column in FEATURE_COLUMNS)
-        + "。高危标记为项目规则：预测峰值热释放率 >= 350 kW/m²，并非单独训练的分类器。",
-    ))
-    sample_csv = (
-        "radiant_heat_flux_kw_m2,real_burn_duration_s,real_mean_hrr_kw_m2\n"
-        "25,900,300\n35,650,400\n50,400,500\n65,200,1500\n"
-    )
-    st.download_button(
-        tr("⬇ Download a sample CSV to try", "⬇ 下载示例 CSV 试用"),
-        sample_csv.encode("utf-8"), file_name="sample_after_test.csv", mime="text/csv",
-        key="download_sample_csv",
-        help=tr("Four example burns inside the model's training range. Upload it below, then press Predict.",
-                "四条位于模型训练范围内的示例燃烧数据。在下方上传后点击预测。"),
-    )
-    st.caption(tr(
-        "🧪 The sample CSV is **made-up demo input**, not measured burns. Uploading any CSV only runs predictions with the "
-        "already-trained model; it does not retrain or validate it. The model itself was trained and checked on the real "
-        "MaCFP measurements described above.",
-        "🧪 示例 CSV 是**虚构的演示输入**，并非实测燃烧数据。上传任何 CSV 只会用已训练好的模型进行预测，不会重新训练或验证模型。"
-        "模型本身是在上文所述的真实 MaCFP 实测数据上训练与检验的。",
-    ))
-    st.caption(tr(
-        "Accepted range (from training data): heat flux 25–65 kW/m², burn duration 195–1149 s, "
-        "mean HRR 147–1881 kW/m². Values outside are rejected rather than guessed.",
-        "可接受范围（来自训练数据）：热通量 25–65 kW/m²，燃烧时长 195–1149 秒，平均 HRR 147–1881 kW/m²。超出范围将被拒绝而不是猜测。",
-    ))
-    uploaded_csv = st.file_uploader(tr("Upload after-test CSV", "上传试验后 CSV"), type="csv", key="fire_prediction_csv")
-    if uploaded_csv is None:
-        st.session_state.pop("fire_prediction_result", None)
-        # Preview with two REAL MaCFP burns and their out-of-fold predictions (read from reports/, no model call,
-        # so TensorFlow is not loaded just to view the tab).
-        st.markdown(tr("#### 🔥 Preview: two real burns, measured vs predicted", "#### 🔥 预览：两次真实燃烧，实测与预测对比"))
-        examples = preview_burns()
-        if examples:
-            meta = load_json_file(str(ROOT / "models" / "spacecraft_fire_peak_hrr_v1.metadata.json")) or {}
-            render_flame_gallery(examples, ref_peak=float(meta.get("training_data", {}).get("peak_hrr_max_kw_m2") or 3000.0),
-                                 threshold=350.0)
-            st.caption(tr(
-                f"{status_badge('REAL_MEASUREMENT')}: the burn's inputs and peak come from the verified MaCFP lab file. "
-                f"{status_badge('MODEL_PREDICTION')}: the deployed network's recipe, trained without that laboratory "
-                "(out-of-fold, mean of 5 repeats). Burns chosen by a fixed rule: the median-peak run at the lowest and "
-                "highest heat flux. Upload a CSV (or the sample above) to see your own burns.",
-                f"{status_badge('REAL_MEASUREMENT')}：输入与峰值来自已核实的 MaCFP 实验室文件。"
-                f"{status_badge('MODEL_PREDICTION')}：已部署网络的方案，在不含该实验室数据的情况下训练（折外预测，5 次重复取均值）。"
-                "试验按固定规则选取：最低与最高热通量下峰值居中的一次。上传 CSV（或上方的示例文件）即可查看你自己的燃烧数据。",
-            ))
-        else:
-            st.info(tr("Preview unavailable: reports/cv_predictions.csv or the MaCFP dataset is missing. "
-                       "Run `python -m src.run_cv_evaluation`.",
-                       "预览不可用：缺少 reports/cv_predictions.csv 或 MaCFP 数据集。请运行 `python -m src.run_cv_evaluation`。"))
-    if uploaded_csv is not None:
-        try:
-            upload_hash = sha256(uploaded_csv.getvalue()).hexdigest()
-            previous = st.session_state.get("fire_prediction_result")
-            if previous is not None and previous[0] != upload_hash:
-                st.session_state.pop("fire_prediction_result", None)
-            input_df = pd.read_csv(BytesIO(uploaded_csv.getvalue()))
-            missing_columns = [column for column in FEATURE_COLUMNS if column not in input_df.columns]
-            if missing_columns:
-                raise ValueError("Missing required columns: " + ", ".join(missing_columns))
-            if not 1 <= len(input_df) <= MAX_BATCH_ROWS:
-                raise ValueError(f"CSV must contain 1 to {MAX_BATCH_ROWS} data rows")
-            feature_df = input_df.loc[:, FEATURE_COLUMNS].apply(pd.to_numeric, errors="raise")
-            feature_array = feature_df.to_numpy(dtype=float)
-            if (
-                not np.isfinite(feature_array).all()
-                or (feature_array[:, 0] < 0).any()
-                or (feature_array[:, 1:] <= 0).any()
-            ):
-                raise ValueError("Heat flux must be nonnegative; burn duration and mean HRR must be positive")
-            st.success(tr(f"✅ CSV loaded: {len(input_df)} burn(s) ready. Press the button to predict.",
-                          f"✅ 已载入 CSV：{len(input_df)} 条燃烧数据。点击按钮开始预测。"))
-            with st.expander(tr("Preview uploaded data", "预览上传的数据")):
-                st.dataframe(input_df.head(10), use_container_width=True)
-            if st.button(tr("Predict fire results", "预测火灾结果"), key="run_fire_prediction"):
-                results = predict_fire_rows(feature_df.to_dict(orient="records"))
-                model_info = get_model_info()
-                output_df = pd.concat([input_df.reset_index(drop=True), pd.DataFrame(results)], axis=1)
-                st.session_state["fire_prediction_result"] = (upload_hash, output_df, model_info)
-            saved_result = st.session_state.get("fire_prediction_result")
-            if saved_result is not None and saved_result[0] == upload_hash:
-                _, output_df, model_info = saved_result
-                # The scope sentence comes from the model metadata in English; the known one has a Chinese version.
-                scope_zh = {
-                    "Post-test PMMA cone-calorimeter measurements; spaceflight performance unverified.":
-                        "试验后的 PMMA 锥形量热仪测量数据；在航天环境下的表现未经验证。",
-                }.get(model_info["scope"], model_info["scope"])
+    sub_flex, sub_pmma = st.tabs([tr("🛰 Microgravity droplet flame (FLEX · ISS)", "🛰 微重力液滴火焰（FLEX · 国际空间站）"),
+                                  tr("🔥 Ground PMMA burn (CSV upload)", "🔥 地面 PMMA 燃烧（上传 CSV）")])
+    with sub_flex:
+        render_flex_predictor()
+    with sub_pmma:
+        st.subheader(tr("Predict peak heat release from a new CSV", "根据新 CSV 预测峰值热释放率"))
+        st.info(tr(
+            "This experimental model uses measured after-test burn summaries. "
+            "Its current training source is ground-based PMMA cone calorimeter tests; "
+            "it has not been validated for spacecraft or microgravity fires. "
+            "Use it only when the peak is missing from an otherwise complete burn summary. "
+            "If you have the full HRR time series, calculate its maximum directly.",
+            "该实验性模型使用试验后实测的燃烧汇总数据。当前训练数据来自地面 PMMA 锥形量热仪试验，"
+            "尚未针对航天器或微重力火灾验证。仅当完整燃烧汇总中缺少峰值时使用；"
+            "若已有完整 HRR 时间序列，请直接取其最大值。",
+        ))
+        st.caption(tr(
+            "Required columns (in these units): "
+            + ", ".join(f"`{column}`" for column in FEATURE_COLUMNS)
+            + ". The high-hazard flag is a project rule: predicted peak heat release "
+            ">= 350 kW/m². It is not a separately trained classifier.",
+            "必需列（按此单位）："
+            + ", ".join(f"`{column}`" for column in FEATURE_COLUMNS)
+            + "。高危标记为项目规则：预测峰值热释放率 >= 350 kW/m²，并非单独训练的分类器。",
+        ))
+        sample_csv = (
+            "radiant_heat_flux_kw_m2,real_burn_duration_s,real_mean_hrr_kw_m2\n"
+            "25,900,300\n35,650,400\n50,400,500\n65,200,1500\n"
+        )
+        st.download_button(
+            tr("⬇ Download a sample CSV to try", "⬇ 下载示例 CSV 试用"),
+            sample_csv.encode("utf-8"), file_name="sample_after_test.csv", mime="text/csv",
+            key="download_sample_csv",
+            help=tr("Four example burns inside the model's training range. Upload it below, then press Predict.",
+                    "四条位于模型训练范围内的示例燃烧数据。在下方上传后点击预测。"),
+        )
+        st.caption(tr(
+            "🧪 The sample CSV is **made-up demo input**, not measured burns. Uploading any CSV only runs predictions with the "
+            "already-trained model; it does not retrain or validate it. The model itself was trained and checked on the real "
+            "MaCFP measurements described above.",
+            "🧪 示例 CSV 是**虚构的演示输入**，并非实测燃烧数据。上传任何 CSV 只会用已训练好的模型进行预测，不会重新训练或验证模型。"
+            "模型本身是在上文所述的真实 MaCFP 实测数据上训练与检验的。",
+        ))
+        st.caption(tr(
+            "Accepted range (from training data): heat flux 25–65 kW/m², burn duration 195–1149 s, "
+            "mean HRR 147–1881 kW/m². Values outside are rejected rather than guessed.",
+            "可接受范围（来自训练数据）：热通量 25–65 kW/m²，燃烧时长 195–1149 秒，平均 HRR 147–1881 kW/m²。超出范围将被拒绝而不是猜测。",
+        ))
+        uploaded_csv = st.file_uploader(tr("Upload after-test CSV", "上传试验后 CSV"), type="csv", key="fire_prediction_csv")
+        if uploaded_csv is None:
+            st.session_state.pop("fire_prediction_result", None)
+            # Preview with two REAL MaCFP burns and their out-of-fold predictions (read from reports/, no model call,
+            # so TensorFlow is not loaded just to view the tab).
+            st.markdown(tr("#### 🔥 Preview: two real burns, measured vs predicted", "#### 🔥 预览：两次真实燃烧，实测与预测对比"))
+            examples = preview_burns()
+            if examples:
+                meta = load_json_file(str(ROOT / "models" / "spacecraft_fire_peak_hrr_v1.metadata.json")) or {}
+                render_flame_gallery(examples, ref_peak=float(meta.get("training_data", {}).get("peak_hrr_max_kw_m2") or 3000.0),
+                                     threshold=350.0)
                 st.caption(tr(
-                    f"Model source: {model_info['source']}. Scope: {model_info['scope']}",
-                    f"模型来源：{model_info['source']}。适用范围：{scope_zh}",
+                    f"{status_badge('REAL_MEASUREMENT')}: the burn's inputs and peak come from the verified MaCFP lab file. "
+                    f"{status_badge('MODEL_PREDICTION')}: the deployed network's recipe, trained without that laboratory "
+                    "(out-of-fold, mean of 5 repeats). Burns chosen by a fixed rule: the median-peak run at the lowest and "
+                    "highest heat flux. Upload a CSV (or the sample above) to see your own burns.",
+                    f"{status_badge('REAL_MEASUREMENT')}：输入与峰值来自已核实的 MaCFP 实验室文件。"
+                    f"{status_badge('MODEL_PREDICTION')}：已部署网络的方案，在不含该实验室数据的情况下训练（折外预测，5 次重复取均值）。"
+                    "试验按固定规则选取：最低与最高热通量下峰值居中的一次。上传 CSV（或上方的示例文件）即可查看你自己的燃烧数据。",
                 ))
-                st.markdown(tr("#### 🔥 What each burn looks like", "#### 🔥 每次燃烧的可视化"))
-                st.caption(status_badge("MODEL_PREDICTION") + tr(
-                    " · Animated schematic of the cone-calorimeter test. Flame height scales with predicted peak HRR "
-                    "(∝ HRR^0.4), the sustained flame with mean/peak HRR, and the orange arrows with heat flux. "
-                    "Illustrative, not to scale.",
-                    " · 锥形量热仪试验的动画示意图。火焰高度随预测峰值 HRR 变化（∝ HRR^0.4），持续火焰大小对应平均/峰值 HRR，"
-                    "橙色箭头数量对应热通量。仅为示意，非按比例。",
-                ))
-                training = model_info.get("training_data") or {}
-                render_flame_gallery(
-                    output_df.to_dict(orient="records"),
-                    ref_peak=float(training.get("peak_hrr_max_kw_m2") or 3000.0),
-                    threshold=float(model_info.get("hazard_threshold_kw_m2") or 350.0),
-                )
-                with st.expander(tr("Show results as a data table", "以数据表查看结果")):
-                    st.dataframe(output_df, use_container_width=True)
-                st.download_button(
-                    tr("Download results CSV", "下载结果 CSV"),
-                    output_df.to_csv(index=False).encode("utf-8"),
-                    file_name="fire_predictions.csv",
-                    mime="text/csv",
-                    key="download_fire_predictions",
-                )
-        except (pd.errors.ParserError, pd.errors.EmptyDataError, UnicodeDecodeError, ValueError) as exc:
-            st.error(tr(f"Cannot use this CSV: {exc}", f"无法使用该 CSV：{exc}"))
-        except ModelUnavailableError as exc:
-            st.error(str(exc))
+            else:
+                st.info(tr("Preview unavailable: reports/cv_predictions.csv or the MaCFP dataset is missing. "
+                           "Run `python -m src.run_cv_evaluation`.",
+                           "预览不可用：缺少 reports/cv_predictions.csv 或 MaCFP 数据集。请运行 `python -m src.run_cv_evaluation`。"))
+        if uploaded_csv is not None:
+            try:
+                upload_hash = sha256(uploaded_csv.getvalue()).hexdigest()
+                previous = st.session_state.get("fire_prediction_result")
+                if previous is not None and previous[0] != upload_hash:
+                    st.session_state.pop("fire_prediction_result", None)
+                input_df = pd.read_csv(BytesIO(uploaded_csv.getvalue()))
+                missing_columns = [column for column in FEATURE_COLUMNS if column not in input_df.columns]
+                if missing_columns:
+                    raise ValueError("Missing required columns: " + ", ".join(missing_columns))
+                if not 1 <= len(input_df) <= MAX_BATCH_ROWS:
+                    raise ValueError(f"CSV must contain 1 to {MAX_BATCH_ROWS} data rows")
+                feature_df = input_df.loc[:, FEATURE_COLUMNS].apply(pd.to_numeric, errors="raise")
+                feature_array = feature_df.to_numpy(dtype=float)
+                if (
+                    not np.isfinite(feature_array).all()
+                    or (feature_array[:, 0] < 0).any()
+                    or (feature_array[:, 1:] <= 0).any()
+                ):
+                    raise ValueError("Heat flux must be nonnegative; burn duration and mean HRR must be positive")
+                st.success(tr(f"✅ CSV loaded: {len(input_df)} burn(s) ready. Press the button to predict.",
+                              f"✅ 已载入 CSV：{len(input_df)} 条燃烧数据。点击按钮开始预测。"))
+                with st.expander(tr("Preview uploaded data", "预览上传的数据")):
+                    st.dataframe(input_df.head(10), use_container_width=True)
+                if st.button(tr("Predict fire results", "预测火灾结果"), key="run_fire_prediction"):
+                    results = predict_fire_rows(feature_df.to_dict(orient="records"))
+                    model_info = get_model_info()
+                    output_df = pd.concat([input_df.reset_index(drop=True), pd.DataFrame(results)], axis=1)
+                    st.session_state["fire_prediction_result"] = (upload_hash, output_df, model_info)
+                saved_result = st.session_state.get("fire_prediction_result")
+                if saved_result is not None and saved_result[0] == upload_hash:
+                    _, output_df, model_info = saved_result
+                    # The scope sentence comes from the model metadata in English; the known one has a Chinese version.
+                    scope_zh = {
+                        "Post-test PMMA cone-calorimeter measurements; spaceflight performance unverified.":
+                            "试验后的 PMMA 锥形量热仪测量数据；在航天环境下的表现未经验证。",
+                    }.get(model_info["scope"], model_info["scope"])
+                    st.caption(tr(
+                        f"Model source: {model_info['source']}. Scope: {model_info['scope']}",
+                        f"模型来源：{model_info['source']}。适用范围：{scope_zh}",
+                    ))
+                    st.markdown(tr("#### 🔥 What each burn looks like", "#### 🔥 每次燃烧的可视化"))
+                    st.caption(status_badge("MODEL_PREDICTION") + tr(
+                        " · Animated schematic of the cone-calorimeter test. Flame height scales with predicted peak HRR "
+                        "(∝ HRR^0.4), the sustained flame with mean/peak HRR, and the orange arrows with heat flux. "
+                        "Illustrative, not to scale.",
+                        " · 锥形量热仪试验的动画示意图。火焰高度随预测峰值 HRR 变化（∝ HRR^0.4），持续火焰大小对应平均/峰值 HRR，"
+                        "橙色箭头数量对应热通量。仅为示意，非按比例。",
+                    ))
+                    training = model_info.get("training_data") or {}
+                    render_flame_gallery(
+                        output_df.to_dict(orient="records"),
+                        ref_peak=float(training.get("peak_hrr_max_kw_m2") or 3000.0),
+                        threshold=float(model_info.get("hazard_threshold_kw_m2") or 350.0),
+                    )
+                    with st.expander(tr("Show results as a data table", "以数据表查看结果")):
+                        st.dataframe(output_df, use_container_width=True)
+                    st.download_button(
+                        tr("Download results CSV", "下载结果 CSV"),
+                        output_df.to_csv(index=False).encode("utf-8"),
+                        file_name="fire_predictions.csv",
+                        mime="text/csv",
+                        key="download_fire_predictions",
+                    )
+            except (pd.errors.ParserError, pd.errors.EmptyDataError, UnicodeDecodeError, ValueError) as exc:
+                st.error(tr(f"Cannot use this CSV: {exc}", f"无法使用该 CSV：{exc}"))
+            except ModelUnavailableError as exc:
+                st.error(str(exc))
 
 
 st.markdown(

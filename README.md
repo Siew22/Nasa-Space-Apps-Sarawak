@@ -70,6 +70,7 @@ python -m src.build_measured_cone_dataset    # MaCFP summaries (needs a clone of
 python -m src.provenance_audit               # computes statuses -> reports/data_provenance_audit.json, provenance_mapping.csv
 python -m src.run_cv_evaluation              # leakage-audited 5x5 group CV -> reports/cv_*.csv/json, data_audit_report.json
 python -m src.train_spacecraft_fire_model    # retrains the deployed MaCFP network (reproduces the saved checkpoint)
+python -m src.train_flex_models              # exports the deployed FLEX Ridge + logistic models -> models/flex_*_v1.json
 ```
 
 ## Prediction tasks and evaluation
@@ -104,11 +105,14 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
 
 ## Dashboard tabs
 
+**Above the tabs: What this means for crew fire safety.** Six takeaways for astronauts, each with its number computed live (`app/services/insights.py`): airflow keeps a fire alive in orbit, more oxygen burns faster, CO₂ slows the flame, flames do not reliably go out on their own, the amount of material drives toxic CO, and heat and smoke do not rise without gravity. Each card is badged `REAL_MEASUREMENT` (NASA FLEX or BASS-II data) or `SIMULATED_RESULT` (sweep or 2D model) and names the tab that holds the evidence.
+
 1. **Evidence Explorer.** Per-material (BASS-II) and per-fuel (FLEX) aggregates computed live from the verified tables:
    - **Animated cards:** illustrations modelled on NASA ISS photos, not footage.
    - **Data provenance panel:** evidence for each dataset's status.
    - **Record inspector:** traces any row to its file, row number, original column and unit.
-2. **STEM Analysis** (`SIMULATED_RESULT`). Parameter sweeps of gravity, airflow and oxygen using scaling formulas (Richardson number, buoyancy velocity). The flame-spread index is a relative proxy with no physical units.
+   - **What the ranking means:** plain-language findings and a crew-safety takeaway, every number computed from the ranking (`ranking_insights` in `app/services/research_engine.py`), with groups under 5 tests flagged as too small to rank.
+2. **STEM Analysis** (`SIMULATED_RESULT`). Parameter sweeps of gravity, airflow and oxygen using scaling formulas (Richardson number, buoyancy velocity). The flame-spread index is a relative proxy with no physical units. The explanation under the charts is written from each sweep's own numbers (smothering threshold, growth, the airflow or gravity where Ri = 1) plus a crew-safety takeaway.
 3. **2D Physics Sandbox** (`SIMULATED_RESULT`). An educational reduced-order model that computes:
    - densities;
    - buoyancy force;
@@ -119,7 +123,18 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
 
    The temperature map is an illustrative Gaussian, not a CFD solution. The tab lists every equation, assumption and limitation (`config/simulation_model.json`).
 4. **Scientific Audit.** Every task's status, the leakage re-check, model diagrams and scores, fold-by-fold results, measured-vs-predicted plots, and download links for all reports.
-5. **Post-test CSV prediction** (`MODEL_PREDICTION`). The MaCFP network estimates peak HRR from an after-test burn summary.
+5. **AI Predictions** (`MODEL_PREDICTION`), two sub-tabs.
+   **Microgravity droplet flame (FLEX · ISS):** pick a fuel (n-heptane or methanol), pressure, O₂/CO₂/He mix and droplet size,
+   or load one of six atmospheres NASA actually tested.
+   - **Predictions:** burning-rate constant K (Ridge) and whether the flame goes out before the fuel is used up (logistic
+     regression), plus the d²-law burn-out time d₀²/K.
+   - **Why:** both models are linear, so each prediction is split exactly into one push per input, measured from the average
+     NASA test.
+   - **Real NASA tests close to this:** same fuel, pressure within 10 %, each gas within 2–5 points; if there are none, the
+     tab says the model is combining other conditions.
+   - **Accuracy and limits:** the nested-CV scores are shown next to the prediction. Inputs outside the tested ranges are
+     refused. The flame-out score comes from a class-balanced model, so it ranks risk but is not a probability.
+   **Ground PMMA burn (CSV upload):** the MaCFP network estimates peak HRR from an after-test burn summary.
    - **Preview:** two real burns, measured vs out-of-fold prediction.
    - **Inputs:** two of the inputs come from the same HRR curve, so this is an after-test estimate, not a forecast.
    - **Scope:** ground-based PMMA only. It is not validated for microgravity, spacecraft or fire-safety decisions.
@@ -136,6 +151,10 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
 - **Pipeline:** preprocessing fitted on training rows only, refusal to score unverified data, units or labels, and handling of single-class folds.
 - **Reports and checkpoint:** consistency of the generated reports, and the saved checkpoint matching its training file.
 - **API:** status fields in API responses.
+- **Deployed FLEX models:** the JSON export reproduces the scikit-learn pipeline exactly, retraining gives the committed
+  file, the file matches its data hash and the CV report, contributions add up, and out-of-range inputs are refused.
+- **Interpretation texts:** every number in the STEM and ranking explanations matches the computed values.
+- **Crew takeaways:** each front-page number is recomputed from the data or models and checked against the text.
 - **Dashboard:** an explicit error when the provenance report is missing.
 
 ## Repository structure
@@ -152,7 +171,7 @@ config/                 data_sources.json, target_registry.json, simulation_mode
 data/raw/nasa_psi/      official NASA PSI tables, byte-for-byte
 data/processed/         processed records and task tables
 data/legacy/            retired data files
-models/                 deployed MaCFP network + metadata
+models/                 deployed MaCFP network + metadata; FLEX Ridge and logistic models as plain-number JSON
 reports/                generated audit and evaluation reports (reports/legacy/: retired)
 docs/SCIENTIFIC_AUDIT.md  audit findings, decisions, commands and change log
 tests/                  pytest suite

@@ -1,0 +1,231 @@
+{
+  "format_version": 1,
+  "task_id": "flex_extinction_outcome",
+  "title": "FLEX: does the flame go out before the droplet is used up?",
+  "title_zh": "FLEX：火焰是否在液滴耗尽前熄灭？",
+  "model_family": "logistic_regression",
+  "task_type": "classification",
+  "formula": "score = 1 / (1 + exp(-(intercept + sum(coef * (x_imputed - scaler_mean) / scaler_scale))))",
+  "feature_columns": [
+    "is_heptane",
+    "pressure_mmhg",
+    "x_o2",
+    "x_co2",
+    "x_he",
+    "d0_mm"
+  ],
+  "feature_units": {
+    "is_heptane": "1 = heptane, 0 = methanol",
+    "pressure_mmhg": "mmHg",
+    "x_o2": "mole fraction",
+    "x_co2": "mole fraction",
+    "x_he": "mole fraction",
+    "d0_mm": "mm"
+  },
+  "imputer_median": [
+    0.0,
+    759.8,
+    0.18,
+    0.0,
+    0.0,
+    2.97
+  ],
+  "scaler_mean": [
+    0.3627450980392157,
+    727.2607843137256,
+    0.18794117647058825,
+    0.1325980392156863,
+    0.059068627450980384,
+    2.996029411764706
+  ],
+  "scaler_scale": [
+    0.48079215040153833,
+    278.1535147645189,
+    0.03704364768634475,
+    0.1827690474397612,
+    0.12378276035402187,
+    0.6932230911019258
+  ],
+  "coef": [
+    -0.5896974838298303,
+    0.26447359155735783,
+    -0.7117926243791393,
+    0.2316787244046986,
+    0.26955427810725896,
+    0.4593667892652141
+  ],
+  "intercept": 0.5716763579399825,
+  "output": "extinction_label",
+  "output_unit": "score for class 1 (flame went out)",
+  "decision_threshold": 0.5,
+  "score_is_calibrated_probability": false,
+  "score_note": "Trained with class_weight='balanced' (as in CV), which shifts scores toward 0.5. The score ranks risk and the 0.5 threshold is the evaluated decision rule; it is not a calibrated probability.",
+  "hyperparameters": {
+    "C": 0.1
+  },
+  "hyperparameter_selection": {
+    "method": "mean log loss over group-disjoint 5-fold splits of all rows, seeds [42, 101, 2024, 3060, 9999] (src/group_cv.py randomized_group_kfold)",
+    "candidates": [
+      {
+        "params": {
+          "C": 0.1
+        },
+        "mean_score": 0.5218467238771518,
+        "folds": 25
+      },
+      {
+        "params": {
+          "C": 1.0
+        },
+        "mean_score": 0.5252098136561925,
+        "folds": 25
+      },
+      {
+        "params": {
+          "C": 10.0
+        },
+        "mean_score": 0.5349316661099521,
+        "folds": 25
+      }
+    ]
+  },
+  "training_data": {
+    "file": "data/processed/tasks/flex_tests.csv",
+    "csv_sha256": "abba94b6441a9f7a236fac0c2a549add80918fbb4020105b713cdea00105c89f",
+    "row_filter_column": "use_extinction_task",
+    "rows": 204,
+    "independent_group_column": "group_test_date",
+    "independent_groups": 73,
+    "feature_ranges": {
+      "is_heptane": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "pressure_mmhg": {
+        "min": 526.3,
+        "max": 2319.7
+      },
+      "x_o2": {
+        "min": 0.12,
+        "max": 0.34
+      },
+      "x_co2": {
+        "min": 0.0,
+        "max": 0.7
+      },
+      "x_he": {
+        "min": 0.0,
+        "max": 0.45
+      },
+      "d0_mm": {
+        "min": 1.1,
+        "max": 4.53
+      }
+    },
+    "class_counts": {
+      "0": 27,
+      "1": 177
+    }
+  },
+  "cross_validation": {
+    "source": "reports/cv_summary.json",
+    "generated_at_utc": "2026-10-24T09:05:36+00:00",
+    "protocol": "5 seeds x 5 outer folds of whole test days; tuning on inner validation only",
+    "model": {
+      "balanced_accuracy": {
+        "n": 25,
+        "mean": 0.6843330571391717,
+        "std": 0.14383165554685606,
+        "min": 0.3625,
+        "max": 0.9305555555555556
+      },
+      "macro_f1": {
+        "n": 25,
+        "mean": 0.5785654296334959,
+        "std": 0.11630396047270844,
+        "min": 0.3890909090909091,
+        "max": 0.8156277436347674
+      },
+      "roc_auc": {
+        "n": 25,
+        "mean": 0.7904598707962485,
+        "std": 0.12116309500445198,
+        "min": 0.5555555555555556,
+        "max": 1.0
+      },
+      "precision_pos": {
+        "n": 25,
+        "mean": 0.9417685467396842,
+        "std": 0.05128112557283322,
+        "min": 0.8,
+        "max": 1.0
+      },
+      "recall_pos": {
+        "n": 25,
+        "mean": 0.7056386972509263,
+        "std": 0.14152614280766893,
+        "min": 0.4594594594594595,
+        "max": 0.8918918918918919
+      },
+      "recall_neg": {
+        "n": 25,
+        "mean": 0.663027417027417,
+        "std": 0.30555361201212977,
+        "min": 0.0,
+        "max": 1.0
+      }
+    },
+    "baseline_family": "majority_baseline",
+    "baseline": {
+      "balanced_accuracy": {
+        "n": 25,
+        "mean": 0.5,
+        "std": 0.0,
+        "min": 0.5,
+        "max": 0.5
+      },
+      "macro_f1": {
+        "n": 25,
+        "mean": 0.46398180384924004,
+        "std": 0.01743545394290123,
+        "min": 0.4225352112676056,
+        "max": 0.49382716049382713
+      },
+      "roc_auc": {
+        "n": 25,
+        "mean": 0.5,
+        "std": 0.0,
+        "min": 0.5,
+        "max": 0.5
+      },
+      "precision_pos": {
+        "n": 25,
+        "mean": 0.8674731113091861,
+        "std": 0.05977570118625011,
+        "min": 0.7317073170731707,
+        "max": 0.975609756097561
+      },
+      "recall_pos": {
+        "n": 25,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "recall_neg": {
+        "n": 25,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      }
+    }
+  },
+  "scope": "Microgravity droplet combustion on the ISS (NASA FLEX, PSI-69): n-heptane or methanol droplets in the tested pressure and gas-mixture ranges only.",
+  "scope_zh": "国际空间站上的微重力液滴燃烧（NASA FLEX，PSI-69）：仅适用于正庚烷或甲醇液滴，以及已测试的压力与气体混合范围。",
+  "trained_with": {
+    "scikit_learn": "1.5.2",
+    "script": "src/train_flex_models.py"
+  },
+  "trained_at_utc": "2026-10-24T16:15:55+00:00"
+}

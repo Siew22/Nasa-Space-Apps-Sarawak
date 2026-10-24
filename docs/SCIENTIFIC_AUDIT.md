@@ -167,3 +167,63 @@ Removed: dataset `APOLLO11_ASCENT` from `config/data_sources.json` and `src/prov
 `app/services/rocket_ascent.py`, `src/build_rocket_ascent.py`, `assets/rocket_launch.html`, `data/processed/rocket/`,
 `data/raw/nasa_ntrs/`, `data/transcribed/`, `data/reference/` and `tests/test_rocket_ascent.py`. Everything is
 recoverable from git commit `13ab59a`.
+
+
+## 10. Deployed FLEX models: the AI Predictions tab (2026-10-25)
+
+**Why:** the two FLEX models were only scored in cross-validation, so the dashboard had no AI a user could run on
+microgravity data (the only runnable model was the ground-based MaCFP network).
+
+**What is deployed** (`src/train_flex_models.py` → `models/flex_burning_rate_ridge_v1.json`, `models/flex_extinction_logistic_v1.json`):
+- **Families:** Ridge for the burning-rate constant and logistic regression for flame-out. They are the best-scoring
+  families in `reports/cv_summary.json` and the ones this report and the README quote.
+- **Recipe:** identical to the CV (imported from `src/run_cv_evaluation.py`): median imputation, standard scaling,
+  Ridge / class-balanced logistic regression, same tuning grid.
+- **Final setting:** the grid value with the best mean MAE / log loss over group-disjoint 5-fold splits of all rows,
+  averaged over the 5 protocol seeds, then refit on all rows (255 and 204 rows).
+  - Ridge alpha → mean MAE: 0.1: 0.0479, 1: 0.0478, 10: 0.0474; chosen alpha = 10.
+  - Logistic C → mean log loss: 0.1: 0.5218, 1: 0.5252, 10: 0.5349; chosen C = 0.1.
+- **Performance to quote:** the nested CV in `reports/cv_summary.json`, which evaluated this whole procedure on unseen
+  test days. It is copied into each model file, and a test checks the copy matches.
+
+**How it is served** (`app/services/flex_inference.py`):
+- **Format:** the models are linear, so they are stored as plain numbers (medians, scaling, coefficients), not pickles.
+  A test confirms the numbers reproduce scikit-learn's predictions to 1e-9.
+- **Explanations:** each prediction is split exactly into one contribution per input, measured from the average training test.
+- **Input checks:** values outside the tested ranges, and gas mixes above 100 %, are refused.
+- **Nearest real tests:** same fuel, pressure within 10 %, O₂ within 2 points, CO₂ and He within 5 points.
+
+**Limits stated in the tab:**
+- **Flame-out score:** class-balanced training (177 flame-outs to 27 burn-outs) moves scores toward 0.5, so the score
+  ranks risk and 0.5 is the evaluated decision line, but it is not a calibrated probability.
+- **Scope:** n-heptane and methanol droplets in the tested pressure and gas-mixture ranges only.
+- **Model vs data:** the model's call can disagree with the nearest real tests; both are shown side by side.
+
+**Commands:** `python -m src.train_flex_models`. Tests: `tests/test_flex_models.py` (16 tests).
+
+## 11. Crew fire-safety takeaways on the front page (2026-10-25)
+
+**Why:** the challenge asks for fire-safety insights for human space exploration. The findings were spread across tabs.
+
+**What:** six cards above the tabs (`app/services/insights.py`), every number recomputed on each data change:
+
+| Takeaway | Evidence | Computed from |
+|---|---|---|
+| Airflow keeps a fire alive in orbit | `SIMULATED_RESULT` | the STEM sweep formulas at g = 0, 21 % O₂ |
+| More oxygen, faster fire | `REAL_MEASUREMENT` | FLEX burning-rate means by O₂ group, tests without added CO₂ or He |
+| CO₂ in the air slows the flame | `REAL_MEASUREMENT` | FLEX burning rate and flame-out share with ≥ 15 % CO₂ vs none |
+| Don't count on a fire putting itself out | `REAL_MEASUREMENT` | FLEX outcome counts (disrupted tests excluded) |
+| How much can burn matters for toxic gas | `REAL_MEASUREMENT` | BASS-II mean final CO, PMMA forms with ≥ 5 tests |
+| No "up" in orbit | `SIMULATED_RESULT` | the 2D model at 9.80665 vs 0 m/s², no airflow |
+
+**Honesty notes:**
+- **Raw group comparisons:** the FLEX comparisons are not controlled experiments. The CO₂ card reports the average O₂ in
+  both groups, and the AI Predictions tab separates the effects with a model.
+- **Where the methanol data disagree:** with CO₂, methanol flames went out slightly *less* often (91 % vs 96 %), so the
+  card claims only that CO₂ slows the flame, not that it always puts it out.
+- **Unverified data:** if a dataset's provenance status is not `VERIFIED_SOURCE`, its cards show that status instead of
+  `REAL_MEASUREMENT`.
+- **Recommendations:** the "➜" lines are general fire-safety practice that follows from each finding, not results of
+  the data.
+
+**Tests:** `tests/test_insights.py` (12 tests).
