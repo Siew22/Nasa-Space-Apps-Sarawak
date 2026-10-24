@@ -32,6 +32,7 @@ Every output in the dashboard and the API carries one of these labels. Statuses 
 | **NASA BASS-II** (PSI-25, DOI `10.60555/4qc4-de67`) | 129 solid-fuel flame tests on the ISS: materials, flow settings, O₂/CO₂/CO readings. No flame-spread speed column. | SHA-256 + size against NASA metadata (`config/data_sources.json`) |
 | **NASA FLEX** (PSI-69, DOI `10.60555/mbq8-0451`) | 274 droplet-combustion tests on the ISS: fuel, pressure, atmosphere, droplet sizes, burning-rate constant (mm²/s), test outcome | Same |
 | **MaCFP PMMA cone calorimeter** ([MaCFP/matl-db](https://github.com/MaCFP/matl-db), commit `b72eb23`) | 54 ground-based (1 g) PMMA burns from 10 labs | Rebuilt byte-for-byte from the pinned commit |
+| **Apollo 11 Saturn V launch** (NASA/SP-2000-4029 *Apollo by the Numbers*, [NTRS 20010008244](https://ntrs.nasa.gov/citations/20010008244), pp. 103 and 105) | Times, altitudes, speeds and angles at each engine ignition, cutoff and separation; parking orbit | Hand transcription checked against NASA's own OCR text of the page (registered SHA-256); tables cross-checked against each other and against the primary report MPR-SAT-FE-69-9 |
 
 Both NASA tables are stored unchanged in `data/raw/nasa_psi/` and list `CC0-1.0` in NASA's PSI metadata.
 Column meanings follow NASA/TP-2015-216046 Appendix A.1 / Table IX (FLEX) and the PSI-25 ReadMe (BASS-II).
@@ -62,8 +63,9 @@ Streamlit Community Cloud. Use Python 3.11; TensorFlow 2.16 does not support new
 ## Reproducible pipeline
 
 ```bash
-python -m src.fetch_nasa_psi_tables          # download official PSI tables; refuses files whose size/SHA-256 differ
+python -m src.fetch_nasa_psi_tables          # download official PSI tables + the NTRS Apollo text; refuses files whose size/SHA-256 differ
 python -m src.fetch_nasa_psi_tables --verify # offline check of the stored files
+python -m src.build_rocket_ascent            # Apollo 11 transcription -> data/processed/rocket/ (with OCR and cross-table checks)
 python -m src.build_dashboard_data           # raw tables -> data/processed/dashboard_records.csv (values copied unchanged)
 python -m src.build_task_datasets            # FLEX modelling table + exclusions with reasons
 python -m src.build_measured_cone_dataset    # MaCFP summaries (needs a clone of MaCFP/matl-db in data/raw/macfp-matl-db)
@@ -118,6 +120,13 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
    - the hot-gas centroid path.
 
    The temperature map is an illustrative Gaussian, not a CFD solution. The tab lists every equation, assumption and limitation (`config/simulation_model.json`).
+
+   Below it, **Rocket launch: when does the engine flame go out?** replays Apollo 11's climb to orbit:
+   - **Data:** every ignition, cutoff and separation time, altitude and speed comes from NASA's published flight values (`VERIFIED_SOURCE`). Values between NASA's event times are interpolated for drawing only.
+   - **Answer shown:** the flame does not go out because the rocket reaches space (each stage carries liquid oxygen). It goes out at each commanded cutoff, and the last one comes only once orbital speed is reached.
+   - **"What if the flame went out earlier?":** takes NASA's state at a real cutoff and computes the drag-free two-body coast (`SIMULATED_RESULT`).
+   - **Checks:** the physics is tested against 8 NASA numbers, for example the parking-orbit period (88.18 min) and the spent stages' highest points.
+   - **Air pressure:** from the U.S. Standard Atmosphere 1976.
 4. **Scientific Audit.** Every task's status, the leakage re-check, model diagrams and scores, fold-by-fold results, measured-vs-predicted plots, and download links for all reports.
 5. **Post-test CSV prediction** (`MODEL_PREDICTION`). The MaCFP network estimates peak HRR from an after-test burn summary.
    - **Preview:** two real burns, measured vs out-of-fold prediction.
@@ -137,18 +146,32 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
 - **Reports and checkpoint:** consistency of the generated reports, and the saved checkpoint matching its training file.
 - **API:** status fields in API responses.
 - **Dashboard:** an explicit error when the provenance report is missing.
+- **Apollo 11 data and physics:**
+  - every transcribed number appears in NASA's OCR of the page;
+  - the NASA tables agree with each other;
+  - the tables rebuild byte-for-byte;
+  - the standard atmosphere and the two-body orbit match reference values;
+  - the physics reproduces NASA's numbers;
+  - the drawing track passes through every NASA point;
+  - the rocket section renders in both languages.
 
 ## Repository structure
 
 ```text
-app/                    FastAPI app and services (provenance status loader, PSI parsing rules, ranking, simulation, model inference)
+app/                    FastAPI app and services (provenance status loader, PSI parsing rules, ranking, simulation,
+                        model inference, rocket_ascent.py: Apollo 11 data + orbit/atmosphere physics)
 src/app.py              Streamlit dashboard
-src/fetch_nasa_psi_tables.py, build_dashboard_data.py, build_task_datasets.py, build_measured_cone_dataset.py
+assets/rocket_launch.html  canvas replay of the Apollo 11 launch (filled with NASA data by src/app.py)
+src/fetch_nasa_psi_tables.py, build_dashboard_data.py, build_task_datasets.py, build_measured_cone_dataset.py,
+build_rocket_ascent.py
 src/provenance_audit.py, group_cv.py, run_cv_evaluation.py, train_spacecraft_fire_model.py
 src/generate_synthetic_demo_tables.py   synthetic demo tables (never ingested by default)
 src/legacy/             retired scripts (import is blocked; see README inside)
 config/                 data_sources.json, target_registry.json, simulation_model.json, dataset_catalog.csv
 data/raw/nasa_psi/      official NASA PSI tables, byte-for-byte
+data/raw/nasa_ntrs/     NTRS full text of NASA/SP-2000-4029 (byte-for-byte) and scans of the two table pages used
+data/transcribed/       hand transcriptions of those pages, exactly as printed
+data/reference/         scan of the primary report table used only for cross-checks
 data/processed/         processed records and task tables
 data/legacy/            retired data files
 models/                 deployed MaCFP network + metadata
@@ -163,6 +186,9 @@ tests/                  pytest suite
 2. NASA PSI-69, Flame Extinguishment Experiment (FLEX), DOI 10.60555/mbq8-0451.
 3. NASA/TP-2015-216046, *Flame Extinguishment Experiment (FLEX)*, Appendix A ([NTRS 20150023456](https://ntrs.nasa.gov/citations/20150023456)).
 4. MaCFP Condensed Phase Material Database ([github.com/MaCFP/matl-db](https://github.com/MaCFP/matl-db)), commit `b72eb237`.
+5. R. W. Orloff, *Apollo by the Numbers: A Statistical Reference*, NASA/SP-2000-4029 ([NTRS 20010008244](https://ntrs.nasa.gov/citations/20010008244)), pp. 103 and 105.
+6. NASA Marshall Space Flight Center, *Saturn V Launch Vehicle Flight Evaluation Report AS-506 Apollo 11 Mission*, MPR-SAT-FE-69-9 (1969), Table 4-1 (cross-check only).
+7. *U.S. Standard Atmosphere, 1976*, NOAA/NASA/USAF (NOAA-S/T 76-1562).
 
 ## Contributors
 

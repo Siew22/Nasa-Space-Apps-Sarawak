@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  Apollo 11 launch replay. Every time, altitude, speed and engine on/off state comes from the JSON that
+  src/app.py injects (NASA/SP-2000-4029 values via app/services/rocket_ascent.py). The drawing itself
+  (rocket shape, flame look, clouds, camera) is an illustration.
+-->
+<style>
+  :root { --ink:#e8ecf7; --muted:#9aa5c4; --line:rgba(255,255,255,.10); --panel:rgba(18,26,51,.94); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; color: var(--ink);
+    font-family: "Segoe UI", Inter, Roboto, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; }
+  .wrap { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(250px, 1fr); gap: 14px; }
+  .scene { position: relative; height: 430px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #02040b; }
+  .mini { display: none; position: absolute; right: 10px; top: 10px; padding: 6px 10px; border-radius: 10px; font-size: 12px;
+    line-height: 1.45; background: rgba(11,16,32,.8); border: 1px solid var(--line); text-align: right; max-width: 60%; }
+  .mini b { font-family: Consolas, Menlo, monospace; font-size: 14px; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .toast { position: absolute; left: 50px; top: 12px; max-width: calc(100% - 64px); padding: 8px 12px; border-radius: 12px;
+    background: rgba(11,16,32,.82); border: 1px solid var(--line); font-size: 13px; line-height: 1.4;
+    opacity: 0; transform: translateY(-6px); transition: opacity .35s ease, transform .35s ease; pointer-events: none; }
+  .toast.show { opacity: 1; transform: none; }
+  .toast.flameout { border-color: rgba(255,138,61,.75); box-shadow: 0 0 22px rgba(255,138,61,.28); }
+  .toast small { color: var(--muted); }
+  .big { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 13px 26px; border-radius: 999px;
+    border: 0; font-family: inherit; font-size: 16px; font-weight: 700; line-height: 1; color: #0b1020; background: linear-gradient(135deg, #ffd9b8, #ff9a4d);
+    cursor: pointer; box-shadow: 0 8px 30px rgba(255,106,43,.35); transition: filter .2s ease, transform .2s ease; }
+  .big:hover { filter: brightness(1.06); transform: translate(-50%, -50%) scale(1.03); }
+  .big[hidden] { display: none; }
+  .ctrl { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .ctrl + .ctrl { margin-top: 8px; }
+  .btn { border: 1px solid rgba(255,154,77,.45); background: rgba(255,106,43,.08); color: #ffd9b8; border-radius: 10px;
+    padding: 6px 12px; font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1.2; cursor: pointer; transition: background .2s ease; }
+  .btn:hover { background: rgba(255,106,43,.17); }
+  .btn.on { background: #ffd9b8; color: #0b1020; border-color: #ffd9b8; }
+  .btn:focus-visible, .big:focus-visible, .scrub:focus-visible { outline: 2px solid #ff9a4d; outline-offset: 2px; }
+  .seg { display: inline-flex; gap: 4px; }
+  .scrub { flex: 1; min-width: 140px; margin: 0; accent-color: #ff6a2b; }
+  .hud { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 9px; height: 430px; overflow: hidden; }
+  .clock { font: 700 30px/1 Consolas, "Cascadia Mono", Menlo, monospace; letter-spacing: 1px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .chip { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    background: rgba(255,255,255,.06); border: 1px solid var(--line); line-height: 1.35; }
+  .chip.kerosene { background: rgba(255,138,61,.14); border-color: rgba(255,138,61,.55); color: #ffd2b0; }
+  .chip.hydrogen { background: rgba(124,196,255,.12); border-color: rgba(124,196,255,.5); color: #d6ebff; }
+  .chip.orbit { background: rgba(61,220,151,.12); border-color: rgba(61,220,151,.5); color: #c3f5df; }
+  .chip.off { color: var(--muted); }
+  .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--muted); }
+  .row b { color: #fff; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .bar { position: relative; height: 7px; border-radius: 99px; background: rgba(255,255,255,.08); margin-top: 4px; }
+  .bar.marked { margin-bottom: 13px; }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; transition: width .08s linear; }
+  .bar em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: rgba(255,255,255,.75); }
+  .bar em::after { content: attr(data-l); position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    font-family: inherit; font-size: 9.5px; font-weight: 600; line-height: 1; color: var(--muted); white-space: nowrap; font-style: normal; }
+  .bar em.right::after { left: auto; right: 0; transform: none; }
+  .log { flex: 1; overflow: auto; border-top: 1px solid var(--line); padding-top: 6px; font-size: 12px; scrollbar-width: thin; }
+  .log div { display: flex; gap: 8px; padding: 3px 0; color: #6f7a99; transition: color .3s ease; }
+  .log div.done { color: var(--ink); }
+  .log div.flameout.done { color: #ffb98a; }
+  .log span { font-family: Consolas, Menlo, monospace; min-width: 62px; color: #8f9ab8; }
+  .note { font-size: 11px; color: #7b86a5; }
+  @media (max-width: 760px) {   /* phones: the side panel collapses into a compact overlay on the scene */
+    .wrap { grid-template-columns: 1fr; }
+    .scene { height: 320px; }
+    .hud { display: none; }
+    .mini { display: block; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="scene">
+      <canvas id="cv" role="img"></canvas>
+      <div class="toast" id="toast" aria-live="polite"></div>
+      <div class="mini" id="mini"></div>
+      <button class="big" id="go"></button>
+    </div>
+    <div class="ctrl">
+      <button class="btn" id="play"></button>
+      <button class="btn" id="restart"></button>
+      <span class="seg" id="speeds" role="group"></span>
+    </div>
+    <div class="ctrl"><input class="scrub" id="scrub" type="range"></div>
+  </div>
+  <div class="hud">
+    <div><div class="clock" id="clock"></div><div class="sub" id="clockSub"></div></div>
+    <div class="chip" id="engine"></div>
+    <div><div class="row"><span id="altL"></span><b id="alt"></b></div>
+      <div class="bar marked"><i id="altBar" style="background:#7cc4ff"></i><em id="karman"></em></div></div>
+    <div><div class="row"><span id="spdL"></span><b id="spd"></b></div>
+      <div class="bar marked"><i id="spdBar" style="background:#ff8a3d"></i><em id="orbitMark" class="right"></em></div></div>
+    <div><div class="row"><span id="presL"></span><b id="pres"></b></div>
+      <div class="bar"><i id="presBar" style="background:#9da8c8"></i></div></div>
+    <div class="log" id="log"></div>
+    <div class="note" id="note"></div>
+  </div>
+</div>
+<script>
+window.__rocketErrors = [];
+window.addEventListener("error", (e) => window.__rocketErrors.push(String(e.message)));
+const D = /*__DATA__*/null;
+(() => {
+  const T = D.text, TR = D.track;
+  const N = TR.t.length, T0 = TR.t[0], DT = TR.t[1] - TR.t[0], T1 = TR.t[N - 1];
+  const $ = (id) => document.getElementById(id);
+  const cv = $("cv"), ctx = cv.getContext("2d");
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+  const lerp = (a, b, f) => a + (b - a) * f;
+  let W = 0, H = 0;
+
+  function resize() {
+    const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = r.width; H = r.height;
+    cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  new ResizeObserver(resize).observe(cv);
+  resize();
+
+  // ---------- data lookups ----------
+  function sample(t) {
+    const x = clamp((t - T0) / DT, 0, N - 1), i = Math.floor(x), j = Math.min(i + 1, N - 1), f = x - i;
+    const L = (a) => a[i] + (a[j] - a[i]) * f;
+    return { alt: L(TR.alt), rng: L(TR.rng), v: L(TR.v), ang: L(TR.ang),
+             p: TR.p[i] == null || TR.p[j] == null ? null : L(TR.p) };
+  }
+  const bottomStage = (t) => (t >= D.sep[1] ? 2 : t >= D.sep[0] ? 1 : 0);
+  // 0..1 flame strength for one engine group, with a short build-up after ignition and fade after cutoff
+  function strength(t, on, off, rise, fade) {
+    if (t < on || t > off + fade) return 0;
+    if (t < on + rise) return (t - on) / rise;
+    if (t <= off) return 1;
+    return 1 - (t - off) / fade;
+  }
+  function phaseNow(t) {
+    for (const ph of D.phases) if (t >= ph.ign && t < ph.cut) return ph;
+    return null;
+  }
+
+  // ---------- scenery ----------
+  const SKY = [[0, [96, 168, 236]], [5, [52, 128, 214]], [12, [28, 86, 168]], [25, [15, 47, 107]],
+               [45, [10, 26, 66]], [70, [5, 11, 32]], [100, [2, 4, 11]]];
+  function sky(z) {
+    z = clamp(z, 0, 100);
+    for (let k = 1; k < SKY.length; k++) {
+      if (z <= SKY[k][0]) {
+        const f = (z - SKY[k - 1][0]) / (SKY[k][0] - SKY[k - 1][0]), a = SKY[k - 1][1], b = SKY[k][1];
+        return `rgb(${Math.round(lerp(a[0], b[0], f))},${Math.round(lerp(a[1], b[1], f))},${Math.round(lerp(a[2], b[2], f))})`;
+      }
+    }
+    return "rgb(2,4,11)";
+  }
+  let seed = 11;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const STARS = Array.from({ length: 170 }, () => ({ x: rnd(), y: rnd(), r: 0.35 + rnd() * 1.15, tw: rnd() * 6.28 }));
+  const CLOUDS = [[-2.4, 1.5, 2.3, .55], [0.9, 2.3, 3.1, .6], [3.6, 1.8, 2.4, .5], [-1.1, 3.3, 2.6, .5], [5.4, 2.9, 3.3, .55],
+                  [2.2, 8.6, 5.2, .28], [7.6, 9.4, 6.2, .26], [-3.0, 10.2, 4.6, .22], [12.0, 9.0, 5.6, .25]]
+                  .map(([x, z, w, a]) => ({ x, z, w, a, lobes: Array.from({ length: 5 }, () => [rnd() - .5, rnd() * .5, .35 + rnd() * .4]) }));
+
+  function drawSky(s) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, sky(s.alt + 9)); g.addColorStop(1, sky(Math.max(0, s.alt - 3)));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const starA = clamp((s.alt - 28) / 55, 0, 1);
+    if (starA > 0) {
+      const now = performance.now() / 1000;
+      for (const st of STARS) {
+        ctx.globalAlpha = starA * (reduceMotion ? .85 : .65 + .35 * Math.sin(now * 1.7 + st.tw));
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(st.x * W, st.y * H, st.r, 0, 6.283); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  function drawEarthLimb(s) {
+    const f = clamp((s.alt - 22) / 170, 0, 1);
+    if (f <= 0) return;
+    const rise = lerp(6, 78, f), R = W * lerp(7, 1.35, Math.pow(f, .6)), cx = W * .5, cy = H - rise + R;
+    ctx.save(); ctx.globalAlpha = clamp((s.alt - 22) / 25, 0, 1);
+    const glow = ctx.createRadialGradient(cx, cy, R - 2, cx, cy, R + 26);
+    glow.addColorStop(0, "rgba(124,196,255,.75)"); glow.addColorStop(.25, "rgba(90,166,236,.35)"); glow.addColorStop(1, "rgba(90,166,236,0)");
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, R + 26, 0, 6.283); ctx.fill();
+    const sea = ctx.createLinearGradient(0, H - rise, 0, H);
+    sea.addColorStop(0, "#1f5fa8"); sea.addColorStop(1, "#08254a");
+    ctx.fillStyle = sea; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.283); ctx.fill();
+    ctx.globalAlpha *= .35; ctx.fillStyle = "#e8f2ff";
+    for (let k = 0; k < 9; k++) {  // a few cloud streaks on the ocean
+      const a = -Math.PI / 2 + (k - 4) * .045 * (1.4 - f), x = cx + Math.cos(a) * (R - 6 - (k % 3) * 7), y = cy + Math.sin(a) * (R - 6 - (k % 3) * 7);
+      ctx.beginPath(); ctx.ellipse(x, y, 26 + (k % 4) * 9, 3.5, a + Math.PI / 2, 0, 6.283); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawClouds(s, ax, ay) {
+    const K = 110;  // px per km for scenery parallax (the rocket itself is drawn much larger)
+    for (const c of CLOUDS) {
+      const sx = ax + (c.x - s.rng) * K, sy = ay - (c.z - s.alt) * K, w = c.w * K * .5;
+      if (sy < -60 || sy > H + 60 || sx < -w * 2 || sx > W + w * 2) continue;
+      for (const [dx, dy, r] of c.lobes) {
+        const g = ctx.createRadialGradient(sx + dx * w, sy - dy * 18, 0, sx + dx * w, sy - dy * 18, w * r);
+        g.addColorStop(0, `rgba(255,255,255,${c.a})`); g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(sx + dx * w, sy - dy * 18, w * r, w * r * .32, 0, 0, 6.283); ctx.fill();
+      }
+    }
+  }
+  function drawGround(s, ax, ay, S) {
+    const gy = ay + (s.alt - D.alt0) * 1000 * S;
+    if (gy > H + 5) return;
+    const g = ctx.createLinearGradient(0, gy, 0, H);
+    g.addColorStop(0, "#1d3326"); g.addColorStop(1, "#0d1a13");
+    ctx.fillStyle = g; ctx.fillRect(0, gy, W, H - gy + 2);
+    ctx.fillStyle = "#6c7486"; ctx.fillRect(ax - 34 * S, gy - 2, 68 * S, 6);           // launch platform
+    const tx = ax - 26 * S, th = 136 * S;                                                  // launch umbilical tower
+    ctx.strokeStyle = "#b8492f"; ctx.lineWidth = 1.2;
+    ctx.strokeRect(tx - 6 * S, gy - th, 12 * S, th);
+    for (let y = gy; y > gy - th; y -= 9 * S) {
+      ctx.beginPath(); ctx.moveTo(tx - 6 * S, y); ctx.lineTo(tx + 6 * S, y - 9 * S); ctx.moveTo(tx + 6 * S, y); ctx.lineTo(tx - 6 * S, y - 9 * S); ctx.stroke();
+    }
+    ctx.fillStyle = "#c95638"; ctx.fillRect(tx - 9 * S, gy - th - 4 * S, 18 * S, 4 * S);   // crane at the top
+  }
+
+  // ---------- smoke and debris ----------
+  const smoke = [], debris = [];
+  function emitSmoke(s, ax, ay, S, rot, t) {
+    if (reduceMotion) return;
+    const ph = phaseNow(t);
+    if (!ph || ph.fuel !== "kerosene" || s.alt > 22) return;
+    const nearGround = (s.alt - D.alt0) * 1000 < 120;
+    const bx = -Math.sin(rot), by = Math.cos(rot);          // "backwards" along the rocket's axis on screen
+    for (let k = 0; k < (nearGround ? 5 : 2); k++) {
+      const side = Math.random() < .5 ? -1 : 1, sp = 60 + Math.random() * 40;
+      smoke.push({ x: ax + bx * 30 * S + (Math.random() - .5) * 10, y: ay + by * 30 * S,
+        vx: nearGround ? side * (40 + Math.random() * 70) : bx * sp + (Math.random() - .5) * 14,
+        vy: nearGround ? -4 + Math.random() * 8 : by * sp + (Math.random() - .5) * 14,
+        r: 6 + Math.random() * 8, life: 0, max: 2.2 + Math.random() * 1.6 });
+    }
+    if (smoke.length > 420) smoke.splice(0, smoke.length - 420);
+  }
+  function drawSmoke(dtWall, s) {
+    const thin = clamp(1 - s.alt / 22, .15, 1);
+    for (let k = smoke.length - 1; k >= 0; k--) {
+      const p = smoke[k];
+      p.life += dtWall; p.x += p.vx * dtWall; p.y += p.vy * dtWall; p.r += 14 * dtWall;
+      if (p.life > p.max) { smoke.splice(k, 1); continue; }
+      ctx.globalAlpha = (1 - p.life / p.max) * .28 * thin;
+      ctx.fillStyle = "#e9edf5"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function spawn(kind) { debris.push({ kind, born: performance.now() / 1000 }); }
+
+  // ---------- rocket ----------
+  const STAGE_W = 10.1, UPPER_W = 6.6, CSM_W = 3.9;   // stage diameters in metres (drawing proportions)
+  let stackTop = 0;                                    // local y of the command module tip, for the tower sprite
+  function body(y, h, w, fill, bands) {
+    ctx.fillStyle = fill; ctx.fillRect(-w / 2, y - h, w, h);
+    ctx.fillStyle = "#1a1d24";
+    for (const [y0, y1, x0, x1] of bands) ctx.fillRect(-w / 2 + x0 * w, y - h + y0 * h, (x1 - x0) * w, (y1 - y0) * h);
+    ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1; ctx.strokeRect(-w / 2, y - h, w, h);
+  }
+  function taper(y, h, w0, w1, fill) {
+    ctx.fillStyle = fill; ctx.beginPath();
+    ctx.moveTo(-w0 / 2, y); ctx.lineTo(w0 / 2, y); ctx.lineTo(w1 / 2, y - h); ctx.lineTo(-w1 / 2, y - h); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.stroke();
+  }
+  function bell(x, y, exitW, len) {
+    ctx.fillStyle = "#454b59"; ctx.beginPath();
+    ctx.moveTo(x - exitW * .22, y - len); ctx.lineTo(x + exitW * .22, y - len); ctx.lineTo(x + exitW / 2, y); ctx.lineTo(x - exitW / 2, y);
+    ctx.closePath(); ctx.fill();
+  }
+  // Draws the stack with its base at y = 0 (local, up = -y); returns nozzle exits for the flames.
+  function rocketGeometry(t, S) {
+    const bottom = bottomStage(t), parts = [], nozzles = [];
+    let y = 0;
+    if (bottom === 0) {
+      for (const bx of [-3.3, 0, 3.3]) nozzles.push({ x: bx * S, w: 3.5 * S, center: bx === 0, stage: 0 });
+      parts.push(() => { for (const n of nozzles) bell(n.x, 0, n.w, 5.6 * S); });
+      y -= 5.0 * S;
+      const yb = y;
+      parts.push(() => {
+        ctx.fillStyle = "#e9edf3";
+        for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sgn * STAGE_W / 2 * S, yb); ctx.lineTo(sgn * (STAGE_W / 2 + 3.2) * S, yb + 1.5 * S);
+          ctx.lineTo(sgn * (STAGE_W / 2 + 2.2) * S, yb - 7 * S); ctx.lineTo(sgn * STAGE_W / 2 * S, yb - 9 * S); ctx.closePath(); ctx.fill(); }
+        body(yb, 42 * S, STAGE_W * S, "#f2f4f8", [[.0, .1, 0, 1], [.62, .74, 0, .5], [.86, 1, .5, 1]]);
+        body(yb - 42 * S, 5.5 * S, STAGE_W * S, "#f2f4f8", [[.0, 1, .0, .25]]);
+      });
+      y -= 47.5 * S;
+    } else if (bottom === 1) {
+      for (const bx of [-2.6, 0, 2.6]) nozzles.push({ x: bx * S, w: 2.1 * S, center: bx === 0, stage: 1 });
+      parts.push(() => {
+        for (const n of nozzles) bell(n.x, 0, n.w, 3.4 * S);
+        if (t < D.ring) body(-0.4 * S, 5.5 * S, STAGE_W * S, "#e7ebf2", [[0, 1, 0, .25]]);   // aft interstage still attached
+      });
+      y -= 3.0 * S;
+    }
+    if (bottom <= 1) {
+      const yb = y;
+      parts.push(() => {
+        body(yb, 24.9 * S, STAGE_W * S, "#f4f6fa", [[0, .06, 0, 1]]);
+        taper(yb - 24.9 * S, 5 * S, STAGE_W * S, UPPER_W * S, "#eef1f6");
+      });
+      y -= 29.9 * S;
+    }
+    if (bottom === 2) {
+      nozzles.push({ x: 0, w: 2.1 * S, center: false, stage: 2 });
+      parts.push(() => bell(0, 0, 2.1 * S, 3.4 * S));
+      y -= 3.0 * S;
+    }
+    const yb = y;
+    stackTop = yb - 38.2 * S;
+    parts.push(() => {
+      body(yb, 17.8 * S, UPPER_W * S, "#f4f6fa", [[.0, .14, 0, 1]]);
+      body(yb - 17.8 * S, 0.9 * S, UPPER_W * S, "#3a3f4b", []);
+      taper(yb - 18.7 * S, 8.5 * S, UPPER_W * S, CSM_W * S, "#e5e9f0");
+      body(yb - 27.2 * S, 7.5 * S, CSM_W * S, "#c7ccd6", [[.1, .16, 0, 1]]);
+      taper(yb - 34.7 * S, 3.5 * S, CSM_W * S, .5 * S, "#d9dde5");
+      if (t < D.les) drawTower(yb - 38.2 * S, S);
+    });
+    return { parts, nozzles };
+  }
+  function drawTower(y, S) {
+    ctx.strokeStyle = "#5a606d"; ctx.lineWidth = Math.max(1, .5 * S);
+    ctx.beginPath(); ctx.moveTo(-1.2 * S, y); ctx.lineTo(-.4 * S, y - 4.5 * S); ctx.moveTo(1.2 * S, y); ctx.lineTo(.4 * S, y - 4.5 * S);
+    ctx.moveTo(-1.2 * S, y); ctx.lineTo(.4 * S, y - 4.5 * S); ctx.stroke();
+    ctx.fillStyle = "#e9edf3"; ctx.fillRect(-.45 * S, y - 9 * S, .9 * S, 4.5 * S);
+    ctx.fillStyle = "#c0392b"; ctx.beginPath(); ctx.moveTo(-.45 * S, y - 9 * S); ctx.lineTo(.45 * S, y - 9 * S); ctx.lineTo(0, y - 10.5 * S); ctx.fill();
+  }
+  function flame(x, w, len, kind, a, plume) {
+    if (a <= 0.01) return;
+    const pw = w * plume * .5, flick = reduceMotion ? 1 : 1 + .07 * Math.sin(performance.now() * .031 + x) + .05 * Math.sin(performance.now() * .077);
+    const L = len * flick;
+    ctx.save(); ctx.globalAlpha = a;
+    const g = ctx.createLinearGradient(0, 0, 0, L);
+    if (kind === "kerosene") { g.addColorStop(0, "rgba(255,246,214,.98)"); g.addColorStop(.35, "rgba(255,170,70,.85)"); g.addColorStop(1, "rgba(255,90,30,0)"); }
+    else { g.addColorStop(0, "rgba(235,242,255,.75)"); g.addColorStop(.4, "rgba(160,195,255,.38)"); g.addColorStop(1, "rgba(130,160,255,0)"); }
+    ctx.fillStyle = g; ctx.beginPath();
+    ctx.moveTo(x - w * .45, 0);
+    ctx.bezierCurveTo(x - pw, L * .22, x - pw * .55, L * .78, x, L);
+    ctx.bezierCurveTo(x + pw * .55, L * .78, x + pw, L * .22, x + w * .45, 0);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = kind === "kerosene" ? "rgba(255,255,240,.95)" : "rgba(255,255,255,.55)";
+    ctx.beginPath(); ctx.ellipse(x, L * .1, w * .28, L * .14, 0, 0, 6.283); ctx.fill();
+    ctx.restore();
+  }
+  function drawFlames(t, s, nozzles, S, speed) {
+    const ph = D.phases[nozzles.length ? nozzles[0].stage : 0];
+    if (!ph) return;
+    const fade = Math.max(0.6, 0.35 * speed), rise = ph.ign < 0 ? (D.thrustOk - ph.ign) : 1.5;
+    const pf = s.p == null ? 0 : s.p, plume = 1 + 2.2 * (1 - Math.pow(pf, .22));
+    const len = (ph.fuel === "kerosene" ? 30 : ph.name === "S-II" ? 20 : 15) * S;
+    for (const n of nozzles) {
+      const off = n.center && ph.cco != null ? ph.cco : ph.cut;
+      flame(n.x, n.w, len * (1 + .5 * (plume - 1)), ph.fuel, strength(t, ph.ign, off, rise, fade), plume);
+    }
+    const a = strength(t, ph.ign, ph.cut, rise, fade);
+    if (a > 0 && plume > 1.6) {   // thin air: the separate plumes merge into one wide glow
+      ctx.save(); ctx.globalAlpha = a * clamp((plume - 1.6) / 1.4, 0, 1) * (ph.fuel === "kerosene" ? .5 : .35);
+      const r = len * 1.1, g = ctx.createRadialGradient(0, r * .45, 0, 0, r * .45, r);
+      g.addColorStop(0, ph.fuel === "kerosene" ? "rgba(255,190,110,.9)" : "rgba(190,215,255,.8)"); g.addColorStop(1, "rgba(255,150,80,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, r * .45, STAGE_W * S * .5 * plume * .6, r, 0, 0, 6.283); ctx.fill();
+      ctx.restore();
+    }
+  }
+  function drawDebris(S, rot) {
+    const now = performance.now() / 1000;
+    for (let k = debris.length - 1; k >= 0; k--) {
+      const d = debris[k], age = now - d.born, life = d.kind === "tower" ? 1.6 : 3.2;
+      if (age > life) { debris.splice(k, 1); continue; }
+      ctx.save(); ctx.rotate(rot); ctx.globalAlpha = 1 - age / life;
+      if (d.kind === "tower") {   // the escape tower fires its own motor and flies off ahead
+        ctx.translate(8 * age * S, stackTop - (70 * age + 90 * age * age)); ctx.rotate(.6 * age); drawTower(0, S);
+      } else {                    // spent parts start just below the new base and fall behind
+        const h = (d.kind === "ring" ? 5.5 : d.kind === "S-IC" ? 42 : 24.9) * S;
+        ctx.translate(-4 * age * S, h + 4 + 26 * age + 22 * age * age); ctx.rotate(-.22 * age);
+        if (d.kind === "ring") body(0, h, STAGE_W * S, "#e7ebf2", [[0, 1, 0, .25]]);
+        else if (d.kind === "S-IC") body(0, h, STAGE_W * S, "#f2f4f8", [[.0, .1, 0, 1], [.62, .74, 0, .5], [.86, 1, .5, 1]]);
+        else body(0, h, STAGE_W * S, "#f4f6fa", [[0, .06, 0, 1]]);
+      }
+      ctx.restore();
+    }
+  }
+  function drawGauge(s) {
+    const x = 18, top = 26, bot = H - 26, y = (km) => bot - (bot - top) * clamp(km / 200, 0, 1);
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke();
+    ctx.font = "600 10px Segoe UI, sans-serif"; ctx.fillStyle = "rgba(232,236,247,.75)";
+    for (const km of [0, 50, 150, 200]) { ctx.fillRect(x - 3, y(km) - .5, 6, 1); ctx.fillText(String(km), x + 7, y(km) + 3.5); }
+    ctx.strokeStyle = "rgba(124,196,255,.85)"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x - 6, y(100)); ctx.lineTo(x + 44, y(100)); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle = "#9ed2ff"; ctx.fillText(T.karmanShort, x + 7, y(100) - 4);
+    ctx.fillStyle = "#ffd9b8"; ctx.beginPath(); const yy = y(s.alt); ctx.moveTo(x - 8, yy - 5); ctx.lineTo(x - 1, yy); ctx.lineTo(x - 8, yy + 5); ctx.fill();
+    ctx.font = "600 9.5px Segoe UI, sans-serif"; ctx.fillStyle = "rgba(232,236,247,.6)"; ctx.fillText("km", x - 6, top - 10);
+    ctx.restore();
+  }
+
+  // ---------- playback state ----------
+  let t = T0, playing = false, mode = "auto", last = performance.now(), dragging = false, ended = false;
+  const SPEEDS = [["auto", T.auto], [10, "10×"], [30, "30×"], [60, "60×"]];
+  function autoSpeed(tt) {
+    let sp = tt < 12 ? 3 : tt < 40 ? 3 + (tt - 12) / 28 * 17 : 20;
+    for (const e of D.slowAt) { const d = Math.abs(tt - e); if (d < 5) sp = Math.min(sp, 5 + d * 3); }
+    return sp;
+  }
+  const speedNow = () => (mode === "auto" ? autoSpeed(t) : mode);
+
+  // ---------- HUD ----------
+  const fmtClock = (x) => { const a = Math.abs(x), m = Math.floor(a / 60), sec = a - m * 60;
+    return (x < 0 ? "T−" : "T+") + String(m).padStart(2, "0") + ":" + sec.toFixed(1).padStart(4, "0"); };
+  function fmtPressure(p) {
+    if (p == null) return T.pressureAbove;
+    const pct = p * 100;
+    return (pct >= 1 ? pct.toFixed(1) : pct >= .01 ? pct.toFixed(3) : pct.toPrecision(2)) + " %";
+  }
+  const logBox = $("log");
+  const logRows = D.events.map((e) => {
+    const div = document.createElement("div");
+    div.className = e.kind;
+    div.innerHTML = `<span>${fmtClock(e.t)}</span>${e.label}`;
+    logBox.appendChild(div); return div;
+  });
+  let lastDone = -1;
+  function updateHud(s) {
+    $("clock").textContent = fmtClock(t);
+    $("clockSub").textContent = T.clockSub.replace("{x}", Math.round(speedNow()));
+    const ph = phaseNow(t), chip = $("engine");
+    if (t >= D.cutoffFinal) { chip.className = "chip orbit"; chip.textContent = t >= D.orbit ? T.inOrbit : T.finalCutoff; }
+    else if (ph) {
+      chip.className = "chip " + ph.fuel;
+      chip.textContent = (ph.fuel === "kerosene" ? T.burnKero : T.burnH2).replace("{stage}", ph.label)
+        + (ph.cco != null && t >= ph.cco ? T.centreOff : "");
+    } else { chip.className = "chip off"; chip.textContent = t < D.phases[0].ign ? T.countdown : T.coasting; }
+    $("alt").textContent = s.alt.toFixed(1) + " km";
+    $("altBar").style.width = clamp(s.alt / 200 * 100, 0, 100) + "%";
+    $("spd").textContent = (s.v / 1000).toFixed(2) + " km/s";
+    $("spdBar").style.width = clamp(s.v / 1000 / 8 * 100, 0, 100) + "%";
+    $("pres").textContent = fmtPressure(s.p);
+    $("presBar").style.width = (s.p == null ? 0 : clamp((Math.log10(Math.max(s.p, 1e-7)) + 6) / 6 * 100, 0, 100)) + "%";
+    $("mini").innerHTML = `<b>${fmtClock(t)}</b><br>${s.alt.toFixed(1)} km · ${(s.v / 1000).toFixed(2)} km/s<br>${chip.textContent}`;
+    let done = -1;
+    D.events.forEach((e, k) => { const on = t >= e.t; logRows[k].classList.toggle("done", on); if (on) done = k; });
+    if (done !== lastDone && done >= 0) {  // scroll only the log box (scrollIntoView would also scroll the host page)
+      logBox.scrollTop = Math.max(0, logRows[done].offsetTop - logBox.offsetTop - logBox.clientHeight / 2);
+      lastDone = done;
+    }
+    if (!dragging) $("scrub").value = t;
+  }
+  let toastTimer = 0;
+  function toast(e) {
+    const el = $("toast");
+    const facts = e.alt != null ? `<br><small>${T.nasaAt.replace("{alt}", e.alt.toFixed(1)).replace("{v}", e.v.toFixed(2))}${e.g ? " · " + T.peakG.replace("{g}", e.g) : ""}</small>` : "";
+    el.innerHTML = (e.kind === "flameout" ? `<b>🔥 → ⭘ ${T.flameOut}</b> · ` : "") + `<b>${fmtClock(e.t)}</b> ${e.label}` + facts;
+    el.className = "toast show" + (e.kind === "flameout" ? " flameout" : "");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.className = "toast"), 3200);
+  }
+
+  // ---------- frame ----------
+  function frame(now) {
+    const dtWall = Math.min(.1, (now - last) / 1000); last = now;
+    const prev = t;
+    if (playing) {
+      t = Math.min(T1, t + dtWall * speedNow());
+      for (const e of D.events) if (prev < e.t && t >= e.t) toast(e);
+      for (const [when, kind] of [[D.sep[0], "S-IC"], [D.sep[1], "S-II"], [D.les, "tower"], [D.ring, "ring"]]) if (prev < when && t >= when) spawn(kind);
+      if (t >= T1) { playing = false; ended = true; setButtons(); }
+    }
+    const s = sample(t), S = H / 300 * 1.0, ax = W * .46, ay = H * .64;
+    const rot = (90 - s.ang) * Math.PI / 180;
+    drawSky(s); drawEarthLimb(s); drawClouds(s, ax, ay); drawGround(s, ax, ay, S);
+    if (playing) emitSmoke(s, ax, ay, S, rot, t);
+    drawSmoke(dtWall, s);
+    ctx.save(); ctx.translate(ax, ay);
+    drawDebris(S, rot);
+    ctx.rotate(rot);
+    const geo = rocketGeometry(t, S);
+    drawFlames(t, s, geo.nozzles, S, speedNow());
+    for (const p of geo.parts) p();
+    ctx.restore();
+    drawGauge(s);
+    updateHud(s);
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- controls ----------
+  function setButtons() {
+    $("play").textContent = playing ? T.pause : T.play;
+    const go = $("go");
+    go.hidden = playing || (!ended && t > T0 + .01);
+    go.textContent = ended ? T.replay : T.launch;
+    document.querySelectorAll("#speeds .btn").forEach((b) => b.classList.toggle("on", String(b.dataset.s) === String(mode)));
+  }
+  function seek(x) {
+    t = clamp(x, T0, T1); ended = t >= T1; debris.length = 0; smoke.length = 0;
+    clearTimeout(toastTimer); $("toast").className = "toast";
+    setButtons();
+  }
+  function play() { if (t >= T1) seek(T0); ended = false; playing = true; last = performance.now(); setButtons(); }
+  function pause() { playing = false; setButtons(); }
+  $("go").onclick = play;
+  $("play").onclick = () => (playing ? pause() : play());
+  $("restart").textContent = T.restart;
+  $("restart").onclick = () => { seek(T0); play(); };
+  for (const [val, label] of SPEEDS) {
+    const b = document.createElement("button"); b.className = "btn"; b.dataset.s = val; b.textContent = label;
+    b.onclick = () => { mode = val; setButtons(); }; $("speeds").appendChild(b);
+  }
+  const scrub = $("scrub");
+  scrub.min = T0; scrub.max = T1; scrub.step = DT; scrub.value = T0; scrub.setAttribute("aria-label", T.scrub);
+  scrub.addEventListener("pointerdown", () => (dragging = true));
+  scrub.addEventListener("pointerup", () => (dragging = false));
+  scrub.addEventListener("input", () => seek(parseFloat(scrub.value)));
+  $("altL").textContent = T.altitude; $("spdL").textContent = T.speed; $("presL").textContent = T.pressure;
+  $("presL").title = T.pressureHelp; $("spdL").title = T.speedHelp;
+  const km = $("karman"); km.style.left = "50%"; km.dataset.l = T.karmanShort;
+  const om = $("orbitMark"); om.style.left = clamp(D.orbitSpeed / 8 * 100, 0, 100) + "%"; om.dataset.l = T.orbitSpeed;
+  $("note").textContent = T.note;
+  cv.setAttribute("aria-label", T.canvasLabel);
+  setButtons();
+  window.rocketSim = { seek, play, pause, state: () => ({ t, playing, mode, speed: speedNow(), errors: window.__rocketErrors }) };
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

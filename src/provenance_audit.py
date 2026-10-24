@@ -5,6 +5,8 @@ Status of every dataset is COMPUTED here from checks, never typed in:
   SYNTHETIC_DEMO     every row is reproduced exactly by a generator script in this repo
   VERIFIED_SOURCE    rebuilt byte-for-byte from source files at a pinned revision, or the raw
                      file's SHA-256 matches an official checksum registered in config/data_sources.json
+                     (for the hand-transcribed Apollo 11 tables: the registered NASA text matches, every
+                     transcribed number is found in NASA's OCR of that page, and the tables rebuild identically)
   UNVERIFIED_SOURCE  anything else (e.g. the source files are missing, so nothing can be checked)
 
 Outputs (regenerated on every run):
@@ -276,6 +278,122 @@ def audit_macfp(sources: dict) -> tuple[dict, list[dict]]:
     return summary, mapping
 
 
+def audit_apollo_ascent(sources: dict) -> tuple[dict, list[dict]]:
+    """Apollo 11 launch values from NASA/SP-2000-4029: official NTRS text checksum, transcription checked against
+    NASA's own OCR of the page, consistency across tables, agreement with the primary report, byte-identical rebuild."""
+    import src.build_rocket_ascent as builder
+
+    key = "APOLLO11_ASCENT"
+    src = sources["datasets"][key]
+    entry = src["official_files"][0]
+    found: list[dict] = []
+    official = ROOT / entry["path"]
+    checksum_ok = official.exists() and official.stat().st_size == entry["size_bytes"] and sha256(official) == entry["sha256"]
+    found.append(evidence("OFFICIAL_CHECKSUM_MATCH" if checksum_ok else
+                          ("SOURCE_FILE_MISSING" if not official.exists() else "CHECKSUM_MISMATCH"), path=entry["path"]))
+    for d in src.get("derived_files", []):
+        p = ROOT / d["path"]
+        found.append(evidence("PAGE_IMAGE_MATCH" if p.exists() and sha256(p) == d["sha256"] else "PAGE_IMAGE_MISSING_OR_CHANGED",
+                              path=d["path"]))
+
+    checks = builder.run_checks()
+    ocr = checks.get("ocr", {})
+    ocr_ok = bool(ocr.get("passed"))
+    found.append(evidence("TRANSCRIPTION_MATCHES_OCR" if ocr_ok else "TRANSCRIPTION_NOT_CONFIRMED",
+                          values=ocr.get("values_checked"), times=ocr.get("times_checked"),
+                          missing=(ocr.get("values_missing_from_ocr", []) + ocr.get("times_missing_from_ocr", []))))
+    internal_ok = checks["internal"]["passed"]
+    found.append(evidence("TIMES_CONSISTENT_ACROSS_TABLES" if internal_ok else "TIMES_INCONSISTENT",
+                          shared_times=checks["internal"]["shared_times_checked"],
+                          ignition_checks=len(checks["internal"]["ignition_vs_burn_duration"])))
+    primary = checks["primary_report"]
+    found.append(evidence("PRIMARY_REPORT_AGREES", agree=primary["agree"], compared=primary["compared"]))
+    for c in primary["conflicts"]:
+        found.append(evidence("SECONDARY_SOURCE_CONFLICT", item=c["primary"], sp4029=c["ours"], primary_report=c["primary_value"]))
+
+    outputs = (builder.ASCENT_OUT, builder.TIMELINE_OUT, builder.ORBIT_OUT, builder.PRIMARY_OUT)
+    committed = {p.name: sha256(p) if p.exists() else None for p in outputs}
+    rebuilt: dict[str, str] = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        saved = (builder.OUTPUT_DIR, *outputs, builder.METADATA_OUT)
+        builder.OUTPUT_DIR = tmp
+        builder.ASCENT_OUT, builder.TIMELINE_OUT, builder.ORBIT_OUT, builder.PRIMARY_OUT = (tmp / p.name for p in outputs)
+        builder.METADATA_OUT = tmp / "meta.json"
+        try:
+            builder.build()
+            rebuilt = {p.name: sha256(tmp / p.name) for p in outputs}
+        except Exception as exc:  # noqa: BLE001 - a failed rebuild is evidence, not a crash
+            found.append(evidence("REBUILD_FAILED", error=str(exc)))
+        finally:
+            (builder.OUTPUT_DIR, builder.ASCENT_OUT, builder.TIMELINE_OUT, builder.ORBIT_OUT, builder.PRIMARY_OUT,
+             builder.METADATA_OUT) = saved
+    rebuild_ok = bool(rebuilt) and rebuilt == committed
+    if rebuilt:
+        found.append(evidence("REBUILD_FILES_IDENTICAL" if rebuild_ok else "REBUILD_DIFFERS", files=len(rebuilt),
+                              differing=[n for n in rebuilt if rebuilt[n] != committed[n]]))
+
+    if rebuild_ok:
+        from app.services import rocket_ascent
+
+        rocket_ascent.load_tables.cache_clear()
+        physics = rocket_ascent.validation_checks()
+        passed = sum(c["passed"] for c in physics)
+        found.append(evidence("PHYSICS_REPRODUCES_NASA" if passed == len(physics) else "PHYSICS_CHECK_FAILED",
+                              passed=passed, of=len(physics)))
+    for note in json.loads(builder.METADATA_OUT.read_text(encoding="utf-8"))["notes"] if builder.METADATA_OUT.exists() else []:
+        if note["code"] in ("HEADER_UNIT_MISPRINT", "SUSPECT_VALUE"):
+            found.append(evidence(note["code"], detail=note["detail"]))
+
+    status = "VERIFIED_SOURCE" if checksum_ok and ocr_ok and internal_ok and rebuild_ok else "UNVERIFIED_SOURCE"
+    explain, explain_zh = (
+        ("Transcribed from NASA/SP-2000-4029; checked against NASA's OCR of the page; processed tables rebuild byte-for-byte.",
+         "转录自 NASA/SP-2000-4029；已与 NASA 对该页的 OCR 文本核对，并可逐字节重建。")
+        if status == "VERIFIED_SOURCE" else
+        ("The transcription could not be confirmed against the registered NASA file.", "无法用登记的 NASA 文件确认该转录。"))
+    tables = {"ascent": (builder.ASCENT_OUT, 103, "Apollo 11 Ascent Phase"),
+              "orbit": (builder.ORBIT_OUT, 103, "Apollo 11 Earth Orbit Phase"),
+              "timeline": (builder.TIMELINE_OUT, 105, "Apollo 11 Timeline")}
+    mapping = []
+    for table, (path, page, title) in tables.items():
+        if not path.exists():
+            continue
+        frame = pd.read_csv(path, keep_default_na=False)
+        for i, r in enumerate(frame.itertuples(index=False), start=1):
+            mapping.append({
+                "internal_record_id": f"{key}:{table}:{r.event_id}",
+                "dataset_key": key,
+                "investigation": f"{src['publication']}, printed page {page}, '{title}'",
+                "original_identifier": r.event,
+                "source_file": f"data/transcribed/{Path(path).name}",
+                "source_file_exists": True,
+                "source_row_number": i,
+                "persistent_identifier": src["real_source_page"],
+                "real_investigation_doi_for_reference": "",
+                "fields_and_units_as_in_file": "GET hhh:mm:ss; altitude, range n mi; velocities ft/s; angles deg",
+                "transformations": "GET -> seconds; n mi x 1.852 -> km; ft/s x 0.3048 -> m/s (src/build_rocket_ascent.py)",
+                "verification_status": status,
+                "explanation": explain,
+                "explanation_zh": explain_zh,
+            })
+    summary = {
+        "status": status,
+        "result_type": "REAL_MEASUREMENT" if status == "VERIFIED_SOURCE" else "UNVERIFIED",
+        "rows": len(mapping),
+        "result_note": "Post-flight values reported by NASA. Rows marked 'theoretical' and the spent-stage apex rows are "
+                       "NASA calculations, not tracking measurements.",
+        "source_files": [entry["path"]],
+        "evidence": found,
+        "required_to_verify": [] if status == "VERIFIED_SOURCE" else [
+            "Run python -m src.fetch_nasa_psi_tables to restore the registered NTRS text file",
+            "Rerun python -m src.build_rocket_ascent and this audit"],
+        "required_to_verify_zh": [] if status == "VERIFIED_SOURCE" else [
+            "运行 python -m src.fetch_nasa_psi_tables 恢复登记的 NTRS 文本文件",
+            "重新运行 python -m src.build_rocket_ascent 与本审计"],
+    }
+    return summary, mapping
+
+
 def audit_legacy_files(sources: dict) -> dict[str, dict]:
     """Classify the retired files in data/legacy/ with concrete checks."""
     out: dict[str, dict] = {}
@@ -351,6 +469,8 @@ def run() -> dict:
         mapping += rows
     datasets["MACFP_PMMA_CONE"], macfp_rows = audit_macfp(sources)
     mapping += macfp_rows
+    datasets["APOLLO11_ASCENT"], apollo_rows = audit_apollo_ascent(sources)
+    mapping += apollo_rows
 
     report = {
         "report": "data_provenance_audit",

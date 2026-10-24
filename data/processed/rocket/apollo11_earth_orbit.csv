@@ -1,0 +1,4 @@
+event_id,event,get_s,space_fixed_velocity_m_s,event_duration_s,velocity_change_m_s,apogee_km,perigee_km,period_min,inclination_deg,source
+orbit_insertion,Earth orbit insertion,709.33,7793.06544,,,185.9408,183.1628,88.18,32.521,"NASA/SP-2000-4029 p.103, Apollo 11 Earth Orbit Phase, row 1"
+s_ivb_2nd_ignition,S-IVB 2nd burn ignition,9856.2,7790.74896,,,,,,,"NASA/SP-2000-4029 p.103, Apollo 11 Earth Orbit Phase, row 2"
+s_ivb_2nd_cutoff,S-IVB 2nd burn cutoff,10203.03,10841.21784,346.83,3050.46888,,,,31.386,"NASA/SP-2000-4029 p.103, Apollo 11 Earth Orbit Phase, row 3"

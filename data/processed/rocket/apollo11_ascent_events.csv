@@ -1,0 +1,12 @@
+event_id,event,commanded_time_only,get_s,altitude_km,range_km,earth_fixed_velocity_m_s,space_fixed_velocity_m_s,event_duration_s,geocentric_latitude_deg,longitude_deg,space_fixed_flight_path_angle_deg,space_fixed_heading_deg,source
+liftoff,Liftoff,False,0.63,0.059264,0,0.4572,408.64536,,28.447,-80.6041,0.06,90,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 1"
+mach_1,Mach 1 achieved,False,66.3,7.845072,1.933488,321.28968,616.88472,,28.4523,-80.5853,27.88,85.32,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 2"
+max_q,Maximum dynamic pressure,False,83,13.567752,5.578224,503.95632,814.39512,,28.4624,-80.5499,29.23,82.41,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 3"
+s_ic_center_cutoff,S-IC center engine cutoff,True,135.2,44.005372,46.424084,1621.77984,1979.00544,141.6,28.5739,-81.1517,22.957,76.315,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 4"
+s_ic_outboard_cutoff,S-IC outboard engine cutoff,False,161.63,66.118252,93.579708,2393.25912,2764.10928,168.03,28.7007,-79.6908,19.114,75.439,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 5"
+s_ic_separation,S-IC/S-II separation,True,162.3,66.725708,95.050196,2402.70792,2773.86288,,28.7046,-79.6764,19.02,75.436,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 6"
+s_ii_center_cutoff,S-II center engine cutoff,False,460.62,180.16256,1114.307656,5304.98304,5707.5324,296.62,30.9513,-69.4309,0.897,79.646,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 7"
+s_ii_outboard_cutoff,S-II outboard engine cutoff,False,548.22,187.314984,1618.436872,6513.02736,6916.15584,384.22,31.7089,-64.1983,0.619,82.396,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 8"
+s_ii_separation,S-II/S-IVB separation,True,549,187.3761,1623.3706,6515.7096,6918.83808,,31.7152,-64.1467,0.611,82.426,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 9"
+s_ivb_cutoff,S-IVB 1st burn cutoff,False,699.33,191.130104,2633.468068,7387.62048,7791.17568,147.13,32.4865,-53.4588,0.011,88.414,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 10"
+orbit_insertion,Earth orbit insertion,False,709.33,191.081952,2705.210844,7389.54072,7793.06544,,,,,,"NASA/SP-2000-4029 p.103, Apollo 11 Ascent Phase, row 11"

@@ -1,14 +1,16 @@
-"""Download the official NASA PSI experimental tables (BASS-II PSI-25, FLEX PSI-69) and verify them.
+"""Download the official NASA source files registered in config/data_sources.json and verify them.
 
-Uses the PSI portal's own public API (the endpoints its web app calls; no login):
+NASA PSI experimental tables (BASS-II PSI-25, FLEX PSI-69) use the PSI portal's own public API (no login):
   metadata  GET  https://psi.nasa.gov/geode-py/ws/repo/investigations/<PSI-ID>
   download  GET  https://psi.nasa.gov/geode-py/ws/studies/<PSI-ID>/download?file=<name>&version=<v>&redirect=false
             -> returns a short-lived pre-signed URL on NASA's psi-repo-prod S3 bucket
+NASA Technical Reports Server files (Apollo 11 tables, NASA/SP-2000-4029) are fetched from their registered
+download_url on ntrs.nasa.gov.
 
 Each file is accepted only if
-  * its byte size equals the size in NASA's metadata, and
+  * its byte size equals the registered size (for PSI also NASA's metadata size), and
   * its SHA-256 equals the checksum registered in config/data_sources.json (official_files).
-Files are stored unchanged under data/raw/nasa_psi/. An existing file is never overwritten silently:
+Files are stored unchanged under data/raw/. An existing file is never overwritten silently:
 if it already matches it is left alone; if it differs the script stops.
 
 Run:  python -m src.fetch_nasa_psi_tables            (download + verify)
@@ -29,6 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCES_PATH = ROOT / "config" / "data_sources.json"
 API = "https://psi.nasa.gov/geode-py/ws"
 UA = {"User-Agent": "FlameInFreefall-provenance/1.0 (+https://github.com/StudyGeng/Nasa-Space-Apps-Sarawak)"}
+DIRECT_HOSTS = {"ntrs.nasa.gov"}  # registered download_url entries are only accepted from these hosts
 
 
 def _get(url: str) -> bytes:
@@ -61,6 +64,18 @@ def download(entry: dict) -> str:
         return "already present and verified"
     if path.exists():
         raise SystemExit(f"{entry['path']} exists but does not match the registry ({why}); refusing to overwrite.")
+    if entry.get("download_url"):
+        host = urllib.parse.urlparse(entry["download_url"]).netloc
+        if host not in DIRECT_HOSTS:
+            raise SystemExit(f"Registered download host {host} is not an allowed NASA host; refusing.")
+        data = _get(entry["download_url"])
+        digest = hashlib.sha256(data).hexdigest()
+        if len(data) != entry["size_bytes"] or digest != entry["sha256"]:
+            raise SystemExit(f"Downloaded {entry['file_name']} does not match the registry (size {len(data)}, "
+                             f"sha256 {digest}). The official file may have changed: review before updating the registry.")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return "downloaded and verified"
     meta = json.loads(_get(f"{API}/repo/investigations/{entry['investigation_id']}"))
     table = next(t for t in meta["experimentalTable"] if t["file_name"] == entry["file_name"])
     if table["file_size"] != entry["size_bytes"]:

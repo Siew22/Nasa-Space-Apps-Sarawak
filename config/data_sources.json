@@ -63,6 +63,84 @@
       "builder": "src/build_measured_cone_dataset.py",
       "real_source_license": "See the MaCFP/matl-db repository licence",
       "real_source_license_zh": "见 MaCFP/matl-db 仓库许可"
+    },
+    "APOLLO11_ASCENT": {
+      "display_name": "Apollo 11 Saturn V launch (AS-506): NASA-reported flight values",
+      "display_name_zh": "阿波罗 11 号土星五号发射（AS-506）：NASA 公布的飞行数据",
+      "publication": "NASA/SP-2000-4029, Apollo by the Numbers: A Statistical Reference (Richard W. Orloff, NASA, 2000)",
+      "ntrs_id": "20010008244",
+      "real_source_page": "https://ntrs.nasa.gov/citations/20010008244",
+      "real_source_doi": "",
+      "real_source_license": "U.S. Government work; NTRS copyright determination GOV_PUBLIC_USE_PERMITTED (checked 2026-10-24)",
+      "real_source_license_zh": "美国政府作品；NTRS 版权判定为 GOV_PUBLIC_USE_PERMITTED（2026-10-24 核对）",
+      "tables_used": [
+        {"printed_page": 103, "pdf_page": 113, "tables": ["Apollo 11 Ascent Phase", "Apollo 11 Earth Orbit Phase"]},
+        {"printed_page": 105, "pdf_page": 115, "tables": ["Apollo 11 Timeline (launch rows)"]}
+      ],
+      "official_files": [
+        {
+          "source": "NTRS",
+          "file_name": "20010008244.txt",
+          "path": "data/raw/nasa_ntrs/20010008244.txt",
+          "download_url": "https://ntrs.nasa.gov/api/citations/20010008244/downloads/20010008244.txt",
+          "size_bytes": 765204,
+          "sha256": "e20ccf96278c9e417122fc1c52fd3b13e999786e2f14aa07e8522065f3978744",
+          "nasa_metadata_url": "https://ntrs.nasa.gov/api/citations/20010008244",
+          "license_in_nasa_metadata": "GOV_PUBLIC_USE_PERMITTED",
+          "downloaded_on": "2026-10-24",
+          "role": "NTRS full-text (OCR) file of the book; the hand transcription of printed page 103 is checked against it.",
+          "verification": "Downloaded twice from ntrs.nasa.gov; identical SHA-256."
+        }
+      ],
+      "official_files_note": "Fetch or re-verify with: python -m src.fetch_nasa_psi_tables [--verify]",
+      "reference_files": [
+        {
+          "file_name": "20010008244.pdf",
+          "download_url": "https://ntrs.nasa.gov/api/citations/20010008244/downloads/20010008244.pdf",
+          "size_bytes": 255681195,
+          "sha256": "9a3ac5fe590e47357e48b8d38a663add6f9fb954a62866d3cc699c83ca4f4723",
+          "stored": false,
+          "note": "The scanned book (345 pages) that the tables were transcribed from. Not stored because of its size."
+        },
+        {
+          "file_name": "lvfea-AS506-Apollo11.pdf",
+          "document": "MPR-SAT-FE-69-9, Saturn V Launch Vehicle Flight Evaluation Report AS-506 Apollo 11 Mission (NASA Marshall Space Flight Center, 20 September 1969)",
+          "download_url": "https://www.ibiblio.org/apollo/Documents/lvfea-AS506-Apollo11.pdf",
+          "host_note": "Copy hosted by the Virtual AGC project (ibiblio.org), not by NASA; no NASA-hosted copy was found on NTRS (searched 2026-10-24).",
+          "size_bytes": 11455509,
+          "sha256": "84b23ee1f3e8e76db20e4e6c1a5bc8b83cd9bc09950c43c43330bce753c3a9c7",
+          "stored": false,
+          "used_for": "Cross-check only: Table 4-1, PDF page 57 (printed page 4-7)."
+        }
+      ],
+      "derived_files": [
+        {
+          "path": "data/raw/nasa_ntrs/SP-2000-4029_pdf-page113_apollo11_ascent_orbit.png",
+          "sha256": "58430263361657cc590363e7147890ecc55ffe8c700e2beba8392c31d1ac74ce",
+          "derived_from": "20010008244.pdf page 113 (printed page 103)",
+          "method": "Embedded 1-bit page scan extracted with pypdf 5.1.0 and saved losslessly as PNG (2552 x 3304)."
+        },
+        {
+          "path": "data/raw/nasa_ntrs/SP-2000-4029_pdf-page115_apollo11_timeline.png",
+          "sha256": "c3f98eaa96e937a86cd55a775ba253f429d88a1df07629484aff833bdc4155a7",
+          "derived_from": "20010008244.pdf page 115 (printed page 105)",
+          "method": "Embedded 1-bit page scan extracted with pypdf 5.1.0 and saved losslessly as PNG (2552 x 3304)."
+        },
+        {
+          "path": "data/reference/MPR-SAT-FE-69-9_pdf-page57_table4-1.png",
+          "sha256": "694f3769f90bb4d70ab8c2d50e550db93842ee1541aa6728f877ebd796214f53",
+          "derived_from": "lvfea-AS506-Apollo11.pdf page 57 (printed page 4-7, Table 4-1)",
+          "method": "Embedded 1-bit page scan extracted with pypdf 5.1.0 and saved losslessly as PNG (3272 x 2544, printed sideways)."
+        }
+      ],
+      "transcriptions": [
+        "data/transcribed/apollo11_sp4029_p103_ascent_phase.csv",
+        "data/transcribed/apollo11_sp4029_p103_earth_orbit_phase.csv",
+        "data/transcribed/apollo11_sp4029_p105_timeline_launch.csv",
+        "data/transcribed/as506_mpr-sat-fe-69-9_table4-1_selected.csv"
+      ],
+      "builder": "src/build_rocket_ascent.py",
+      "processed_dir": "data/processed/rocket"
     }
   }
 }

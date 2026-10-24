@@ -1,0 +1,27 @@
+event,parameter,unit,actual,nominal
+First Motion,Range Time,sec,0.3,0.3
+Mach 1,Range Time,sec,66.3,65.6
+Mach 1,Altitude,km,7.8,7.6
+Maximum Dynamic Pressure,Range Time,sec,83.0,81.3
+Maximum Dynamic Pressure,Altitude,km,13.6,12.9
+Maximum Total Inertial Acceleration: S-IC,Range Time,sec,161.7,160.3
+Maximum Total Inertial Acceleration: S-IC,Acceleration,g,3.94,3.89
+Maximum Total Inertial Acceleration: S-II,Range Time,sec,460.70,460.26
+Maximum Total Inertial Acceleration: S-II,Acceleration,g,1.82,1.83
+Maximum Total Inertial Acceleration: S-IVB 1st Burn,Range Time,sec,699.41,699.57
+Maximum Total Inertial Acceleration: S-IVB 1st Burn,Acceleration,g,0.69,0.68
+Maximum Earth-Fixed Velocity: S-IC,Range Time,sec,162.3,161.6
+Maximum Earth-Fixed Velocity: S-IC,Velocity,m/s,"2,402.7","2,397.0"
+Maximum Earth-Fixed Velocity: S-IC,Velocity,ft/s,"7,882.9","7,864.2"
+Maximum Earth-Fixed Velocity: S-II,Range Time,sec,549.00,552.52
+Maximum Earth-Fixed Velocity: S-II,Velocity,m/s,"6,515.7","6,538.8"
+Maximum Earth-Fixed Velocity: S-II,Velocity,ft/s,"21,377.0","21,452.8"
+Maximum Earth-Fixed Velocity: S-IVB 1st Burn,Range Time,sec,709.33,709.49
+Maximum Earth-Fixed Velocity: S-IVB 1st Burn,Velocity,m/s,"7,389.5","7,389.6"
+Maximum Earth-Fixed Velocity: S-IVB 1st Burn,Velocity,ft/s,"24,243.8","24,244.1"
+Apex: S-IC Stage,Range Time,sec,269.1,270.4
+Apex: S-IC Stage,Altitude,km,115.0,117.3
+Apex: S-IC Stage,Surface Range,km,327.4,326.9
+Apex: S-II Stage,Range Time,sec,587.0,593.7
+Apex: S-II Stage,Altitude,km,188.8,189.7
+Apex: S-II Stage,Surface Range,km,"1,862.9","1,906.6"

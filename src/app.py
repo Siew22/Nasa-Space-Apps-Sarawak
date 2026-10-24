@@ -22,8 +22,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 
 from app.schemas import SimulationRequest
+from app.services import rocket_ascent as rocket
 from app.services.model_inference import (
     FEATURE_COLUMNS,
     MAX_BATCH_ROWS,
@@ -516,6 +518,35 @@ CODE_TEXT = {
     "IDENTICAL_TO_TEMPLATE": ("Byte-identical to its template, with {placeholders} unfilled placeholders.",
                               "与模板逐字节相同，含 {placeholders} 个未填写的占位符。"),
     "REFERENCED_MODEL_MISSING": ("Refers to `{model}`, which does not exist in the repository.", "引用的 `{model}` 在仓库中不存在。"),
+    "CHECKSUM_MISMATCH": ("`{path}` does not match its registered checksum.", "`{path}` 与登记的校验值不一致。"),
+    "PAGE_IMAGE_MATCH": ("Page scan `{path}` matches its registered checksum.", "页面扫描 `{path}` 与登记的校验值一致。"),
+    "PAGE_IMAGE_MISSING_OR_CHANGED": ("Page scan `{path}` is missing or changed.", "页面扫描 `{path}` 缺失或已改动。"),
+    "TRANSCRIPTION_MATCHES_OCR": ("All {values} hand-transcribed numbers and {times} times were found in NASA's own OCR text of the page.",
+                                  "手工转录的全部 {values} 个数值与 {times} 个时间都能在 NASA 对该页的 OCR 文本中找到。"),
+    "TRANSCRIPTION_NOT_CONFIRMED": ("Some transcribed values were not found in NASA's OCR text: {missing}.",
+                                    "部分转录值未能在 NASA 的 OCR 文本中找到：{missing}。"),
+    "TIMES_CONSISTENT_ACROSS_TABLES": ("{shared_times} event times agree between NASA's ascent table and timeline, and all {ignition_checks} "
+                                       "ignition times equal cutoff time minus burn duration.",
+                                       "NASA 上升段表与时间线中的 {shared_times} 个事件时间一致；{ignition_checks} 个点火时间都等于关机时间减去燃烧时长。"),
+    "TIMES_INCONSISTENT": ("Event times disagree between NASA's tables.", "NASA 各表之间的事件时间不一致。"),
+    "PRIMARY_REPORT_AGREES": ("{agree} of {compared} values shared with the primary 1969 flight evaluation report agree.",
+                              "与 1969 年原始飞行评估报告共有的 {compared} 个数值中有 {agree} 个一致。"),
+    "SECONDARY_SOURCE_CONFLICT": ("{item}: the book prints {sp4029}, the primary report {primary_report}. A copying error in the book; "
+                                  "the value is flagged and not used.",
+                                  "{item}：该书印为 {sp4029}，原始报告为 {primary_report}。属该书的抄录错误，已标记且未使用。"),
+    "REBUILD_FAILED": ("Rebuilding from the transcription failed: {error}", "由转录数据重建失败：{error}"),
+    "REBUILD_FILES_IDENTICAL": ("Rebuilding from the transcription gives all {files} processed tables byte-for-byte identical.",
+                                "由转录数据重新构建，{files} 个处理后的数据表全部逐字节相同。"),
+    "PHYSICS_REPRODUCES_NASA": ("Textbook physics reproduces {passed} of {of} independent NASA numbers (see the checks above).",
+                                "教科书物理公式复现了 {of} 个独立 NASA 数值中的 {passed} 个（见上方核对）。"),
+    "PHYSICS_CHECK_FAILED": ("The physics reproduces only {passed} of {of} NASA numbers.", "物理计算仅复现了 {of} 个 NASA 数值中的 {passed} 个。"),
+    "HEADER_UNIT_MISPRINT": ("The ascent table's column header prints 'Event Duration (deg E)', but the values are seconds: the orbit table "
+                             "on the same page labels that column '(sec)', and every cutoff time minus its duration equals the ignition time "
+                             "in NASA's timeline.",
+                             "上升段表的表头印作“Event Duration (deg E)”，但数值单位是秒：同页轨道表的同一列标为“(sec)”，且各关机时间减去持续时间正好等于 NASA 时间线中的点火时间。"),
+    "SUSPECT_VALUE": ("The first stage's centre-engine-cutoff longitude (-81.1517°) lies west of the launch pad although every other point "
+                      "moves east. It is kept as printed; no calculation uses longitude.",
+                      "第一级中心发动机关机时的经度（-81.1517°）位于发射台以西，而其他各点都在向东移动。按原样保留；任何计算都不使用经度。"),
 }
 
 
@@ -524,10 +555,15 @@ class _Blank(dict):
         return "?"
 
 
+# Chinese names for English item labels that appear inside evidence details (so 中文 mode stays Chinese).
+DETAIL_ZH = {"Apex: S-IC Stage / Range Time (sec)": "第一级残骸到达最高点的时间（秒）"}
+
+
 def code_text(item: dict) -> str:
     """Render one evidence/reason item: {'code': ..., 'detail': {...}} or {'code': ..., **detail}."""
     detail = {**{k: v for k, v in item.items() if k not in ("code", "detail")}, **(item.get("detail") or {})}
     detail = {k: (str(v)[:12] + "…" if isinstance(v, str) and len(v) == 64 else v) for k, v in detail.items()}
+    detail = {k: tr(v, DETAIL_ZH.get(v, v)) if isinstance(v, str) else v for k, v in detail.items()}
     en, zh = CODE_TEXT.get(item.get("code", ""), (item.get("code", ""), item.get("code", "")))
     return tr(en, zh).format_map(_Blank(detail))
 
@@ -1871,8 +1907,353 @@ def render_simulation():
             st.markdown(tr("**Limitations**", "**局限**") + "\n" + "\n".join(f"- {a}" for a in limitations))
         st.caption(tr(f"Solver status flag: `{sim['status']}`", f"求解器状态标记：`{sim['status']}`"))
 
+
+# -------------------------------------------------------------------------
+# TAB 3 (below the sandbox): Apollo 11 launch replay with NASA flight values
+# -------------------------------------------------------------------------
+ROCKET_HTML_PATH = ROOT / "assets" / "rocket_launch.html"
+ROCKET_ORANGE, ROCKET_BLUE = "#d95926", "#3987e5"  # validated categorical pair on the dark chart surface
+STAGE_LABELS = {"S-IC": ("First stage (S-IC)", "第一级 (S-IC)"), "S-II": ("Second stage (S-II)", "第二级 (S-II)"),
+                "S-IVB": ("Third stage (S-IVB)", "第三级 (S-IVB)")}
+CUTOFF_SHORT = {
+    "s_ic_center_cutoff": ("1st stage centre engine off", "第一级中心发动机关机"),
+    "s_ic_outboard_cutoff": ("1st stage flame out", "第一级熄火"),
+    "s_ii_center_cutoff": ("2nd stage centre engine off", "第二级中心发动机关机"),
+    "s_ii_outboard_cutoff": ("2nd stage flame out", "第二级熄火"),
+    "s_ivb_cutoff": ("3rd stage flame out (the real end)", "第三级熄火（实际关机）"),
+}
+SOURCE_SHORT = {"SP-4029 p.103": ("SP-4029 p.103", "SP-4029 第 103 页"),
+                "MPR-SAT-FE-69-9 Table 4-1": ("1969 report, Table 4-1", "1969 年报告 表 4-1")}
+CHECK_ZH = {
+    "pad_rotation": "起飞时的速度 = 发射台处地球自转速度",
+    "orbit_period": "由入轨高度与速度算出的停泊轨道周期",
+    "s_ic_apex_time": "第一级残骸：到达最高点的时间",
+    "s_ic_apex_altitude": "第一级残骸：最高点高度",
+    "s_ic_apex_range": "第一级残骸：最高点时距发射场的地面距离",
+    "s_ii_apex_time": "第二级残骸：到达最高点的时间",
+    "s_ii_apex_altitude": "第二级残骸：最高点高度",
+    "s_ii_apex_range": "第二级残骸：最高点时距发射场的地面距离",
+}
+
+
+def fmt_get(seconds: float, decimals: int = 1) -> str:
+    """Mission clock text, e.g. T+2:41.6 (decimals=0 gives T+2:42)."""
+    total = round(abs(seconds), decimals)
+    minutes, rest = int(total // 60), total % 60
+    return f"{'T−' if seconds < 0 else 'T+'}{minutes}:{rest:0{3 + decimals if decimals else 2}.{decimals}f}"
+
+
+@st.cache_data(show_spinner=False)
+def load_text_asset(path_str: str, modified: float) -> str:
+    """Cached read; `modified` (the file's mtime) is part of the cache key so an edited asset is picked up."""
+    return Path(path_str).read_text(encoding="utf-8")
+
+
+@st.cache_data(show_spinner=False)
+def rocket_payload() -> dict:
+    """Language-independent numbers for the launch replay: NASA values plus the interpolated drawing track."""
+    tables = rocket.load_tables()
+    a, tl = tables["ascent"], tables["timeline"]
+    track = rocket.ascent_track(t_start=-10.0, t_end=760.0, step_s=0.5)
+    insertion_r = (rocket.ellipsoid_radius_km(a.at["s_ivb_cutoff", "geocentric_latitude_deg"])
+                   + a.at["orbit_insertion", "altitude_km"])
+    get = lambda ev: float(tl.at[ev, "get_s"])  # noqa: E731
+    return {
+        "track": {
+            "t": track["time_s"].round(3).tolist(), "alt": track["altitude_km"].round(4).tolist(),
+            "rng": track["downrange_km"].round(3).tolist(), "v": track["speed_m_s"].round(2).tolist(),
+            "ang": track["path_angle_deg"].round(2).tolist(),
+            "p": [None if p is None or pd.isna(p) else round(p / rocket.SEA_LEVEL_PA, 10) for p in track["pressure_pa"]],
+        },
+        "phases": [{"name": p["stage"], "fuel": p["fuel"], "ign": p["ignition_s"], "cco": p["center_cutoff_s"],
+                    "cut": p["cutoff_s"], "g": p["max_acceleration_g"]} for p in rocket.burn_phases()],
+        "sep": [get("s_ic_separation"), get("s_ii_separation")], "les": get("les_jettison"),
+        "ring": get("s_ii_interstage_jettison"), "thrustOk": get("s_ic_thrust_ok"), "orbit": get("orbit_insertion"),
+        "cutoffFinal": get("s_ivb_cutoff"), "alt0": float(a.at["liftoff", "altitude_km"]),
+        "orbitSpeed": rocket.circular_speed_km_s(insertion_r),
+        "slowAt": sorted(get(e) for e in ("s_ic_center_cutoff", "s_ic_outboard_cutoff", "s_ic_separation", "s_ii_ignition",
+                                          "s_ii_center_cutoff", "s_ii_outboard_cutoff", "s_ii_separation",
+                                          "s_ivb_ignition", "s_ivb_cutoff")),
+    }
+
+
+def rocket_events() -> list[dict]:
+    """Event log for the replay: NASA times, and NASA height/speed where the ascent table prints them."""
+    tables = rocket.load_tables()
+    a, tl = tables["ascent"], tables["timeline"]
+    peak_g = {p["cutoff_event"]: p["max_acceleration_g"] for p in rocket.burn_phases()}
+    flame_out = {"s_ic_outboard_cutoff", "s_ii_outboard_cutoff", "s_ivb_cutoff"}
+    return [{
+        "t": float(tl.at[ev, "get_s"]), "label": tr(*rocket.EVENT_TEXT[ev]),
+        "kind": "flameout" if ev in flame_out else str(tl.at[ev, "kind"]),
+        "alt": float(a.at[ev, "altitude_km"]) if ev in a.index else None,
+        "v": float(a.at[ev, "space_fixed_velocity_m_s"]) / 1000 if ev in a.index else None,
+        "g": peak_g.get(ev),
+    } for ev in rocket.ANIMATION_EVENTS]
+
+
+@st.cache_data(show_spinner=False)
+def rocket_checks() -> list[dict]:
+    return rocket.validation_checks()
+
+
+@st.cache_data(show_spinner=False)
+def rocket_space_crossing_s() -> float:
+    return rocket.crossing_time_s()
+
+
+@st.cache_data(show_spinner=False)
+def upright_page(path_str: str, rotate: int = 0):
+    from PIL import Image
+
+    img = Image.open(path_str)
+    return img.rotate(rotate, expand=True) if rotate else img
+
+
+@st.fragment
+def render_rocket():
+    st.divider()
+    st.subheader(tr("🚀 Rocket launch: when does the engine flame go out?", "🚀 火箭发射：发动机的火焰什么时候熄灭？"))
+    status = ds_status("APOLLO11_ASCENT")
+    st.caption(status_badge(status["status"]) + tr(
+        " · Apollo 11 (Saturn V AS-506) flight values reported by NASA (NASA/SP-2000-4029, pages 103 and 105) · "
+        "physics computed live · the drawing is an illustration",
+        " · 阿波罗 11 号（土星五号 AS-506）NASA 公布的飞行数据（NASA/SP-2000-4029 第 103、105 页）· 物理量实时计算 · 画面为示意图"))
+    if status["status"] != "VERIFIED_SOURCE":
+        st.warning(status.get("warning") or tr("The Apollo 11 source tables could not be verified in this build.",
+                                               "本版本无法核实阿波罗 11 号的来源数据表。"))
+    try:
+        tables = rocket.load_tables()
+    except FileNotFoundError:
+        st.error(tr("Apollo 11 tables not found. Run `python -m src.build_rocket_ascent`.",
+                    "未找到阿波罗 11 号数据表，请运行 `python -m src.build_rocket_ascent`。"))
+        return
+    a, tl = tables["ascent"], tables["timeline"]
+    st.markdown(tr(
+        "**Does a rocket's flame go out when it reaches space? No.** Each stage carries its own liquid oxygen, so its "
+        "engines keep burning where there is almost no air. A flame goes out only when its engines are shut down, and the "
+        "last one only once the spacecraft is fast enough to stay in orbit. Press ▶ to replay Apollo 11's climb, timed "
+        "with NASA's flight records.",
+        "**火箭到达太空时，火焰会熄灭吗？不会。** 每一级都自带液氧，所以在几乎没有空气的高度，发动机仍能继续燃烧。"
+        "火焰只会在发动机关机时熄灭；而最后一次熄火，要等到飞船的速度足以留在轨道上。点击 ▶，按 NASA 飞行记录的时间重现阿波罗 11 号的上升过程。"))
+
+    payload = dict(rocket_payload())
+    payload["phases"] = [dict(p, label=tr(*STAGE_LABELS[p["name"]])) for p in payload["phases"]]
+    payload["events"] = rocket_events()
+    payload["text"] = {
+        "launch": tr("▶ Launch Apollo 11", "▶ 发射阿波罗 11 号"), "replay": tr("↺ Watch again", "↺ 再看一次"),
+        "play": tr("▶ Play", "▶ 播放"), "pause": tr("⏸ Pause", "⏸ 暂停"), "restart": tr("↺ Restart", "↺ 重新开始"),
+        "auto": tr("Auto speed", "自动速度"), "scrub": tr("Mission time", "任务时间"),
+        "altitude": tr("Altitude", "高度"), "speed": tr("Speed (incl. Earth's spin)", "速度（含地球自转）"),
+        "speedHelp": tr("NASA's space-fixed speed: on the pad it is already 0.41 km/s, the speed Earth's rotation gives "
+                        "the Cape. Orbit needs about 7.8 km/s.",
+                        "NASA 的空间固定坐标系速度：在发射台上就已有 0.41 km/s，这是地球自转带给卡纳维拉尔角的速度。入轨约需 7.8 km/s。"),
+        "pressure": tr("Outside air pressure", "外部气压"),
+        "pressureHelp": tr("Percent of sea-level pressure, U.S. Standard Atmosphere 1976 (defined up to 86 km).",
+                           "相对海平面气压的百分比，依据 1976 年美国标准大气（定义至 86 km）。"),
+        "pressureAbove": tr("< 0.0004 %", "< 0.0004 %"),
+        "karmanShort": tr("100 km: space", "100 km：太空"), "orbitSpeed": tr("orbit speed", "轨道速度"),
+        "countdown": tr("Countdown: engines not lit yet", "倒计时：发动机尚未点火"),
+        "burnKero": tr("🔥 {stage} burning: kerosene + liquid oxygen", "🔥 {stage}燃烧中：煤油 + 液氧"),
+        "burnH2": tr("🔥 {stage} burning: liquid hydrogen + liquid oxygen (an almost invisible flame)",
+                     "🔥 {stage}燃烧中：液氢 + 液氧（火焰几乎看不见）"),
+        "centreOff": tr(" · centre engine off", " · 中心发动机已关闭"),
+        "coasting": tr("⭘ Engines off: coasting to the next stage", "⭘ 发动机关闭：滑行至下一级点火"),
+        "finalCutoff": tr("⭘ Last engine off: orbital speed reached", "⭘ 最后一台发动机关机：已达到轨道速度"),
+        "inOrbit": tr("🛰 In orbit: free fall, everything floats", "🛰 已入轨：自由落体，一切都飘浮起来"),
+        "flameOut": tr("FLAME OUT", "火焰熄灭"),
+        "nasaAt": tr("NASA: {alt} km up, {v} km/s", "NASA：高度 {alt} km，速度 {v} km/s"),
+        "peakG": tr("peak {g} g just before cutoff", "关机前峰值 {g} g"),
+        "clockSub": tr("Apollo 11 · 16 July 1969 · replay ×{x}", "阿波罗 11 号 · 1969 年 7 月 16 日 · 回放 ×{x}"),
+        "note": tr("Times, heights and speeds are NASA flight values, interpolated between NASA's event times. Air pressure: "
+                   "U.S. Standard Atmosphere 1976. The drawing is an illustration.",
+                   "时间、高度与速度来自 NASA 飞行数据，NASA 事件时刻之间为插值。气压依据 1976 年美国标准大气。画面为示意图。"),
+        "canvasLabel": tr("Animated replay of the Apollo 11 launch, timed with NASA flight data",
+                          "按 NASA 飞行数据计时的阿波罗 11 号发射动画回放"),
+    }
+    html = load_text_asset(str(ROCKET_HTML_PATH), ROCKET_HTML_PATH.stat().st_mtime).replace(
+        "/*__DATA__*/null", json.dumps(payload, ensure_ascii=False))
+    components.html(html, height=525)
+
+    # Key moments, all read from NASA's tables (the 100 km crossing lies between NASA points, so it is estimated).
+    phases = {p["stage"]: p for p in rocket.burn_phases()}
+    first, last = phases["S-IC"], phases["S-IVB"]
+    cross = rocket_space_crossing_s()
+    cards = [
+        (tr("FIRST FLAME OUT", "第一次熄火"), fmt_get(first["cutoff_s"]),
+         tr(f"First stage (S-IC), {first['cutoff_altitude_km']:.1f} km up at {first['cutoff_speed_m_s'] / 1000:.2f} km/s; "
+            f"peak {first['max_acceleration_g']:.2f} g just before.",
+            f"第一级 (S-IC)，高度 {first['cutoff_altitude_km']:.1f} km，速度 {first['cutoff_speed_m_s'] / 1000:.2f} km/s；"
+            f"关机前峰值 {first['max_acceleration_g']:.2f} g。")),
+        (tr("SPACE REACHED (100 KM)", "进入太空（100 km）"), "≈ " + fmt_get(cross, 0),
+         tr("The second stage was still burning: outside air was almost gone, yet the flame kept going (time estimated "
+            "between NASA points).",
+            "此时第二级仍在燃烧：外部空气几乎没有了，火焰却继续燃烧（该时间为 NASA 数据点之间的估算）。")),
+        (tr("LAST FLAME OUT", "最后一次熄火"), fmt_get(last["cutoff_s"]),
+         tr(f"Third stage (S-IVB), {last['cutoff_altitude_km']:.1f} km up at {last['cutoff_speed_m_s'] / 1000:.2f} km/s: fast "
+            f"enough to stay in orbit. Orbit insertion {fmt_get(float(tl.at['orbit_insertion', 'get_s']))}.",
+            f"第三级 (S-IVB)，高度 {last['cutoff_altitude_km']:.1f} km，速度 {last['cutoff_speed_m_s'] / 1000:.2f} km/s，"
+            f"足以留在轨道上。{fmt_get(float(tl.at['orbit_insertion', 'get_s']))} 进入轨道。")),
+    ]
+    st.markdown('<div class="briefing">' + "".join(
+        f'<div class="bcard"><div class="bk">{k}</div><div class="tele-v">{v}</div><p>{d}</p></div>' for k, v, d in cards)
+        + "</div>", unsafe_allow_html=True)
+
+    st.markdown(tr("#### What if the flame went out earlier?", "#### 如果火焰更早熄灭，会怎样？"))
+    st.caption(tr(
+        "Pick a real moment from the flight. The app takes NASA's height, speed and climb angle at that moment and works "
+        "out, with Newton's law of gravity alone, where the spacecraft would go if every engine stopped there and no "
+        "other stage fired. Air drag is ignored (small above about 60 km).",
+        "选择飞行中的一个真实时刻。程序取 NASA 记录的该时刻高度、速度与爬升角，仅用牛顿万有引力定律计算：如果此时关闭所有发动机、且不再有其他级点火，"
+        "飞船会去哪里。忽略空气阻力（约 60 km 以上影响很小）。"))
+    choice = st.radio(
+        tr("Stop every engine at:", "在此刻关闭所有发动机："), list(rocket.CUTOFF_EVENTS), index=1, horizontal=True,
+        format_func=lambda ev: f"{fmt_get(float(tl.at[ev, 'get_s']), 0)} · {tr(*CUTOFF_SHORT[ev])}", key="rocket_cutoff")
+    row = a.loc[choice]
+    coast = rocket.coast_track(choice)
+    orbit = coast["orbit"]
+    stays = orbit["verdict"] == "orbit"
+    ct = pd.DataFrame({"t": coast["time_s"], "x": coast["downrange_km"], "z": coast["altitude_km"]})
+    if stays:
+        ct = ct[ct["t"] <= coast["start_time_s"] + 450]  # an orbit never lands; show the first 7.5 minutes
+
+    path = rocket.ascent_track(t_start=float(a["get_s"].iloc[0]), t_end=float(a["get_s"].iloc[-1]), step_s=1.0)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=path["downrange_km"], y=path["altitude_km"], mode="lines", line=dict(color=ROCKET_ORANGE, width=2),
+        name=tr("Apollo 11's real path (line between NASA points is interpolated)", "阿波罗 11 号真实路径（NASA 数据点之间的连线为插值）"),
+        hoverinfo="skip"))
+    fig.add_trace(go.Scatter(
+        x=a["range_km"], y=a["altitude_km"], mode="markers", name=tr("NASA-reported points", "NASA 公布的数据点"),
+        marker=dict(color=ROCKET_ORANGE, size=9, line=dict(color="#0f1426", width=2)),
+        customdata=list(zip([tr(*rocket.EVENT_TEXT.get(e, (e, e))) for e in a.index],
+                            [fmt_get(t) for t in a["get_s"]], (a["space_fixed_velocity_m_s"] / 1000).tolist())),
+        hovertemplate=tr("<b>%{customdata[0]}</b><br>%{customdata[1]} · %{y:.1f} km up · %{x:.0f} km downrange"
+                         "<br>%{customdata[2]:.2f} km/s<extra>NASA</extra>",
+                         "<b>%{customdata[0]}</b><br>%{customdata[1]} · 高度 %{y:.1f} km · 地面距离 %{x:.0f} km"
+                         "<br>%{customdata[2]:.2f} km/s<extra>NASA</extra>")))
+    fig.add_trace(go.Scatter(
+        x=ct["x"], y=ct["z"], mode="lines", line=dict(color=ROCKET_BLUE, width=2.5, dash="dash"),
+        name=tr("If every engine stopped here (gravity only, no air drag)", "若此刻关闭所有发动机（仅受重力，忽略空气阻力）"),
+        customdata=[fmt_get(t) for t in ct["t"]],
+        hovertemplate=tr("%{customdata} · %{y:.0f} km up · %{x:.0f} km downrange<extra>computed</extra>",
+                         "%{customdata} · 高度 %{y:.0f} km · 地面距离 %{x:.0f} km<extra>计算值</extra>")))
+    fig.add_trace(go.Scatter(x=[row["range_km"]], y=[row["altitude_km"]], mode="markers", showlegend=False, hoverinfo="skip",
+                             marker=dict(size=18, color="rgba(0,0,0,0)", line=dict(color="#ffd9b8", width=2.5))))
+    end_x, end_z = float(ct["x"].iloc[-1]), float(ct["z"].iloc[-1])
+    fig.add_trace(go.Scatter(x=[end_x], y=[end_z], mode="markers", showlegend=False, hoverinfo="skip",
+                             marker=dict(size=13, color=ROCKET_BLUE, symbol="triangle-right" if stays else "x")))
+    fig.add_hline(y=rocket.KARMAN_LINE_KM, line=dict(color="#9aa5c4", width=1, dash="dot"),
+                  annotation_text=tr("100 km: where space begins", "100 km：太空边界"), annotation_position="bottom right",
+                  annotation_font=dict(color="#9aa5c4", size=11))
+    if not stays:
+        fig.add_annotation(x=coast["apex_downrange_km"], y=coast["apex_altitude_km"], showarrow=False, yshift=14,
+                           text=tr(f"highest point {coast['apex_altitude_km']:.0f} km", f"最高点 {coast['apex_altitude_km']:.0f} km"),
+                           font=dict(color="#cfe0ff", size=11))
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=430,
+        margin=dict(l=10, r=10, t=10, b=10), hovermode="closest",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(size=11)),
+        xaxis=dict(title=tr("Distance downrange from the launch pad (km)", "距发射台的地面距离 (km)"), rangemode="tozero",
+                   gridcolor="rgba(255,255,255,.07)", zeroline=False),
+        yaxis=dict(title=tr("Altitude (km)", "高度 (km)"), range=[0, 215], gridcolor="rgba(255,255,255,.07)", zeroline=False))
+    st.caption(status_badge("SIMULATED_RESULT") + tr(
+        " for the dashed line (Kepler two-body orbit from NASA's state); dots are NASA-reported values.",
+        "（虚线：以 NASA 记录的状态为起点的开普勒二体轨道）；圆点为 NASA 公布的数值。"))
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False, "responsive": True})
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric(tr("Speed when the engines stop", "发动机关闭时的速度"), f"{orbit['speed_km_s']:.2f} km/s",
+              help=tr("NASA's space-fixed speed at this moment.", "NASA 记录的此刻空间固定坐标系速度。"))
+    m2.metric(tr("Speed needed to stay in orbit here", "在此高度留在轨道所需速度"), f"{orbit['circular_speed_km_s']:.2f} km/s",
+              help=tr("Circular orbital speed √(GM/r) at this height.", "此高度的圆轨道速度 √(GM/r)。"))
+    m3.metric(tr("Highest point it would reach", "将到达的最高点"), f"{orbit['apogee_altitude_km']:.0f} km",
+              help=tr("Apogee of the two-body orbit, above the ground below the cutoff point.", "二体轨道的远地点，相对关机点下方的地面。"))
+    if stays:
+        st.success(tr(
+            f"🛰 **Stays in orbit.** At {orbit['speed_km_s']:.2f} km/s it matches the {orbit['circular_speed_km_s']:.2f} km/s "
+            f"needed at this height, so it keeps falling around Earth instead of into it: the lowest point of the orbit is "
+            f"about {orbit['perigee_altitude_km']:.0f} km up. That is why the last flame goes out here, not when the rocket "
+            "first reached space.",
+            f"🛰 **留在轨道上。** 此时速度 {orbit['speed_km_s']:.2f} km/s，正好达到此高度所需的 {orbit['circular_speed_km_s']:.2f} km/s，"
+            f"所以它会一直“绕着地球下落”而不会落回地面：轨道最低点约 {orbit['perigee_altitude_km']:.0f} km。这就是最后一次熄火发生在这里、"
+            "而不是火箭刚进入太空时的原因。"))
+    else:
+        st.warning(tr(
+            f"⬇ **Falls back to Earth.** It is moving at {orbit['speed_km_s']:.2f} km/s but needs "
+            f"{orbit['circular_speed_km_s']:.2f} km/s to stay up. It would coast to {coast['apex_altitude_km']:.0f} km "
+            f"({fmt_get(coast['apex_time_s'], 0)}), then fall and reach the ground around {fmt_get(coast['impact_time_s'], 0)}, "
+            f"about {coast['impact_downrange_km']:,.0f} km downrange (air drag ignored, so the real fall would be slower).",
+            f"⬇ **会落回地球。** 此时速度 {orbit['speed_km_s']:.2f} km/s，但留在轨道需要 {orbit['circular_speed_km_s']:.2f} km/s。"
+            f"它会滑行到 {coast['apex_altitude_km']:.0f} km（{fmt_get(coast['apex_time_s'], 0)}），然后下落，约在 "
+            f"{fmt_get(coast['impact_time_s'], 0)} 落到地面，距发射台约 {coast['impact_downrange_km']:,.0f} km（忽略空气阻力，实际下落会更慢）。"))
+
+    st.markdown(tr("#### Checks: our physics against NASA's own numbers", "#### 核对：我们的物理计算与 NASA 自己的数据"))
+    checks = rocket_checks()
+    st.dataframe(pd.DataFrame([{
+        tr("Check", "核对项目"): tr(c["check"], CHECK_ZH.get(c["check_id"], c["check"])),
+        tr("Ours", "我们的计算"): f"{c['computed']:g} {c['unit']}",
+        tr("NASA", "NASA 数值"): f"{c['nasa']:g} {c['unit']}",
+        tr("Result (difference, allowed)", "结果（差值，允许范围）"):
+            f"{'✅' if c['passed'] else '❌'} {c['difference']:+g} (±{c['tolerance']:g})",
+        tr("NASA source", "NASA 来源"): tr(*SOURCE_SHORT.get(c["nasa_source"], (c["nasa_source"], c["nasa_source"]))),
+    } for c in checks]), use_container_width=True, hide_index=True)
+    st.caption(tr(
+        "The first two rows compare with flight data. The spent-stage rows compare with NASA's own post-flight "
+        "calculation of where the dropped stages went (the 1969 report notes no tracking data were available for them). "
+        "Allowed differences reflect what this simple model leaves out (air drag, Earth's flattening).",
+        "前两行与飞行数据比较。残骸相关各行与 NASA 自己在飞行后计算的抛弃级轨迹比较（1969 年报告注明这些级没有跟踪数据）。"
+        "允许差值反映了这个简化模型忽略的因素（空气阻力、地球扁率）。"))
+
+    with st.expander(tr("📄 Where every number comes from (NASA pages, transcription, data notes)",
+                        "📄 每个数字的来源（NASA 原页、转录与数据说明）")):
+        src = SOURCES.get("datasets", {}).get("APOLLO11_ASCENT", {})
+        st.markdown(tr(
+            f"- **Source:** {src.get('publication', '')}, [NTRS {src.get('ntrs_id', '')}]({src.get('real_source_page', '')}), "
+            "printed pages 103 (ascent and orbit tables) and 105 (timeline). The scans below are those pages. The values were "
+            "transcribed by hand and checked by code against NASA's own OCR text of the same page.\n"
+            "- **Cross-check:** the primary report MPR-SAT-FE-69-9 (NASA Marshall Space Flight Center, 1969), Table 4-1. "
+            "Its copy is hosted by the Virtual AGC project (ibiblio.org), not by NASA, so it is used only to check numbers.\n"
+            f"- **Licence:** {cfg_text(src, 'real_source_license')}",
+            f"- **来源：** {src.get('publication', '')}，[NTRS {src.get('ntrs_id', '')}]({src.get('real_source_page', '')})，"
+            "第 103 页（上升段与轨道表）和第 105 页（时间线）。下方扫描图即为这两页。数值为手工转录，并由程序与 NASA 对同页的 OCR 文本逐一核对。\n"
+            "- **交叉核对：** 原始报告 MPR-SAT-FE-69-9（NASA 马歇尔航天飞行中心，1969 年）表 4-1。该副本由 Virtual AGC 项目（ibiblio.org）托管，"
+            "并非 NASA 托管，因此只用于核对数字。\n"
+            f"- **许可：** {cfg_text(src, 'real_source_license')}"))
+        report_entry = (PROV_REPORT or {}).get("datasets", {}).get("APOLLO11_ASCENT", {})
+        if report_entry:
+            st.markdown(tr("**Evidence** (computed by `src/provenance_audit.py`):", "**证据**（由 `src/provenance_audit.py` 计算）：")
+                        + "\n" + "\n".join(f"- {code_text(e)}" for e in report_entry.get("evidence", [])))
+        page_tabs = st.tabs([tr("Page 103: ascent + orbit", "第 103 页：上升段 + 轨道"),
+                             tr("Page 105: timeline", "第 105 页：时间线"),
+                             tr("1969 report, Table 4-1", "1969 年报告 表 4-1")])
+        pages = [("data/raw/nasa_ntrs/SP-2000-4029_pdf-page113_apollo11_ascent_orbit.png", 0),
+                 ("data/raw/nasa_ntrs/SP-2000-4029_pdf-page115_apollo11_timeline.png", 0),
+                 ("data/reference/MPR-SAT-FE-69-9_pdf-page57_table4-1.png", -90)]
+        for tab, (rel, rotate) in zip(page_tabs, pages):
+            with tab:
+                if (ROOT / rel).exists():
+                    st.image(upright_page(str(ROOT / rel), rotate), use_column_width=True)
+                    st.caption(f"`{rel}`")
+        st.markdown(tr("**NASA values used, converted to SI units** (n mi × 1.852 → km, ft/s × 0.3048 → m/s):",
+                       "**使用的 NASA 数值（已换算为国际单位）**（海里 × 1.852 → km，英尺/秒 × 0.3048 → m/s）："))
+        st.dataframe(a.reset_index().drop(columns=["source"]), use_container_width=True, hide_index=True)
+        st.markdown(tr("**Data notes**", "**数据说明**") + "\n" + "\n".join(
+            f"- {code_text({'code': code})}" for code in ("HEADER_UNIT_MISPRINT", "SUSPECT_VALUE")) + "\n- " + tr(
+            "The book's timeline prints the spent first stage's highest point at 000:04:59.10 (299.1 s). The primary 1969 "
+            "report gives 269.1 s, and our gravity-only calculation gives 269.1 s too, so the book has a copying error. "
+            "The value is flagged and not used.",
+            "该书时间线把第一级残骸到达最高点的时间印为 000:04:59.10（299.1 s）。1969 年原始报告为 269.1 s，我们仅用重力的计算也得到 269.1 s，"
+            "因此该书存在抄录错误。该值已标记且未使用。"))
+    st.caption(tr(
+        "After the last cutoff the spacecraft is in free fall: everything inside floats. That is the microgravity in which "
+        "the BASS-II and FLEX flames of the Evidence tab burned aboard the International Space Station.",
+        "最后一次关机后，飞船处于自由落体状态，舱内一切都飘浮起来。证据浏览页中 BASS-II 与 FLEX 的火焰，就是在国际空间站上这样的微重力环境中燃烧的。"))
+
+
 with tab_simulation:
     render_simulation()
+    render_rocket()
 
 
 # =========================================================================
@@ -2255,6 +2636,6 @@ with tab_prediction:
 
 
 st.markdown(
-    f'<div class="legal">{tr("Data: NASA Physical Sciences Informatics (CC0) and MaCFP. Independent Space Apps project, not affiliated with or endorsed by NASA. Educational use only.", "数据：NASA 物理科学信息库 (CC0) 与 MaCFP。独立 Space Apps 参赛项目，与 NASA 无隶属关系，亦未获其认可，仅供教育用途。")}</div>',
+    f'<div class="legal">{tr("Data: NASA Physical Sciences Informatics (CC0), NASA Technical Reports Server (Apollo 11 tables) and MaCFP. Independent Space Apps project, not affiliated with or endorsed by NASA. Educational use only.", "数据：NASA 物理科学信息库 (CC0)、NASA 技术报告服务器（阿波罗 11 号数据表）与 MaCFP。独立 Space Apps 参赛项目，与 NASA 无隶属关系，亦未获其认可，仅供教育用途。")}</div>',
     unsafe_allow_html=True,
 )
