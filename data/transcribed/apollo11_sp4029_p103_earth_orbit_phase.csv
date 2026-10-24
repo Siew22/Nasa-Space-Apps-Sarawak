@@ -1,4 +1,0 @@
-event,get_hhh_mm_ss,space_fixed_velocity_ft_s,event_duration_s,velocity_change_ft_s,apogee_n_mi,perigee_n_mi,period_min,inclination_deg
-Earth orbit insertion,000:11:49.33,"25,567.8",,,100.4,98.9,88.18,32.521
-S-IVB 2nd burn ignition,002:44:16.20,"25,560.2",,,,,,
-S-IVB 2nd burn cutoff,002:50:03.03,"35,568.3",346.83,"10,008.1",,,,31.386

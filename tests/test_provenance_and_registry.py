@@ -18,7 +18,7 @@ EMPTY_CATALOG = pd.DataFrame(columns=["dataset_key", "original_field_name", "fie
 
 def test_official_nasa_files_match_registered_checksums():
     entries = fetch_nasa_psi_tables.official_files()
-    assert {e["dataset_key"] for e in entries} == {"BASS_II", "FLEX", "APOLLO11_ASCENT"}
+    assert {e["dataset_key"] for e in entries} == {"BASS_II", "FLEX"}
     for entry in entries:
         ok, why = fetch_nasa_psi_tables.verify_local(entry)
         assert ok, why
@@ -58,11 +58,9 @@ def test_generated_provenance_report_and_mapping_are_consistent():
         assert "OFFICIAL_CHECKSUM_MATCH" in [e["code"] for e in entry["evidence"]]
         assert entry["rows"] == int((records["dataset_key"] == key).sum())
     assert report["datasets"]["MACFP_PMMA_CONE"]["status"] in VOCAB
-    assert report["datasets"]["APOLLO11_ASCENT"]["status"] == "VERIFIED_SOURCE"
     assert set(mapping["verification_status"]) <= VOCAB
     assert mapping["internal_record_id"].is_unique
-    assert len(mapping) == (len(records) + report["datasets"]["MACFP_PMMA_CONE"]["rows"]
-                            + report["datasets"]["APOLLO11_ASCENT"]["rows"])
+    assert len(mapping) == len(records) + report["datasets"]["MACFP_PMMA_CONE"]["rows"]
 
 
 def test_registry_never_merges_targets_and_units_are_declared():

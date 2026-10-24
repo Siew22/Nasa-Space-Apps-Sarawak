@@ -1,7 +1,3 @@
 # Official source files are stored byte-for-byte; their SHA-256 checksums are registered in
 # config/data_sources.json. Never let Git rewrite their line endings or encoding.
 data/raw/nasa_psi/** -text
-data/raw/nasa_ntrs/** -text
-# Hand transcriptions and the tables built from them are compared byte-for-byte by src/provenance_audit.py.
-data/transcribed/** -text
-data/processed/rocket/** -text

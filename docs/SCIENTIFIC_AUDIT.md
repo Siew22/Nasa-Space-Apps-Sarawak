@@ -155,51 +155,15 @@ The full pipeline was rerun from a clean rebuild and reproduced identical scores
 - **The MaCFP model is an after-test estimator for ground-based PMMA.** It is not validated for microgravity, spacecraft or other materials. Its 350 kW/m² hazard flag cannot be validated because every measured peak is above it.
 - **The 2D sandbox is educational.** The temperature field is an illustrative Gaussian, not a CFD solution.
 - **`app/services/data_services.py` is unused** and looks for `dataset_catalog.csv` in the wrong folder. It was left untouched because nothing imports it.
-- **Apollo 11 launch replay** (section 9):
-  - Values between NASA's event times are interpolated for drawing only.
-  - The "what if" coast ignores air drag and Earth's flattening.
-  - The engine-flame look, the clouds and the camera are illustrations.
-  - The 1969 primary report is checked from a non-NASA mirror (no NASA-hosted copy was found).
+## 9. Apollo 11 launch replay: added, then removed (2026-10-24)
 
-## 9. Addition: Apollo 11 launch data (2026-10-24)
+A rocket-launch replay ("when does the engine flame go out?") was added to the 2D sandbox tab, with Saturn V flight
+values transcribed from NASA/SP-2000-4029 (NTRS 20010008244) and checked against NASA's OCR text and the 1969
+flight evaluation report MPR-SAT-FE-69-9. It was removed the same day because it falls outside the challenge:
+a rocket engine is high-pressure combustion carrying its own oxidiser, not the accidental fires in a crewed
+cabin that the BASS-II, FLEX and MaCFP data describe, and none of the project's models apply to it.
 
-**Why:** the 2D sandbox tab gained a rocket-launch replay that answers "when does the rocket's flame go out?". Every
-number in it had to be real NASA data, not typed in.
-
-**Source and provenance** (dataset `APOLLO11_ASCENT` in `config/data_sources.json`):
-- **Publication:** NASA/SP-2000-4029 *Apollo by the Numbers* (R. W. Orloff, 2000), NTRS 20010008244, which NTRS marks "government public use permitted".
-- **Pages used:** printed page 103 (*Apollo 11 Ascent Phase* and *Earth Orbit Phase*) and page 105 (*Timeline*, launch rows).
-- **Files stored:**
-  - NTRS's full-text file of the book, byte-for-byte: downloaded twice, identical SHA-256, registered and fetchable with `src/fetch_nasa_psi_tables.py`.
-  - The two page scans, extracted losslessly from NASA's 255 MB PDF, which is registered by checksum but not stored.
-- **Transcription:** values were typed by hand, exactly as printed, into `data/transcribed/`. `src/build_rocket_ascent.py` then checks them:
-  - **OCR:** every one of the 99 numbers and 14 times on page 103 is found in NASA's own OCR text of that page, and no OCR number is left untranscribed.
-  - **Shared times:** the 11 event times shared by the ascent table and the timeline are identical.
-  - **Burn durations:** each cutoff time minus its burn duration equals the printed ignition time (S-IC −6.40 s, S-II 164.00 s, S-IVB 552.20 s).
-  - **Primary report:** 18 of 19 values shared with MPR-SAT-FE-69-9 Table 4-1 agree within its printed precision.
-- **Status:** `src/provenance_audit.py` recomputes all of this, rebuilds the four processed tables byte-for-byte, and sets `VERIFIED_SOURCE`.
-
-**Findings in the source:**
-- **Copying error in the book.** The timeline prints the spent first stage's apex at 000:04:59.10. The primary report gives 269.1 s (115.0 km), and a drag-free two-body coast from NASA's separation state gives 269.1 s (114.9 km). The value is flagged and not used.
-- **Misprinted unit.** The ascent table's "Event Duration (deg E)" column is in seconds.
-- **Suspect value.** One longitude (S-IC centre cutoff, −81.1517°) lies west of the pad. It is kept as printed and is not used.
-
-**Physics** (`app/services/rocket_ascent.py`; no fitted parameters and no machine-learning model):
-- **Methods:**
-  - two-body (Kepler) motion from NASA's space-fixed speed and flight-path angle;
-  - circular orbital speed;
-  - WGS-84 radius and GM;
-  - U.S. Standard Atmosphere 1976 pressure (0–86 km).
-- **Checks against NASA** (all 8 pass):
-  - speed at liftoff = Earth's spin at the pad: 408.632 vs 408.645 m/s;
-  - parking-orbit period from the insertion height and speed: 88.184 vs 88.18 min;
-  - spent S-IC apex time / altitude / downrange: 269.104 s, 114.9 km, 327.4 km vs 269.1 s, 115.0 km, 327.4 km;
-  - spent S-II apex: 586.5 s, 188.8 km, 1,860.7 km vs 587.0 s, 188.8 km, 1,862.9 km.
-- **Interpretation:** the spent-stage values in the primary report were themselves computed by NASA (no tracking data), so those rows check our physics against NASA's calculation, not against a measurement.
-
-**Why the trained models are not used here:** the project's trained models describe ground-based PMMA cone burns and
-ISS droplet flames. A rocket engine is a different kind of flame (high-pressure combustion with its own oxidiser),
-so applying them would be invalid.
-
-**Commands:** `python -m src.build_rocket_ascent`, `python -m src.provenance_audit`. Tests: `tests/test_rocket_ascent.py`
-(14 tests). The full suite went from 52 to 66 passed.
+Removed: dataset `APOLLO11_ASCENT` from `config/data_sources.json` and `src/provenance_audit.py`,
+`app/services/rocket_ascent.py`, `src/build_rocket_ascent.py`, `assets/rocket_launch.html`, `data/processed/rocket/`,
+`data/raw/nasa_ntrs/`, `data/transcribed/`, `data/reference/` and `tests/test_rocket_ascent.py`. Everything is
+recoverable from git commit `13ab59a`.

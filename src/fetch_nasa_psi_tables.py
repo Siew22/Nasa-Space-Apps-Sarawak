@@ -4,8 +4,7 @@ NASA PSI experimental tables (BASS-II PSI-25, FLEX PSI-69) use the PSI portal's 
   metadata  GET  https://psi.nasa.gov/geode-py/ws/repo/investigations/<PSI-ID>
   download  GET  https://psi.nasa.gov/geode-py/ws/studies/<PSI-ID>/download?file=<name>&version=<v>&redirect=false
             -> returns a short-lived pre-signed URL on NASA's psi-repo-prod S3 bucket
-NASA Technical Reports Server files (Apollo 11 tables, NASA/SP-2000-4029) are fetched from their registered
-download_url on ntrs.nasa.gov.
+Files registered with a direct download_url are fetched only from the hosts in DIRECT_HOSTS (ntrs.nasa.gov).
 
 Each file is accepted only if
   * its byte size equals the registered size (for PSI also NASA's metadata size), and

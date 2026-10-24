@@ -1,8 +1,8 @@
 {
   "report": "data_provenance_audit",
-  "generated_at_utc": "2026-10-24T10:44:59+00:00",
+  "generated_at_utc": "2026-10-24T13:56:41+00:00",
   "generated_by": "src/provenance_audit.py",
-  "repository_commit": "2cf7dae62323290691b2bd78086e2c4ad912b2f0",
+  "repository_commit": "13ab59a256f485d94332be3a8eeb265d73c5895d",
   "status_rules": {
     "SYNTHETIC_DEMO": "Every row is reproduced exactly by a generator script in this repository.",
     "VERIFIED_SOURCE": "Rebuilt byte-for-byte from source files at a pinned revision, or raw file SHA-256 matches a registered official checksum.",
@@ -84,99 +84,6 @@
           "code": "MODEL_TRAINED_ON_THIS_FILE",
           "detail": {
             "model_csv_sha256": "de10787fd00d75a7aeeb9c07bcb182ab905bb55492f382abf92a55eb4341fe12"
-          }
-        }
-      ],
-      "required_to_verify": [],
-      "required_to_verify_zh": []
-    },
-    "APOLLO11_ASCENT": {
-      "status": "VERIFIED_SOURCE",
-      "result_type": "REAL_MEASUREMENT",
-      "rows": 53,
-      "result_note": "Post-flight values reported by NASA. Rows marked 'theoretical' and the spent-stage apex rows are NASA calculations, not tracking measurements.",
-      "source_files": [
-        "data/raw/nasa_ntrs/20010008244.txt"
-      ],
-      "evidence": [
-        {
-          "code": "OFFICIAL_CHECKSUM_MATCH",
-          "detail": {
-            "path": "data/raw/nasa_ntrs/20010008244.txt"
-          }
-        },
-        {
-          "code": "PAGE_IMAGE_MATCH",
-          "detail": {
-            "path": "data/raw/nasa_ntrs/SP-2000-4029_pdf-page113_apollo11_ascent_orbit.png"
-          }
-        },
-        {
-          "code": "PAGE_IMAGE_MATCH",
-          "detail": {
-            "path": "data/raw/nasa_ntrs/SP-2000-4029_pdf-page115_apollo11_timeline.png"
-          }
-        },
-        {
-          "code": "PAGE_IMAGE_MATCH",
-          "detail": {
-            "path": "data/reference/MPR-SAT-FE-69-9_pdf-page57_table4-1.png"
-          }
-        },
-        {
-          "code": "TRANSCRIPTION_MATCHES_OCR",
-          "detail": {
-            "values": 99,
-            "times": 14,
-            "missing": []
-          }
-        },
-        {
-          "code": "TIMES_CONSISTENT_ACROSS_TABLES",
-          "detail": {
-            "shared_times": 11,
-            "ignition_checks": 3
-          }
-        },
-        {
-          "code": "PRIMARY_REPORT_AGREES",
-          "detail": {
-            "agree": 18,
-            "compared": 19
-          }
-        },
-        {
-          "code": "SECONDARY_SOURCE_CONFLICT",
-          "detail": {
-            "item": "Apex: S-IC Stage / Range Time (sec)",
-            "sp4029": 299.1,
-            "primary_report": 269.1
-          }
-        },
-        {
-          "code": "REBUILD_FILES_IDENTICAL",
-          "detail": {
-            "files": 4,
-            "differing": []
-          }
-        },
-        {
-          "code": "PHYSICS_REPRODUCES_NASA",
-          "detail": {
-            "passed": 8,
-            "of": 8
-          }
-        },
-        {
-          "code": "HEADER_UNIT_MISPRINT",
-          "detail": {
-            "detail": "The ascent table header prints 'Event Duration (deg E)'. The values are seconds: the Earth-orbit table on the same page labels the same column '(sec)', and each cutoff time minus its duration equals the ignition time printed in the timeline."
-          }
-        },
-        {
-          "code": "SUSPECT_VALUE",
-          "detail": {
-            "detail": "S-IC center engine cutoff longitude -81.1517 deg E lies west of the launch pad (-80.6041) although every other point moves east. Kept as printed; longitude is not used by any calculation."
           }
         }
       ],
