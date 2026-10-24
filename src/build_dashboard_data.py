@@ -10,7 +10,11 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CATALOG = ROOT / "config" / "dataset_catalog.csv"
 DEFAULT_OUTPUT = ROOT / "data" / "processed"
+DEMO_DIR = ROOT / "data" / "demo"
+# Synthetic demo tables are NOT ingested by default, so they can never mix with the official NASA tables.
 INPUT_DIRS = (ROOT / "data" / "raw", ROOT / "data" / "starter_verified")
+# Source repositories cloned under data/raw are handled by their own pipelines (e.g. MaCFP).
+EXCLUDED_SUBDIRS = (ROOT / "data" / "raw" / "macfp-matl-db",)
 SUPPORTED_SUFFIXES = {".csv", ".xlsx", ".xls", ".parquet", ".json", ".jsonl"}
 
 
@@ -25,7 +29,12 @@ def normalize_column_name(name: Any) -> str:
 def read_table(path: Path) -> pd.DataFrame:
     suffix = path.suffix.lower()
     if suffix == ".csv":
-        return pd.read_csv(path, low_memory=False)
+        # NASA's FLEX table is Windows-1252 (0x96 = en dash meaning "no value"); BASS-II is UTF-8 with BOM.
+        # Try UTF-8 first and fall back explicitly; values are never altered, only decoded.
+        try:
+            return pd.read_csv(path, low_memory=False, encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            return pd.read_csv(path, low_memory=False, encoding="cp1252")
     if suffix in {".xlsx", ".xls"}:
         return pd.read_excel(path)
     if suffix == ".parquet":
@@ -59,12 +68,14 @@ def match_source(path: Path, catalog: pd.DataFrame) -> dict[str, str]:
     }
 
 
-def build(catalog_path: Path = DEFAULT_CATALOG, output_dir: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
+def build(catalog_path: Path = DEFAULT_CATALOG, output_dir: Path = DEFAULT_OUTPUT,
+          include_demo: bool = False) -> dict[str, Any]:
     catalog = load_catalog(catalog_path)
     files = []
-    for d in INPUT_DIRS:
+    for d in (*INPUT_DIRS, DEMO_DIR) if include_demo else INPUT_DIRS:
         if d.exists():
-            files.extend([p for p in d.rglob("*") if p.is_file() and p.suffix.lower() in SUPPORTED_SUFFIXES])
+            files.extend([p for p in d.rglob("*") if p.is_file() and p.suffix.lower() in SUPPORTED_SUFFIXES
+                          and not any(ex in p.parents for ex in EXCLUDED_SUBDIRS)])
     files = sorted(set(files))
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -73,7 +84,7 @@ def build(catalog_path: Path = DEFAULT_CATALOG, output_dir: Path = DEFAULT_OUTPU
     report = {"input_file_count": len(files), "files": [], "row_count": 0}
 
     for path in files:
-        relative = str(path.relative_to(ROOT))
+        relative = path.relative_to(ROOT).as_posix()  # same IDs on Windows and Linux
         try:
             raw = read_table(path)
             if raw.empty:
@@ -82,6 +93,11 @@ def build(catalog_path: Path = DEFAULT_CATALOG, output_dir: Path = DEFAULT_OUTPU
             df = raw.copy()
             df.columns = cols
             meta = match_source(path, catalog)
+            if DEMO_DIR in path.parents:
+                # Synthetic demo files only borrow a dataset_key so the dashboard can route them to the
+                # right track; they must never inherit the real investigation's DOI, page or licence.
+                meta = {**meta, "display_name": f"{meta.get('display_name', '')} (SYNTHETIC DEMO)",
+                        "source_page": "", "doi": "", "license_status": "Not applicable: synthetic demo data"}
 
             df["dataset_key"] = meta.get("dataset_key", "UNCLASSIFIED")
             df["dataset_name"] = meta.get("display_name", "Unclassified")
@@ -126,5 +142,8 @@ def build(catalog_path: Path = DEFAULT_CATALOG, output_dir: Path = DEFAULT_OUTPU
 
 
 if __name__ == "__main__":
-    rep = build()
+    parser = argparse.ArgumentParser(description="Normalise raw experiment tables into data/processed/dashboard_records.csv")
+    parser.add_argument("--include-demo", action="store_true",
+                        help="also ingest the SYNTHETIC tables in data/demo/ (for demonstrations only)")
+    rep = build(include_demo=parser.parse_args().include_demo)
     print(json.dumps(rep, indent=2))

@@ -1,0 +1,1262 @@
+{
+  "report": "cv_summary",
+  "generated_at_utc": "2026-10-24T09:05:36+00:00",
+  "repository_commit": "572ddeb982f633a15baf960eb812377f183a7337",
+  "generated_by": "src/run_cv_evaluation.py",
+  "tasks": [
+    {
+      "task_id": "macfp_pmma_peak_hrr",
+      "evaluation_status": "EVALUATED",
+      "task_type": "regression",
+      "target": {
+        "column": "target_peak_hrr_kw_m2",
+        "quantity": "peak_heat_release_rate_per_unit_area",
+        "unit": "kW/m2",
+        "unit_verified": true,
+        "unit_evidence": "Unit row of every source CSV is checked to be kW/m2 by src/build_measured_cone_dataset.py (_summarize_file).",
+        "origin": "extracted_from_measured_time_series",
+        "definition": "Maximum recorded HRR over the complete measured experiment.",
+        "unit_evidence_zh": "src/build_measured_cone_dataset.py\uff08_summarize_file\uff09\u4f1a\u68c0\u67e5\u6bcf\u4e2a\u6765\u6e90 CSV \u7684\u5355\u4f4d\u884c\u662f\u5426\u4e3a kW/m2\u3002"
+      },
+      "label": null,
+      "decision_threshold": null,
+      "rows_used": 54,
+      "rows_excluded_before_split": 0,
+      "class_counts": null,
+      "independent_groups": 10,
+      "group_column": "laboratory",
+      "outer_folds_total": 25,
+      "models": {
+        "mean_baseline": {
+          "fold_level": {
+            "mae": {
+              "n": 25,
+              "mean": 364.187156803638,
+              "std": 107.71405601604667,
+              "min": 113.4885853434649,
+              "max": 569.6751059635259
+            },
+            "rmse": {
+              "n": 25,
+              "mean": 445.2012527483905,
+              "std": 151.230636435633,
+              "min": 182.69463186113165,
+              "max": 807.1289658873126
+            },
+            "r2": {
+              "n": 25,
+              "mean": -0.3161277602882821,
+              "std": 0.4949267018870614,
+              "min": -1.8525754831410146,
+              "max": -1.4599536610759856e-06
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "mae": 369.77079464049507,
+              "rmse": 471.6694301603617,
+              "r2": -0.11261740558354716,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "mae": 359.1420071961003,
+              "rmse": 458.54207971649276,
+              "r2": -0.05154722861991945,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "mae": 362.6461572662593,
+              "rmse": 460.90884147786437,
+              "r2": -0.0624303503426582,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "mae": 355.40362363297777,
+              "rmse": 457.52191111735044,
+              "r2": -0.04687344982191388,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "mae": 356.2586904800764,
+              "rmse": 456.6883579507813,
+              "r2": -0.04306235467571384,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "mae": {
+              "n": 5,
+              "mean": 360.6442546431818,
+              "std": 5.836426137649073,
+              "min": 355.40362363297777,
+              "max": 369.77079464049507
+            },
+            "rmse": {
+              "n": 5,
+              "mean": 461.0661240845701,
+              "std": 6.134980020474185,
+              "min": 456.6883579507813,
+              "max": 471.6694301603617
+            },
+            "r2": {
+              "n": 5,
+              "mean": -0.06330615780875051,
+              "std": 0.028506508329514783,
+              "min": -0.11261740558354716,
+              "max": -0.04306235467571384
+            }
+          },
+          "selected_params_counts": {
+            "{}": 25
+          },
+          "folds_with_metric_notes": 0
+        },
+        "ridge": {
+          "fold_level": {
+            "mae": {
+              "n": 25,
+              "mean": 122.6255663573883,
+              "std": 50.84289847362704,
+              "min": 47.605815246849325,
+              "max": 227.01182812471006
+            },
+            "rmse": {
+              "n": 25,
+              "mean": 159.83057266286775,
+              "std": 66.85777152717917,
+              "min": 66.45096779067545,
+              "max": 296.7440449185826
+            },
+            "r2": {
+              "n": 25,
+              "mean": 0.7884940620924001,
+              "std": 0.18480658056846808,
+              "min": 0.09926851545912174,
+              "max": 0.9618993867287818
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "mae": 111.46799770647301,
+              "rmse": 159.90738967974855,
+              "r2": 0.8721185775931197,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "mae": 117.32246189802099,
+              "rmse": 163.73385712849557,
+              "r2": 0.8659251326802623,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "mae": 113.01575489489042,
+              "rmse": 159.7172234440185,
+              "r2": 0.8724225568966324,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "mae": 123.720778564738,
+              "rmse": 175.91452445940274,
+              "r2": 0.8452346309502874,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "mae": 115.86760606070976,
+              "rmse": 163.47770784357968,
+              "r2": 0.8663443046014631,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "mae": {
+              "n": 5,
+              "mean": 116.27891982496644,
+              "std": 4.754803822575218,
+              "min": 111.46799770647301,
+              "max": 123.720778564738
+            },
+            "rmse": {
+              "n": 5,
+              "mean": 164.550140511049,
+              "std": 6.63094781254581,
+              "min": 159.7172234440185,
+              "max": 175.91452445940274
+            },
+            "r2": {
+              "n": 5,
+              "mean": 0.864409040544353,
+              "std": 0.011150730597710396,
+              "min": 0.8452346309502874,
+              "max": 0.8724225568966324
+            }
+          },
+          "selected_params_counts": {
+            "{\"alpha\": 1.0}": 11,
+            "{\"alpha\": 0.1}": 9,
+            "{\"alpha\": 10.0}": 5
+          },
+          "folds_with_metric_notes": 0
+        },
+        "random_forest": {
+          "fold_level": {
+            "mae": {
+              "n": 25,
+              "mean": 187.13060246041434,
+              "std": 86.01267904834705,
+              "min": 80.36043761961463,
+              "max": 427.23949592642805
+            },
+            "rmse": {
+              "n": 25,
+              "mean": 263.57175267395274,
+              "std": 132.50061261021276,
+              "min": 101.08637878996369,
+              "max": 583.6726813166767
+            },
+            "r2": {
+              "n": 25,
+              "mean": 0.5693762140559135,
+              "std": 0.2221993408517392,
+              "min": -0.04254830141374688,
+              "max": 0.8741920366462812
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "mae": 161.52560827435423,
+              "rmse": 268.0972695614192,
+              "r2": 0.6405361907636569,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "mae": 220.0215325660818,
+              "rmse": 322.272084354545,
+              "r2": 0.48058347034920335,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "mae": 160.81308024237907,
+              "rmse": 260.46240351639955,
+              "r2": 0.6607182667616787,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "mae": 203.3928641503448,
+              "rmse": 301.1773185440099,
+              "r2": 0.5463562675443638,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "mae": 173.60340711843713,
+              "rmse": 275.5837464088392,
+              "r2": 0.620180209384039,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "mae": {
+              "n": 5,
+              "mean": 183.87129847031943,
+              "std": 26.572409764516085,
+              "min": 160.81308024237907,
+              "max": 220.0215325660818
+            },
+            "rmse": {
+              "n": 5,
+              "mean": 285.51856447704256,
+              "std": 25.622407824923513,
+              "min": 260.46240351639955,
+              "max": 322.272084354545
+            },
+            "r2": {
+              "n": 5,
+              "mean": 0.5896748809605883,
+              "std": 0.07473628419428371,
+              "min": 0.48058347034920335,
+              "max": 0.6607182667616787
+            }
+          },
+          "selected_params_counts": {
+            "{\"min_samples_leaf\": 4}": 11,
+            "{\"min_samples_leaf\": 1}": 8,
+            "{\"min_samples_leaf\": 2}": 6
+          },
+          "folds_with_metric_notes": 0
+        },
+        "tf_nn_deployed_config": {
+          "fold_level": {
+            "mae": {
+              "n": 25,
+              "mean": 151.93762165093875,
+              "std": 68.36563409424917,
+              "min": 59.38588156820913,
+              "max": 321.8570229147727
+            },
+            "rmse": {
+              "n": 25,
+              "mean": 206.26337468801313,
+              "std": 96.46406431079615,
+              "min": 74.32362193194511,
+              "max": 461.2703213689839
+            },
+            "r2": {
+              "n": 25,
+              "mean": 0.6594104425670172,
+              "std": 0.26352302365588537,
+              "min": 0.002919525812758672,
+              "max": 0.9633226308429925
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "mae": 171.8520951582755,
+              "rmse": 302.7249397111605,
+              "r2": 0.5416821276653445,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "mae": 154.05586544552952,
+              "rmse": 212.6631525209087,
+              "r2": 0.7738196428509131,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "mae": 137.18280041261576,
+              "rmse": 197.03718982337998,
+              "r2": 0.8058368540223666,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "mae": 164.20681900969333,
+              "rmse": 234.74708116604558,
+              "r2": 0.7244053438073619,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "mae": 125.40171453544562,
+              "rmse": 184.5476012011351,
+              "r2": 0.8296715480340586,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "mae": {
+              "n": 5,
+              "mean": 150.53985891231193,
+              "std": 19.129145488790712,
+              "min": 125.40171453544562,
+              "max": 171.8520951582755
+            },
+            "rmse": {
+              "n": 5,
+              "mean": 226.34399288452602,
+              "std": 46.6306052589691,
+              "min": 184.5476012011351,
+              "max": 302.7249397111605
+            },
+            "r2": {
+              "n": 5,
+              "mean": 0.7350831032760089,
+              "std": 0.11507773301022393,
+              "min": 0.5416821276653445,
+              "max": 0.8296715480340586
+            }
+          },
+          "selected_params_counts": {
+            "{\"batch_size\": 8, \"epochs\": 60}": 25
+          },
+          "folds_with_metric_notes": 0
+        }
+      },
+      "split_audit": {
+        "passed": true,
+        "checks": {
+          "train_validation_group_overlaps": 0,
+          "train_test_group_overlaps": 0,
+          "validation_test_group_overlaps": 0,
+          "record_ids_in_conflicting_partitions": 0,
+          "rows_missing_from_a_split": 0,
+          "groups_not_tested_exactly_once_per_repeat": 0
+        },
+        "failures": []
+      },
+      "derived_classification": {
+        "name": "high_hazard_350",
+        "evaluation_status": "NOT_EVALUATED",
+        "reason": "every measured target is on one side of the threshold (classes present: [1])"
+      },
+      "warnings": [],
+      "warnings_zh": [],
+      "dependence_note": "The 25 outer folds come from 5 repeats over the same rows, so they are correlated re-splits, not 25 independent experiments. Per-seed pooled scores are reported to show repeat-to-repeat variation; neither spread is a confidence interval for new experiments.",
+      "pooled_note": null,
+      "dataset_key": "MACFP_PMMA_CONE"
+    },
+    {
+      "task_id": "flex_droplet_burning_rate_constant",
+      "evaluation_status": "EVALUATED",
+      "task_type": "regression",
+      "target": {
+        "column": "burning_rate_constant_mm2_s",
+        "source_column": "Burning rate; mm",
+        "quantity": "droplet_burning_rate_constant",
+        "unit": "mm^2/s",
+        "unit_verified": true,
+        "unit_evidence": "NASA/TP-2015-216046 Appendix A.1: 'average burning rate constant from a linear fit of the droplet diameter squared versus time'; Table IX header 'Burning rate, mm2/s'. The PSI CSV header 'Burning rate; mm' is truncated.",
+        "origin": "reported_in_source_table",
+        "unit_evidence_zh": "NASA/TP-2015-216046 \u9644\u5f55 A.1\uff1a\u201c\u7531\u6db2\u6ef4\u76f4\u5f84\u5e73\u65b9\u5bf9\u65f6\u95f4\u7684\u7ebf\u6027\u62df\u5408\u5f97\u5230\u7684\u5e73\u5747\u71c3\u70e7\u901f\u7387\u5e38\u6570\u201d\uff1b\u8868 IX \u8868\u5934\u4e3a\u201cBurning rate, mm2/s\u201d\u3002PSI CSV \u8868\u5934\u201cBurning rate; mm\u201d\u662f\u88ab\u622a\u65ad\u7684\u5199\u6cd5\u3002"
+      },
+      "label": null,
+      "decision_threshold": null,
+      "rows_used": 255,
+      "rows_excluded_before_split": 0,
+      "class_counts": null,
+      "independent_groups": 80,
+      "group_column": "group_test_date",
+      "outer_folds_total": 25,
+      "models": {
+        "mean_baseline": {
+          "fold_level": {
+            "mae": {
+              "n": 25,
+              "mean": 0.10885926444618452,
+              "std": 0.01579463022515506,
+              "min": 0.07919999999999999,
+              "max": 0.13352311481621826
+            },
+            "rmse": {
+              "n": 25,
+              "mean": 0.1389893279154146,
+              "std": 0.01730551716794093,
+              "min": 0.09978659203535184,
+              "max": 0.16887877643976343
+            },
+            "r2": {
+              "n": 25,
+              "mean": -0.1033138781071907,
+              "std": 0.13581950309725122,
+              "min": -0.510446465460419,
+              "max": -0.004062666632810963
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "mae": 0.10917031116456771,
+              "rmse": 0.14037381808635235,
+              "r2": -0.036584239007402264,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "mae": 0.10894406923870491,
+              "rmse": 0.13982020373300005,
+              "r2": -0.02842408073419378,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "mae": 0.10905245965204466,
+              "rmse": 0.13972985506427815,
+              "r2": -0.027095421159386568,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "mae": 0.11007802509714122,
+              "rmse": 0.141834003440204,
+              "r2": -0.05826174975586129,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "mae": 0.10752444455771429,
+              "rmse": 0.13871720207245153,
+              "r2": -0.012262193634395402,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "mae": {
+              "n": 5,
+              "mean": 0.10895386194203456,
+              "std": 0.0009170120677081241,
+              "min": 0.10752444455771429,
+              "max": 0.11007802509714122
+            },
+            "rmse": {
+              "n": 5,
+              "mean": 0.1400950164792572,
+              "std": 0.0011411664460715164,
+              "min": 0.13871720207245153,
+              "max": 0.141834003440204
+            },
+            "r2": {
+              "n": 5,
+              "mean": -0.03252553685824786,
+              "std": 0.01685034788138692,
+              "min": -0.05826174975586129,
+              "max": -0.012262193634395402
+            }
+          },
+          "selected_params_counts": {
+            "{}": 25
+          },
+          "folds_with_metric_notes": 0
+        },
+        "ridge": {
+          "fold_level": {
+            "mae": {
+              "n": 25,
+              "mean": 0.047712576900057896,
+              "std": 0.008845889110343372,
+              "min": 0.035705829564353926,
+              "max": 0.06737637042116978
+            },
+            "rmse": {
+              "n": 25,
+              "mean": 0.07194488791958928,
+              "std": 0.017131560593356316,
+              "min": 0.046076925552881225,
+              "max": 0.11245241688105552
+            },
+            "r2": {
+              "n": 25,
+              "mean": 0.7014897712556634,
+              "std": 0.10788963054666957,
+              "min": 0.3827454408494385,
+              "max": 0.808600472679605
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "mae": 0.04881508223545193,
+              "rmse": 0.07472067669050332,
+              "r2": 0.7062932222900997,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "mae": 0.047445439321141245,
+              "rmse": 0.07399946946121044,
+              "r2": 0.7119356012438041,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "mae": 0.04778188979854849,
+              "rmse": 0.07430819775516577,
+              "r2": 0.7095269583687727,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "mae": 0.047181445774894124,
+              "rmse": 0.07367858308113619,
+              "r2": 0.7144284711597482,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "mae": 0.04736642412893956,
+              "rmse": 0.07298931257046269,
+              "r2": 0.719746578944632,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "mae": {
+              "n": 5,
+              "mean": 0.04771805625179507,
+              "std": 0.0006506644056524596,
+              "min": 0.047181445774894124,
+              "max": 0.04881508223545193
+            },
+            "rmse": {
+              "n": 5,
+              "mean": 0.07393924791169568,
+              "std": 0.0006558782022573641,
+              "min": 0.07298931257046269,
+              "max": 0.07472067669050332
+            },
+            "r2": {
+              "n": 5,
+              "mean": 0.7123861664014114,
+              "std": 0.005095309828927176,
+              "min": 0.7062932222900997,
+              "max": 0.719746578944632
+            }
+          },
+          "selected_params_counts": {
+            "{\"alpha\": 0.1}": 14,
+            "{\"alpha\": 10.0}": 10,
+            "{\"alpha\": 1.0}": 1
+          },
+          "folds_with_metric_notes": 0
+        },
+        "random_forest": {
+          "fold_level": {
+            "mae": {
+              "n": 25,
+              "mean": 0.05602595182227951,
+              "std": 0.014469436795028734,
+              "min": 0.032094277077089554,
+              "max": 0.08845045425681038
+            },
+            "rmse": {
+              "n": 25,
+              "mean": 0.08438279992859772,
+              "std": 0.025151506096642788,
+              "min": 0.04498387774948519,
+              "max": 0.13948155888768318
+            },
+            "r2": {
+              "n": 25,
+              "mean": 0.5877586103224642,
+              "std": 0.19228939638960552,
+              "min": 0.059076068510254376,
+              "max": 0.8207441524826952
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "mae": 0.05856253725401889,
+              "rmse": 0.09100248710119961,
+              "r2": 0.5643488151891576,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "mae": 0.05493854182790169,
+              "rmse": 0.08803279141455249,
+              "r2": 0.5923182016880868,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "mae": 0.060510868079920906,
+              "rmse": 0.09191977243981388,
+              "r2": 0.5555220131768549,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "mae": 0.053400600203717834,
+              "rmse": 0.08577045178505112,
+              "r2": 0.6130028459054959,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "mae": 0.05297778442960665,
+              "rmse": 0.08313530824924047,
+              "r2": 0.6364171423324002,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "mae": {
+              "n": 5,
+              "mean": 0.056078066359033195,
+              "std": 0.0033129071801279966,
+              "min": 0.05297778442960665,
+              "max": 0.060510868079920906
+            },
+            "rmse": {
+              "n": 5,
+              "mean": 0.08797216219797152,
+              "std": 0.0036404964086729826,
+              "min": 0.08313530824924047,
+              "max": 0.09191977243981388
+            },
+            "r2": {
+              "n": 5,
+              "mean": 0.592321803658399,
+              "std": 0.03357386289050279,
+              "min": 0.5555220131768549,
+              "max": 0.6364171423324002
+            }
+          },
+          "selected_params_counts": {
+            "{\"min_samples_leaf\": 2}": 12,
+            "{\"min_samples_leaf\": 4}": 8,
+            "{\"min_samples_leaf\": 1}": 5
+          },
+          "folds_with_metric_notes": 0
+        }
+      },
+      "split_audit": {
+        "passed": true,
+        "checks": {
+          "train_validation_group_overlaps": 0,
+          "train_test_group_overlaps": 0,
+          "validation_test_group_overlaps": 0,
+          "record_ids_in_conflicting_partitions": 0,
+          "rows_missing_from_a_split": 0,
+          "groups_not_tested_exactly_once_per_repeat": 0
+        },
+        "failures": []
+      },
+      "derived_classification": null,
+      "warnings": [],
+      "warnings_zh": [],
+      "dependence_note": "The 25 outer folds come from 5 repeats over the same rows, so they are correlated re-splits, not 25 independent experiments. Per-seed pooled scores are reported to show repeat-to-repeat variation; neither spread is a confidence interval for new experiments.",
+      "pooled_note": null,
+      "dataset_key": "FLEX"
+    },
+    {
+      "task_id": "flex_extinction_outcome",
+      "evaluation_status": "EVALUATED",
+      "task_type": "classification",
+      "target": null,
+      "label": {
+        "column": "extinction_label",
+        "source_column": "Test end",
+        "mapping_verified": true,
+        "mapping": {
+          "Extinction": "1: the visible flame went out while fuel remained",
+          "Completion": "0: the droplet burned completely",
+          "Disruption": "excluded: the droplet broke apart, so the burn ended for another reason"
+        },
+        "mapping_evidence": "NASA/TP-2015-216046 Appendix A.1: a '-' extinction diameter 'indicates flame extinction did not occur either because the droplet burned to completion or because a droplet disruption ended the test'. Table IX Test end values: Completion, Disruption, Extinction.",
+        "mapping_note": "Disruption is not pooled with Completion. This task predicts the reported test outcome; it does not define or validate a quenching boundary.",
+        "mapping_zh": {
+          "Extinction": "1\uff1a\u53ef\u89c1\u706b\u7130\u5728\u71c3\u6599\u5c1a\u5b58\u65f6\u7184\u706d",
+          "Completion": "0\uff1a\u6db2\u6ef4\u5b8c\u5168\u71c3\u5c3d",
+          "Disruption": "\u6392\u9664\uff1a\u6db2\u6ef4\u7834\u788e\uff0c\u71c3\u70e7\u56e0\u5176\u4ed6\u539f\u56e0\u7ed3\u675f"
+        },
+        "mapping_note_zh": "\u7834\u788e\u4e0d\u4e0e\u71c3\u5c3d\u5408\u5e76\u3002\u8be5\u4efb\u52a1\u9884\u6d4b\u7684\u662f\u62a5\u544a\u4e2d\u7684\u8bd5\u9a8c\u7ed3\u679c\uff0c\u5e76\u4e0d\u5b9a\u4e49\u6216\u9a8c\u8bc1\u7184\u706b\u8fb9\u754c\u3002"
+      },
+      "decision_threshold": 0.5,
+      "rows_used": 204,
+      "rows_excluded_before_split": 0,
+      "class_counts": {
+        "1": 177,
+        "0": 27
+      },
+      "independent_groups": 73,
+      "group_column": "group_test_date",
+      "outer_folds_total": 25,
+      "models": {
+        "majority_baseline": {
+          "fold_level": {
+            "balanced_accuracy": {
+              "n": 25,
+              "mean": 0.5,
+              "std": 0.0,
+              "min": 0.5,
+              "max": 0.5
+            },
+            "macro_f1": {
+              "n": 25,
+              "mean": 0.46398180384924004,
+              "std": 0.01743545394290123,
+              "min": 0.4225352112676056,
+              "max": 0.49382716049382713
+            },
+            "roc_auc": {
+              "n": 25,
+              "mean": 0.5,
+              "std": 0.0,
+              "min": 0.5,
+              "max": 0.5
+            },
+            "precision_pos": {
+              "n": 25,
+              "mean": 0.8674731113091861,
+              "std": 0.05977570118625011,
+              "min": 0.7317073170731707,
+              "max": 0.975609756097561
+            },
+            "recall_pos": {
+              "n": 25,
+              "mean": 1.0,
+              "std": 0.0,
+              "min": 1.0,
+              "max": 1.0
+            },
+            "recall_neg": {
+              "n": 25,
+              "mean": 0.0,
+              "std": 0.0,
+              "min": 0.0,
+              "max": 0.0
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "balanced_accuracy": 0.5,
+              "macro_f1": 0.4645669291338583,
+              "roc_auc": 0.42090395480225984,
+              "precision_pos": 0.8676470588235294,
+              "recall_pos": 1.0,
+              "recall_neg": 0.0,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "balanced_accuracy": 0.5,
+              "macro_f1": 0.4645669291338583,
+              "roc_auc": 0.36126804770872567,
+              "precision_pos": 0.8676470588235294,
+              "recall_pos": 1.0,
+              "recall_neg": 0.0,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "balanced_accuracy": 0.5,
+              "macro_f1": 0.4645669291338583,
+              "roc_auc": 0.43460975099393184,
+              "precision_pos": 0.8676470588235294,
+              "recall_pos": 1.0,
+              "recall_neg": 0.0,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "balanced_accuracy": 0.5,
+              "macro_f1": 0.4645669291338583,
+              "roc_auc": 0.3149194392132246,
+              "precision_pos": 0.8676470588235294,
+              "recall_pos": 1.0,
+              "recall_neg": 0.0,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "balanced_accuracy": 0.5,
+              "macro_f1": 0.4645669291338583,
+              "roc_auc": 0.3283113622096673,
+              "precision_pos": 0.8676470588235294,
+              "recall_pos": 1.0,
+              "recall_neg": 0.0,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "balanced_accuracy": {
+              "n": 5,
+              "mean": 0.5,
+              "std": 0.0,
+              "min": 0.5,
+              "max": 0.5
+            },
+            "macro_f1": {
+              "n": 5,
+              "mean": 0.4645669291338582,
+              "std": 6.206335383118183e-17,
+              "min": 0.4645669291338583,
+              "max": 0.4645669291338583
+            },
+            "roc_auc": {
+              "n": 5,
+              "mean": 0.37200251098556186,
+              "std": 0.0538368832098131,
+              "min": 0.3149194392132246,
+              "max": 0.43460975099393184
+            },
+            "precision_pos": {
+              "n": 5,
+              "mean": 0.8676470588235293,
+              "std": 1.2412670766236366e-16,
+              "min": 0.8676470588235294,
+              "max": 0.8676470588235294
+            },
+            "recall_pos": {
+              "n": 5,
+              "mean": 1.0,
+              "std": 0.0,
+              "min": 1.0,
+              "max": 1.0
+            },
+            "recall_neg": {
+              "n": 5,
+              "mean": 0.0,
+              "std": 0.0,
+              "min": 0.0,
+              "max": 0.0
+            }
+          },
+          "selected_params_counts": {
+            "{}": 25
+          },
+          "folds_with_metric_notes": 0
+        },
+        "logistic_regression": {
+          "fold_level": {
+            "balanced_accuracy": {
+              "n": 25,
+              "mean": 0.6843330571391717,
+              "std": 0.14383165554685606,
+              "min": 0.3625,
+              "max": 0.9305555555555556
+            },
+            "macro_f1": {
+              "n": 25,
+              "mean": 0.5785654296334959,
+              "std": 0.11630396047270844,
+              "min": 0.3890909090909091,
+              "max": 0.8156277436347674
+            },
+            "roc_auc": {
+              "n": 25,
+              "mean": 0.7904598707962485,
+              "std": 0.12116309500445198,
+              "min": 0.5555555555555556,
+              "max": 1.0
+            },
+            "precision_pos": {
+              "n": 25,
+              "mean": 0.9417685467396842,
+              "std": 0.05128112557283322,
+              "min": 0.8,
+              "max": 1.0
+            },
+            "recall_pos": {
+              "n": 25,
+              "mean": 0.7056386972509263,
+              "std": 0.14152614280766893,
+              "min": 0.4594594594594595,
+              "max": 0.8918918918918919
+            },
+            "recall_neg": {
+              "n": 25,
+              "mean": 0.663027417027417,
+              "std": 0.30555361201212977,
+              "min": 0.0,
+              "max": 1.0
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "balanced_accuracy": 0.7419962335216572,
+              "macro_f1": 0.6158441558441559,
+              "roc_auc": 0.8041431261770244,
+              "precision_pos": 0.9541984732824428,
+              "recall_pos": 0.7062146892655368,
+              "recall_neg": 0.7777777777777778,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "balanced_accuracy": 0.7520401757689893,
+              "macro_f1": 0.6128542510121457,
+              "roc_auc": 0.8070726093324964,
+              "precision_pos": 0.9606299212598425,
+              "recall_pos": 0.6892655367231638,
+              "recall_neg": 0.8148148148148148,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "balanced_accuracy": 0.6393596986817326,
+              "macro_f1": 0.5686206537941554,
+              "roc_auc": 0.7627118644067797,
+              "precision_pos": 0.9142857142857143,
+              "recall_pos": 0.7231638418079096,
+              "recall_neg": 0.5555555555555556,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "balanced_accuracy": 0.6337099811676083,
+              "macro_f1": 0.5612903225806452,
+              "roc_auc": 0.731324544883867,
+              "precision_pos": 0.9130434782608695,
+              "recall_pos": 0.711864406779661,
+              "recall_neg": 0.5555555555555556,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "balanced_accuracy": 0.7391713747645952,
+              "macro_f1": 0.6118295868674816,
+              "roc_auc": 0.8279974890144381,
+              "precision_pos": 0.9538461538461539,
+              "recall_pos": 0.7005649717514124,
+              "recall_neg": 0.7777777777777778,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "balanced_accuracy": {
+              "n": 5,
+              "mean": 0.7012554927809166,
+              "std": 0.05930849761032492,
+              "min": 0.6337099811676083,
+              "max": 0.7520401757689893
+            },
+            "macro_f1": {
+              "n": 5,
+              "mean": 0.5940877940197168,
+              "std": 0.02676069769925067,
+              "min": 0.5612903225806452,
+              "max": 0.6158441558441559
+            },
+            "roc_auc": {
+              "n": 5,
+              "mean": 0.7866499267629211,
+              "std": 0.03894434362860663,
+              "min": 0.731324544883867,
+              "max": 0.8279974890144381
+            },
+            "precision_pos": {
+              "n": 5,
+              "mean": 0.9392007481870046,
+              "std": 0.02347121006593054,
+              "min": 0.9130434782608695,
+              "max": 0.9606299212598425
+            },
+            "recall_pos": {
+              "n": 5,
+              "mean": 0.7062146892655367,
+              "std": 0.012633152415253058,
+              "min": 0.6892655367231638,
+              "max": 0.7231638418079096
+            },
+            "recall_neg": {
+              "n": 5,
+              "mean": 0.6962962962962962,
+              "std": 0.12936480886350354,
+              "min": 0.5555555555555556,
+              "max": 0.8148148148148148
+            }
+          },
+          "selected_params_counts": {
+            "{\"C\": 10.0}": 9,
+            "{\"C\": 1.0}": 8,
+            "{\"C\": 0.1}": 8
+          },
+          "folds_with_metric_notes": 0
+        },
+        "random_forest_classifier": {
+          "fold_level": {
+            "balanced_accuracy": {
+              "n": 25,
+              "mean": 0.5823644689085865,
+              "std": 0.10884966231411058,
+              "min": 0.47435897435897434,
+              "max": 0.9875
+            },
+            "macro_f1": {
+              "n": 25,
+              "mean": 0.575179570952853,
+              "std": 0.11087638892978752,
+              "min": 0.4225352112676056,
+              "max": 0.8270042194092827
+            },
+            "roc_auc": {
+              "n": 25,
+              "mean": 0.7827817406047476,
+              "std": 0.11150090027450515,
+              "min": 0.5457142857142857,
+              "max": 0.975
+            },
+            "precision_pos": {
+              "n": 25,
+              "mean": 0.8846063877019854,
+              "std": 0.057441590234590785,
+              "min": 0.7317073170731707,
+              "max": 1.0
+            },
+            "recall_pos": {
+              "n": 25,
+              "mean": 0.975633699721935,
+              "std": 0.031899720795062585,
+              "min": 0.8888888888888888,
+              "max": 1.0
+            },
+            "recall_neg": {
+              "n": 25,
+              "mean": 0.1890952380952381,
+              "std": 0.22471681599802504,
+              "min": 0.0,
+              "max": 1.0
+            }
+          },
+          "per_seed_pooled": [
+            {
+              "seed": 42,
+              "balanced_accuracy": 0.5414312617702448,
+              "macro_f1": 0.546840291076216,
+              "roc_auc": 0.7386482527725466,
+              "precision_pos": 0.8775510204081632,
+              "recall_pos": 0.9717514124293786,
+              "recall_neg": 0.1111111111111111,
+              "metric_note": ""
+            },
+            {
+              "seed": 101,
+              "balanced_accuracy": 0.6311989956057753,
+              "macro_f1": 0.6610620057154251,
+              "roc_auc": 0.7673153379368068,
+              "precision_pos": 0.9,
+              "recall_pos": 0.9661016949152542,
+              "recall_neg": 0.2962962962962963,
+              "metric_note": ""
+            },
+            {
+              "seed": 2024,
+              "balanced_accuracy": 0.5655994978028877,
+              "macro_f1": 0.5828877005347594,
+              "roc_auc": 0.7222222222222222,
+              "precision_pos": 0.883248730964467,
+              "recall_pos": 0.9830508474576272,
+              "recall_neg": 0.14814814814814814,
+              "metric_note": ""
+            },
+            {
+              "seed": 3060,
+              "balanced_accuracy": 0.5257376020087885,
+              "macro_f1": 0.5219393939393939,
+              "roc_auc": 0.730592174094999,
+              "precision_pos": 0.8737373737373737,
+              "recall_pos": 0.9774011299435028,
+              "recall_neg": 0.07407407407407407,
+              "metric_note": ""
+            },
+            {
+              "seed": 9999,
+              "balanced_accuracy": 0.581293157564344,
+              "macro_f1": 0.6039426523297491,
+              "roc_auc": 0.7261979493617912,
+              "precision_pos": 0.8871794871794871,
+              "recall_pos": 0.9774011299435028,
+              "recall_neg": 0.18518518518518517,
+              "metric_note": ""
+            }
+          ],
+          "per_seed_pooled_summary": {
+            "balanced_accuracy": {
+              "n": 5,
+              "mean": 0.5690521029504081,
+              "std": 0.040813775328941176,
+              "min": 0.5257376020087885,
+              "max": 0.6311989956057753
+            },
+            "macro_f1": {
+              "n": 5,
+              "mean": 0.5833344087191087,
+              "std": 0.05377649823592533,
+              "min": 0.5219393939393939,
+              "max": 0.6610620057154251
+            },
+            "roc_auc": {
+              "n": 5,
+              "mean": 0.7369951872776731,
+              "std": 0.01801293689603489,
+              "min": 0.7222222222222222,
+              "max": 0.7673153379368068
+            },
+            "precision_pos": {
+              "n": 5,
+              "mean": 0.8843433224578983,
+              "std": 0.010161139551251894,
+              "min": 0.8737373737373737,
+              "max": 0.9
+            },
+            "recall_pos": {
+              "n": 5,
+              "mean": 0.9751412429378531,
+              "std": 0.006441669068356725,
+              "min": 0.9661016949152542,
+              "max": 0.9830508474576272
+            },
+            "recall_neg": {
+              "n": 5,
+              "mean": 0.16296296296296298,
+              "std": 0.0852656624683062,
+              "min": 0.07407407407407407,
+              "max": 0.2962962962962963
+            }
+          },
+          "selected_params_counts": {
+            "{\"min_samples_leaf\": 1}": 12,
+            "{\"min_samples_leaf\": 2}": 8,
+            "{\"min_samples_leaf\": 4}": 5
+          },
+          "folds_with_metric_notes": 0
+        }
+      },
+      "split_audit": {
+        "passed": true,
+        "checks": {
+          "train_validation_group_overlaps": 0,
+          "train_test_group_overlaps": 0,
+          "validation_test_group_overlaps": 0,
+          "record_ids_in_conflicting_partitions": 0,
+          "rows_missing_from_a_split": 0,
+          "groups_not_tested_exactly_once_per_repeat": 0
+        },
+        "failures": []
+      },
+      "derived_classification": null,
+      "warnings": [],
+      "warnings_zh": [],
+      "dependence_note": "The 25 outer folds come from 5 repeats over the same rows, so they are correlated re-splits, not 25 independent experiments. Per-seed pooled scores are reported to show repeat-to-repeat variation; neither spread is a confidence interval for new experiments.",
+      "pooled_note": "Pooled classification scores combine probabilities from separately fitted models, which are not on a common scale; e.g. the constant baseline's pooled ROC-AUC falls below 0.5 for this reason. Fold-level scores are the primary result.",
+      "dataset_key": "FLEX"
+    },
+    {
+      "task_id": "bass_ii_flame_spread_speed",
+      "evaluation_status": "NOT_EVALUATED",
+      "task_type": "regression",
+      "dataset_key": "BASS_II",
+      "reasons": [
+        {
+          "code": "TARGET_NOT_MEASURED"
+        }
+      ],
+      "target": {
+        "column": null,
+        "quantity": "flame_front_propagation_speed",
+        "unit": "mm/s",
+        "unit_verified": false,
+        "origin": "not_present_in_table",
+        "note": "The verified PSI-25 experimental table has no flame-spread column. Measured spread rates appear only in report tables such as NASA/TM-20210011385 Table 5.1 (PMMA slabs); they would have to be transcribed and verified first."
+      },
+      "label": null
+    },
+    {
+      "task_id": "bass_ii_extinction",
+      "evaluation_status": "NOT_EVALUATED",
+      "task_type": "classification",
+      "dataset_key": "BASS_II",
+      "reasons": [
+        {
+          "code": "LABEL_NOT_OBSERVED"
+        }
+      ],
+      "target": null,
+      "label": {
+        "source_column": null,
+        "mapping_verified": false,
+        "note": "The verified PSI-25 experimental table records no extinction outcome."
+      }
+    }
+  ]
+}

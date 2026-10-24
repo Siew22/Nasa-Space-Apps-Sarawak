@@ -54,17 +54,38 @@ class ParametricSweepRequest(BaseModel):
     fixed_flow_speed_m_s: float = Field(default=0.05, ge=0.0, le=2.0)
     fixed_oxygen_percentage: float = Field(default=21.0, ge=12.0, le=50.0)
 
+@app.get("/api/v1/research/provenance", tags=["science platform"])
+def research_provenance() -> dict[str, Any]:
+    """Status of every dataset as computed by src/provenance_audit.py (never assumed)."""
+    from app.services.provenance import STATUS_VOCABULARY, dataset_status, load_report
+
+    report = load_report()
+    keys = sorted(report["datasets"]) if report else ["BASS_II", "FLEX", "MACFP_PMMA_CONE"]
+    return {"status_vocabulary": STATUS_VOCABULARY,
+            "report_available": report is not None,
+            "datasets": [dataset_status(k, report) for k in keys]}
+
+
 @app.get("/api/v1/research/empirical-ranking", tags=["science platform"])
 def research_empirical_ranking(track_key: str = Query(default="solid_fuel")) -> dict[str, Any]:
-    """100% 真实数据驱动：从 NASA 实验表中聚合统计材料火灾危险度与产物排名"""
+    """Per-material aggregates computed from the loaded BASS-II / FLEX-format table.
+
+    `data_status` says what that table really is; in this build it is synthetic demo data,
+    so the ranking demonstrates the computation and is not a scientific result.
+    """
+    from app.services.provenance import dataset_status
     from app.services.research_engine import get_empirical_material_ranking
-    return {"track_key": track_key, "ranking": get_empirical_material_ranking(track_key)}
+
+    status = dataset_status("BASS_II" if track_key == "solid_fuel" else "FLEX")
+    return {"track_key": track_key, "data_status": status["status"], "result_type": status["status"],
+            "warning": status["warning"], "ranking": get_empirical_material_ranking(track_key)}
+
 
 @app.post("/api/v1/research/parametric-sweep", tags=["science platform"])
 def research_parametric_sweep(req: ParametricSweepRequest) -> dict[str, Any]:
-    """STEM 物理参数扫描：动态解算物理量曲线并输出机理解释叙述"""
+    """Educational parameter sweep from first-principles scaling formulas (a simulation, not data)."""
     from app.services.research_engine import run_parametric_sensitivity_sweep
-    return run_parametric_sensitivity_sweep(
+    result = run_parametric_sensitivity_sweep(
         sweep_param=req.sweep_param,
         range_min=req.range_min,
         range_max=req.range_max,
@@ -73,6 +94,7 @@ def research_parametric_sweep(req: ParametricSweepRequest) -> dict[str, Any]:
         fixed_flow_speed_m_s=req.fixed_flow_speed_m_s,
         fixed_o2_pct=req.fixed_oxygen_percentage
     )
+    return {"result_type": "SIMULATED_RESULT", **result}
 
 
 @app.post("/api/v1/research/predict-fire", tags=["science platform"])
@@ -88,6 +110,8 @@ def research_predict_fire(req: FirePredictionBatchRequest) -> dict[str, Any]:
         predict_fire_rows,
     )
 
+    from app.services.provenance import dataset_status
+
     try:
         predictions = predict_fire_rows([row.model_dump() for row in req.rows])
         model_info = get_model_info()
@@ -95,11 +119,17 @@ def research_predict_fire(req: FirePredictionBatchRequest) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    training = dataset_status("MACFP_PMMA_CONE")
     return {
+        "result_type": "MODEL_PREDICTION",
         "model_id": model_info["model_id"],
         "source": model_info["source"],
         "scope": model_info["scope"],
+        "training_data_status": training["status"],
+        "training_data_warning": training["warning"],
         "validation": model_info["validation"],
+        "validation_note": ("'validation' is the single 5-fold run stored with the model. The repeated, "
+                            "leakage-audited evaluation is in reports/cv_summary.json (task macfp_pmma_peak_hrr)."),
         "hazard_definition": "Project-defined 350 kW/m^2 threshold applied to predicted peak HRR; not an independent classifier or fire-safety determination.",
         "predictions": predictions,
     }

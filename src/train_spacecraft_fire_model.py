@@ -29,7 +29,9 @@ from sklearn.preprocessing import StandardScaler
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_PATH = ROOT / "data" / "processed" / "spacecraft_fire_benchmark.csv"
+# The verified MaCFP measurements (see reports/data_provenance_audit.json). The old default,
+# spacecraft_fire_benchmark.csv, held fallback constants and now lives in data/legacy/.
+DATA_PATH = ROOT / "data" / "processed" / "macfp_measured_cone_experiments.csv"
 REPORTS_DIR = ROOT / "reports"
 MODELS_DIR = ROOT / "models"
 MODEL_STEM = "spacecraft_fire_peak_hrr_v1"
@@ -220,7 +222,7 @@ def _companion_metadata(path: Path, rows: int) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data", type=Path, default=DATA_PATH, help="CSV of measured experiments; defaults to the repository benchmark")
+    parser.add_argument("--data", type=Path, default=DATA_PATH, help="CSV of measured experiments; defaults to the verified MaCFP PMMA cone dataset")
     parser.add_argument("--epochs", type=int, default=60, help="Fixed neural-network epochs per fold and final fit (default: 60)")
     parser.add_argument("--batch-size", type=int, default=8, help="Neural-network batch size (default: 8)")
     args = parser.parse_args(argv)

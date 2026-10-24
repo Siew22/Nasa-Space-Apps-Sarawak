@@ -1,0 +1,68 @@
+{
+  "_note": "Static facts about where each dataset should come from. This file never states whether a dataset IS verified: that status is computed from evidence by src/provenance_audit.py and written to reports/data_provenance_audit.json. Text convention: plain key = English, *_zh key = Chinese.",
+  "datasets": {
+    "BASS_II": {
+      "display_name": "BASS-II (Burning and Suppression of Solids II)",
+      "display_name_zh": "BASS-II（固体燃烧与抑制实验 II）",
+      "investigation_id": "PSI-25",
+      "real_source_page": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-25",
+      "real_source_doi": "10.60555/4qc4-de67",
+      "real_source_license": "CC0-1.0 (licenseIdentifier in NASA's PSI-25 metadata, checked 2026-10-24)",
+      "real_source_license_zh": "CC0-1.0（NASA PSI-25 元数据中的 licenseIdentifier，2026-10-24 核对）",
+      "demo_generator": "src/generate_synthetic_demo_tables.py:generate_bass_dataset",
+      "official_files": [
+        {
+          "investigation_id": "PSI-25",
+          "file_name": "PSI-25_Experimental table_BASS-II.csv",
+          "path": "data/raw/nasa_psi/PSI-25_Experimental table_BASS-II.csv",
+          "size_bytes": 16590,
+          "sha256": "71e792bf6b5fb5ea620c5dd70fbbac05515992e12aefcf5dff47312caa48c042",
+          "nasa_metadata_url": "https://psi.nasa.gov/geode-py/ws/repo/investigations/PSI-25",
+          "s3_version_id": "..Z_cQ7ymWFmdISmAvT7c5Gcs7ZHo4N_",
+          "license_in_nasa_metadata": "CC0-1.0",
+          "downloaded_on": "2026-10-24",
+          "verification": "Downloaded twice independently through the official PSI API; identical SHA-256; size equals NASA metadata file_size."
+        }
+      ],
+      "official_files_note": "Fetch or re-verify with: python -m src.fetch_nasa_psi_tables [--verify]"
+    },
+    "FLEX": {
+      "display_name": "FLEX (Flame Extinguishment Experiment)",
+      "display_name_zh": "FLEX（火焰熄灭实验）",
+      "investigation_id": "PSI-69",
+      "real_source_page": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69",
+      "real_source_doi": "10.60555/mbq8-0451",
+      "real_source_license": "CC0-1.0 (licenseIdentifier in NASA's PSI-69 metadata, checked 2026-10-24)",
+      "real_source_license_zh": "CC0-1.0（NASA PSI-69 元数据中的 licenseIdentifier，2026-10-24 核对）",
+      "demo_generator": "src/generate_synthetic_demo_tables.py:generate_flex_dataset",
+      "official_files": [
+        {
+          "investigation_id": "PSI-69",
+          "file_name": "PSI-69_Experimental table_FLEX.csv",
+          "path": "data/raw/nasa_psi/PSI-69_Experimental table_FLEX.csv",
+          "size_bytes": 24776,
+          "sha256": "37c88ce8ae9391b7544ff630a45ce87543d04d317cdbfbed104fe7d5c27e1b96",
+          "nasa_metadata_url": "https://psi.nasa.gov/geode-py/ws/repo/investigations/PSI-69",
+          "s3_version_id": "TParjCiGvSeDqRYFafCSaXSv1jLiimyd",
+          "license_in_nasa_metadata": "CC0-1.0",
+          "encoding": "Windows-1252 (byte 0x96 is the en dash used for 'no value')",
+          "downloaded_on": "2026-10-24",
+          "verification": "Downloaded twice independently through the official PSI API; identical SHA-256; size equals NASA metadata file_size."
+        }
+      ],
+      "official_files_note": "Fetch or re-verify with: python -m src.fetch_nasa_psi_tables [--verify]"
+    },
+    "MACFP_PMMA_CONE": {
+      "display_name": "MaCFP PMMA cone calorimeter (ground tests)",
+      "display_name_zh": "MaCFP PMMA 锥形量热仪（地面试验）",
+      "source_repo": "https://github.com/MaCFP/matl-db",
+      "source_subdir": "PMMA/Calibration_Data",
+      "pinned_commit": "b72eb237cb78be2ab022b32fc93916c584ca6a16",
+      "local_clone": "data/raw/macfp-matl-db",
+      "processed_file": "data/processed/macfp_measured_cone_experiments.csv",
+      "builder": "src/build_measured_cone_dataset.py",
+      "real_source_license": "See the MaCFP/matl-db repository licence",
+      "real_source_license_zh": "见 MaCFP/matl-db 仓库许可"
+    }
+  }
+}

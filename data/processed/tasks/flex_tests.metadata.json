@@ -1,0 +1,28 @@
+{
+  "input": "data/processed/dashboard_records.csv",
+  "input_sha256": "56f3425aae31a3b5aa2dd33901976c9c5c253fe7f48554cf01e7f539a7a925e7",
+  "source_table": "data/raw/nasa_psi/PSI-69_Experimental table_FLEX.csv (verified, see reports/data_provenance_audit.json)",
+  "definitions_source": "NASA/TP-2015-216046 (https://ntrs.nasa.gov/citations/20150023456), Appendix A.1 and Table IX",
+  "columns": {
+    "burning_rate_constant_mm2_s": "average burning-rate constant from a linear fit of droplet diameter squared vs time (mm^2/s)",
+    "x_o2 / x_n2 / x_co2 / x_he": "ambient mole fractions; PSI CSV headers 'O', 'N', 'CO', 'He' are O2, N2, CO2, He",
+    "d0_mm": "initial droplet diameter (mm)",
+    "pressure_mmhg": "absolute ambient pressure (mmHg)",
+    "is_heptane": "1 = heptane, 0 = methanol",
+    "group_test_date": "test date; tests on the same day share a chamber fill and setup, so a whole day is kept in one partition"
+  },
+  "label_rule": {
+    "Extinction": 1,
+    "Completion": 0,
+    "Disruption": "excluded (the burn ended by droplet break-up)"
+  },
+  "rows": 274,
+  "rows_for_burning_rate_task": 255,
+  "rows_for_extinction_task": 204,
+  "extinction_class_counts": {
+    "1.0": 177,
+    "0.0": 27
+  },
+  "test_dates": 80,
+  "exclusions": 89
+}

@@ -1,0 +1,101 @@
+{
+  "report": "cv_protocol",
+  "generated_at_utc": "2026-10-24T09:05:36+00:00",
+  "repository_commit": "572ddeb982f633a15baf960eb812377f183a7337",
+  "generated_by": "src/run_cv_evaluation.py",
+  "started_at_utc": "2026-10-24T09:03:34+00:00",
+  "command": "python -m src.run_cv_evaluation",
+  "seeds": [
+    42,
+    101,
+    2024,
+    3060,
+    9999
+  ],
+  "outer_folds_per_seed": 5,
+  "inner_validation_fraction_target": 0.2,
+  "min_independent_groups": 5,
+  "splitter": "src/group_cv.py randomized_group_kfold (scikit-learn 1.5 GroupKFold cannot shuffle) + inner_group_split",
+  "partition_rule": "whole groups only; outer test fixed first; inner validation drawn from outer-training groups",
+  "selection": {
+    "regression_metric": "MAE on inner validation",
+    "classification_metric": "log loss on inner validation",
+    "grids": {
+      "mean_baseline": [
+        {}
+      ],
+      "ridge": [
+        {
+          "alpha": 0.1
+        },
+        {
+          "alpha": 1.0
+        },
+        {
+          "alpha": 10.0
+        }
+      ],
+      "random_forest": [
+        {
+          "min_samples_leaf": 1
+        },
+        {
+          "min_samples_leaf": 2
+        },
+        {
+          "min_samples_leaf": 4
+        }
+      ],
+      "tf_nn_deployed_config": [
+        {
+          "epochs": 60,
+          "batch_size": 8
+        }
+      ],
+      "majority_baseline": [
+        {}
+      ],
+      "logistic_regression": [
+        {
+          "C": 0.1
+        },
+        {
+          "C": 1.0
+        },
+        {
+          "C": 10.0
+        }
+      ],
+      "random_forest_classifier": [
+        {
+          "min_samples_leaf": 1
+        },
+        {
+          "min_samples_leaf": 2
+        },
+        {
+          "min_samples_leaf": 4
+        }
+      ]
+    },
+    "untuned": "baselines and tf_nn_deployed_config use one predefined configuration",
+    "classification_threshold": "fixed per task in config/target_registry.json (decision_threshold); never tuned"
+  },
+  "preprocessing": "median imputation and standard scaling inside each model, fitted on the training partition only",
+  "network": "src/train_spacecraft_fire_model.py build_scientific_keras_model: Dense 32 relu -> Dense 16 relu -> Dense 1; Adam lr 0.003; MSE on standardized target",
+  "dependence_note": "The 25 outer folds come from 5 repeats over the same rows, so they are correlated re-splits, not 25 independent experiments. Per-seed pooled scores are reported to show repeat-to-repeat variation; neither spread is a confidence interval for new experiments.",
+  "software": {
+    "python": "3.11.9",
+    "numpy": "1.26.4",
+    "pandas": "2.3.3",
+    "scikit_learn": "1.5.2",
+    "tensorflow": "2.16.2"
+  },
+  "group_definitions": {
+    "macfp_pmma_peak_hrr": "Testing laboratory. Runs from one lab share apparatus, specimen batch and procedure, so a whole lab is always kept in one partition. This is stricter than treating each run as independent.",
+    "flex_droplet_burning_rate_constant": "Test date. Tests on the same day share a chamber fill and hardware setup, so a whole day is kept in one partition instead of treating each droplet as independent.",
+    "flex_extinction_outcome": "Test date (same reason as the burning-rate task).",
+    "bass_ii_flame_spread_speed": null,
+    "bass_ii_extinction": null
+  }
+}

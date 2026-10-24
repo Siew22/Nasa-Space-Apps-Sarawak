@@ -5,78 +5,91 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from app.services.psi_parsing import MATERIAL_CLASSES, bass_material_class, numeric_cell
+
 ROOT = Path(__file__).resolve().parents[2]
 PROCESSED_CSV = ROOT / "data" / "processed" / "dashboard_records.csv"
 
 
+def _num(series: pd.Series) -> tuple[pd.Series, pd.Series]:
+    """Numeric values (NaN where not a clean number) and the flag for every cell (see psi_parsing)."""
+    parsed = series.map(numeric_cell)
+    return parsed.map(lambda p: p[0]).astype(float), parsed.map(lambda p: p[1])
+
+
+def _round(x: float | None, digits: int) -> float | None:
+    return None if x is None or pd.isna(x) else round(float(x), digits)
+
+
 def get_empirical_material_ranking(track_key: str = "solid_fuel") -> list[dict[str, Any]]:
-    """
-    100% 真实数据驱动的材料火灾危险度统计排名：
-    直接读取已导入的 NASA 实验表，按材料分组聚合实测指标，绝不硬编码！
+    """Per-material (BASS-II) or per-fuel (FLEX) aggregates computed from data/processed/dashboard_records.csv.
+
+    Every number is computed from the loaded table; nothing is typed in. Whether that table is real is
+    decided by src/provenance_audit.py (reports/data_provenance_audit.json), not here. Non-numeric cells
+    are classified with app/services/psi_parsing.py and counted, never silently turned into numbers.
     """
     if not PROCESSED_CSV.exists():
         return []
-
     df = pd.read_csv(PROCESSED_CSV, low_memory=False)
 
     if track_key == "solid_fuel":
         sub = df[df["dataset_key"] == "BASS_II"].copy()
         if sub.empty:
             return []
-        
-        # 聚合 BASS-II 固体燃烧材料的实测统计
-        grouped = sub.groupby("fuel_sample_material").agg(
-            test_count=("record_id", "count"),
-            mean_final_co_ppm=("final_co_ppm", "mean"),
-            max_final_co_ppm=("final_co_ppm", "max"),
-            mean_o2_consumed=("calibrated_initial_o2_pct_by_vol", lambda s: float(np.mean(s - sub.loc[s.index, "calibrated_final_o2_pct_by_vol"])))
-        ).reset_index()
-
-        # 按 CO 释放量（燃烧剧烈度与毒性产物）客观排序
-        grouped = grouped.sort_values(by="mean_final_co_ppm", ascending=False)
-
-        results = []
-        for idx, row in grouped.iterrows():
-            results.append({
-                "rank": len(results) + 1,
-                "material_name": str(row["fuel_sample_material"]),
-                "empirical_test_count": int(row["test_count"]),
-                "mean_co_production_ppm": round(float(row["mean_final_co_ppm"]), 2),
-                "max_co_production_ppm": round(float(row["max_final_co_ppm"]), 2),
-                "mean_o2_depletion_pct": round(float(row["mean_o2_consumed"]), 3),
-                "data_source": "NASA PSI-25 (BASS-II Flight Records)"
+        sub["material_class"] = sub["fuel_sample_material"].map(bass_material_class)
+        sub["co_ppm"], sub["co_flag"] = _num(sub["final_co_ppm"])
+        o2_in, _ = _num(sub["calibrated_initial_o2_pct_by_vol"])
+        o2_out, _ = _num(sub["calibrated_final_o2_pct_by_vol"])
+        sub["o2_drop"] = o2_in - o2_out
+        rows = []
+        for cls, g in sub.groupby("material_class"):
+            label_en, label_zh = MATERIAL_CLASSES.get(cls, MATERIAL_CLASSES["other"])
+            rows.append({
+                "material_class": cls,
+                "material_name": label_en,
+                "material_name_zh": label_zh,
+                "raw_material_spellings": sorted({" ".join(str(s).split()) for s in g["fuel_sample_material"]}),
+                "empirical_test_count": int(len(g)),
+                "co_numeric_readings": int((g["co_flag"] == "ok").sum()),
+                "co_over_range_readings": int(g["co_flag"].isin(["over_range", "censored_above"]).sum()),
+                "mean_final_co_ppm": _round(g["co_ppm"].mean(), 2),
+                "max_final_co_ppm": _round(g["co_ppm"].max(), 1),
+                "mean_o2_depletion_pct_vol": _round(g["o2_drop"].mean(), 3),
+                "data_source": "; ".join(sorted(g["source_file"].dropna().astype(str).unique())),
             })
-        return results
+        rows.sort(key=lambda r: (r["mean_final_co_ppm"] is None, -(r["mean_final_co_ppm"] or 0)))
+        for i, r in enumerate(rows, start=1):
+            r["rank"] = i
+        return rows
 
-    else:
-        sub = df[df["dataset_key"] == "FLEX"].copy()
-        if sub.empty:
-            return []
-
-        # 聚合 FLEX 液体燃料的实测消耗速率与熄火率
-        grouped = sub.groupby("fuel").agg(
-            test_count=("record_id", "count"),
-            mean_burning_rate_mm=("burning_rate_mm", "mean"),
-            mean_extinction_diameter_mm=("visible_flame_extinction_diameter_mm", "mean"),
-            extinction_count=("test_end", lambda s: int(s.astype(str).str.contains("Extinction", case=False).sum()))
-        ).reset_index()
-
-        grouped["extinction_ratio"] = grouped["extinction_count"] / grouped["test_count"]
-        # 按实测燃烧消耗速度排序
-        grouped = grouped.sort_values(by="mean_burning_rate_mm", ascending=False)
-
-        results = []
-        for idx, row in grouped.iterrows():
-            results.append({
-                "rank": len(results) + 1,
-                "fuel_name": str(row["fuel"]),
-                "empirical_test_count": int(row["test_count"]),
-                "mean_burning_rate_mm_s": round(float(row["mean_burning_rate_mm"]), 3),
-                "mean_extinction_diameter_mm": round(float(row["mean_extinction_diameter_mm"]), 2) if pd.notna(row["mean_extinction_diameter_mm"]) else None,
-                "empirical_extinction_ratio": round(float(row["extinction_ratio"]), 2),
-                "data_source": "NASA PSI-69 (FLEX Flight Records)"
-            })
-        return results
+    sub = df[df["dataset_key"] == "FLEX"].copy()
+    if sub.empty:
+        return []
+    sub["k"], _ = _num(sub["burning_rate_mm"])                         # mm^2/s (NASA/TP-2015-216046 Table IX)
+    sub["d0"], _ = _num(sub["droplet_initial_diameter_mm"])
+    sub["d_ext"], _ = _num(sub["visible_flame_extinction_diameter_mm"])
+    outcome = sub["test_end"].astype(str).str.strip()
+    rows = []
+    for fuel, g in sub.groupby("fuel"):
+        o = outcome.loc[g.index]
+        ext, comp, disr = int((o == "Extinction").sum()), int((o == "Completion").sum()), int((o == "Disruption").sum())
+        rows.append({
+            "fuel_name": str(fuel),
+            "empirical_test_count": int(len(g)),
+            "mean_burning_rate_constant_mm2_s": _round(g["k"].mean(), 3),
+            "burning_rate_constant_readings": int(g["k"].notna().sum()),
+            "mean_initial_diameter_mm": _round(g["d0"].mean(), 2),
+            # Extinction diameter is only meaningful when the flame actually went out.
+            "mean_extinction_diameter_mm": _round(g.loc[o == "Extinction", "d_ext"].mean(), 2),
+            "outcome_counts": {"Extinction": ext, "Completion": comp, "Disruption": disr},
+            # Disrupted tests ended for another reason, so they are excluded rather than counted as "no extinction".
+            "extinction_share_of_non_disrupted": _round(ext / (ext + comp), 3) if ext + comp else None,
+            "data_source": "; ".join(sorted(g["source_file"].dropna().astype(str).unique())),
+        })
+    rows.sort(key=lambda r: (r["mean_burning_rate_constant_mm2_s"] is None, -(r["mean_burning_rate_constant_mm2_s"] or 0)))
+    for i, r in enumerate(rows, start=1):
+        r["rank"] = i
+    return rows
 
 
 def run_parametric_sensitivity_sweep(

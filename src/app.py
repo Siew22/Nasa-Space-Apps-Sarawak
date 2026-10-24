@@ -33,6 +33,7 @@ from app.services.model_inference import (
 )
 from app.services.simulation_service import run_simulation
 from app.settings import read_json_config
+from app.services.provenance import dataset_status, load_report as load_provenance_report
 from app.services.research_engine import (
     get_empirical_material_ranking,
     run_parametric_sensitivity_sweep
@@ -147,6 +148,13 @@ html { scroll-behavior: smooth; }
   transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
 }
 [data-testid="stMetric"]:hover { transform: translateY(-4px); border-color: rgba(255,106,43,.55); box-shadow: 0 10px 28px rgba(255,106,43,.16); }
+/* Metric cards in one row all take the height of the tallest card */
+[data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) { align-items: stretch; }
+[data-testid="stColumn"]:has([data-testid="stMetric"]) > [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stColumn"]:has([data-testid="stMetric"]) > [data-testid="stVerticalBlockBorderWrapper"] > div,
+[data-testid="stColumn"]:has([data-testid="stMetric"]) [data-testid="stVerticalBlock"],
+[data-testid="stElementContainer"]:has(> [data-testid="stMetric"]) { height: 100%; }
+[data-testid="stMetric"] { height: 100%; box-sizing: border-box; }
 [data-testid="stMetricValue"] { font-weight: 700; }
 
 /* Alerts, tables, charts, buttons */
@@ -412,38 +420,135 @@ with st.sidebar:
 
 st.markdown(APP_CSS, unsafe_allow_html=True)
 @st.cache_data(show_spinner=False)
-def load_provenance() -> dict:
-    path = ROOT / "config" / "data_provenance.json"
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"datasets": {}}
+def load_json_file(path_str: str) -> dict | None:
+    try:
+        return json.loads(Path(path_str).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+# Static facts (config) vs computed results (reports). Statuses always come from the reports.
+SOURCES = load_json_file(str(ROOT / "config" / "data_sources.json")) or {"datasets": {}}
+REGISTRY = load_json_file(str(ROOT / "config" / "target_registry.json")) or {"tasks": []}
+PROV_REPORT = load_provenance_report() if (REPORTS_DIR / "data_provenance_audit.json").exists() else None
+CV_SUMMARY = load_json_file(str(REPORTS_DIR / "cv_summary.json"))
+NASA_KEYS = ("BASS_II", "FLEX")
+
+
+def ds_status(key: str) -> dict:
+    """Computed status of a dataset; explicit UNVERIFIED (with a warning) when the report is missing."""
+    return dataset_status(key, PROV_REPORT)
+
+
+STATUS_LABELS = {
+    "VERIFIED_SOURCE": ("🟢", "VERIFIED SOURCE", "已核实来源"),
+    "REAL_MEASUREMENT": ("🟢", "REAL MEASUREMENT", "真实测量"),
+    "UNVERIFIED_SOURCE": ("🟠", "UNVERIFIED SOURCE", "来源未核实"),
+    "SYNTHETIC_DEMO": ("🟠", "SYNTHETIC DEMO DATA", "合成演示数据"),
+    "MODEL_PREDICTION": ("🔵", "MODEL PREDICTION", "模型预测"),
+    "SIMULATED_RESULT": ("🟡", "SIMULATED RESULT", "模拟结果"),
+    "NOT_EVALUATED": ("⚪", "NOT EVALUATED", "未评估"),
+    "EVALUATED": ("🟢", "EVALUATED", "已评估"),
+}
+
+
+def status_badge(code: str) -> str:
+    icon, en, zh = STATUS_LABELS.get(code, ("⚪", code, code))
+    return f"{icon} **{tr(en, zh)}**"
+
+
+# Plain-language text for the machine-readable codes written by src/provenance_audit.py and
+# src/run_cv_evaluation.py. Unknown codes are shown as-is rather than hidden.
+CODE_TEXT = {
+    "GENERATOR_REPRODUCES_ALL_ROWS": ("All {rows} rows are reproduced exactly by `{generator}`, so they are generated, not measured.",
+                                      "全部 {rows} 行都能由 `{generator}` 完全复现，因此是生成的数据而非测量值。"),
+    "GENERATOR_REPRODUCES_SOME_ROWS": ("{rows} of {of} rows are reproduced by `{generator}`.", "{of} 行中有 {rows} 行可由 `{generator}` 复现。"),
+    "NO_OFFICIAL_FILE_REGISTERED": ("No official {investigation} file with a checksum is registered in `config/data_sources.json`.",
+                                    "`config/data_sources.json` 中尚未登记带校验值的 {investigation} 官方文件。"),
+    "SOURCE_FILE_MISSING": ("Source file `{path}` is not in the repository.", "来源文件 `{path}` 不在仓库中。"),
+    "OFFICIAL_CHECKSUM_MATCH": ("`{path}` matches its registered official checksum.", "`{path}` 与登记的官方校验值一致。"),
+    "DUPLICATE_ROWS": ("{count} duplicate rows found.", "发现 {count} 条重复行。"),
+    "CLONE_AT_PINNED_COMMIT": ("Source repository clone is at the pinned commit `{pinned}`.", "来源仓库克隆位于固定提交 `{pinned}`。"),
+    "CLONE_COMMIT_MISMATCH": ("Clone is at `{commit}` but `{pinned}` is pinned.", "克隆位于 `{commit}`，但固定提交为 `{pinned}`。"),
+    "CLONE_CLEAN": ("No local edits in the source files.", "来源文件没有本地修改。"),
+    "CLONE_HAS_LOCAL_EDITS": ("Source files have local edits.", "来源文件存在本地修改。"),
+    "REBUILD_BYTE_IDENTICAL": ("Rebuilding from the source files gives a byte-identical file (SHA-256 `{rebuilt_sha256}`).",
+                               "由来源文件重新构建得到逐字节相同的文件（SHA-256 `{rebuilt_sha256}`）。"),
+    "REBUILD_DIFFERS": ("Rebuilding from the source files gives a different file.", "由来源文件重新构建得到的文件与现有文件不同。"),
+    "SOURCE_CLONE_MISSING": ("Source clone `{path}` is not available, so the data cannot be re-checked here.",
+                             "来源克隆 `{path}` 不可用，因此无法在此重新核验。"),
+    "MODEL_TRAINED_ON_THIS_FILE": ("The deployed model's metadata records this exact file as its training data.",
+                                   "已部署模型的元数据记录的训练数据正是此文件。"),
+    "MODEL_TRAINED_ON_OTHER_FILE": ("The deployed model was trained on a different file.", "已部署模型使用的是另一个训练文件。"),
+    "PROCESSED_FILE_MISSING": ("Processed file `{path}` is missing.", "缺少处理后的文件 `{path}`。"),
+    "NO_RECORDS_LOADED": ("No records are loaded for this dataset.", "该数据集未载入任何记录。"),
+    "DATASET_NOT_VERIFIED": ("The dataset is not a verified source (status: {dataset_status}).", "数据集不是已核实来源（状态：{dataset_status}）。"),
+    "TARGET_UNIT_UNVERIFIED": ("The target's unit has not been confirmed from the source documentation.", "目标量的单位尚未依据来源文档确认。"),
+    "TARGET_NOT_MEASURED": ("The table contains no measured value for this target.", "数据表中没有该目标的测量值。"),
+    "LABEL_MAPPING_UNVERIFIED": ("How outcomes map to classes has not been confirmed from the source documentation.",
+                                 "结果类别的映射方式尚未依据来源文档确认。"),
+    "LABEL_NOT_OBSERVED": ("No observed outcome exists for this label.", "该标签没有观测到的结果。"),
+    "DATA_FILE_MISSING": ("Data file `{path}` is missing.", "缺少数据文件 `{path}`。"),
+    "INSUFFICIENT_GROUPS": ("Too few independent groups ({groups}; need {required}).", "独立组数不足（{groups}，需要 {required}）。"),
+    "DERIVED_FROM_SYNTHETIC_TABLES": ("Built from the formula-generated BASS-II/FLEX tables ({rows} rows).",
+                                      "由公式生成的 BASS-II/FLEX 数据表构建（{rows} 行）。"),
+    "TARGET_COMPUTED_FROM_INPUT": ("{rows} of {of} BASS-II targets equal the formula {formula}: the label was computed from an input (leakage).",
+                                   "{of} 个 BASS-II 目标值中有 {rows} 个等于公式 {formula}：标签由输入计算得到（泄漏）。"),
+    "INCOMPATIBLE_TARGETS_MERGED": ("A BASS-II proxy value and the FLEX burning rate were merged into one target column despite different meanings and units.",
+                                    "BASS-II 代理值与 FLEX 燃烧速率被合并为同一目标列，尽管含义与单位不同。"),
+    "CONSTANT_FALLBACK_VALUES": ("All {rows} rows hold the same fallback constants (distinct values per column: {distinct_values}).",
+                                 "全部 {rows} 行都是相同的回退常数（各列不同值数量：{distinct_values}）。"),
+    "IDENTICAL_TO_TEMPLATE": ("Byte-identical to its template, with {placeholders} unfilled placeholders.",
+                              "与模板逐字节相同，含 {placeholders} 个未填写的占位符。"),
+    "REFERENCED_MODEL_MISSING": ("Refers to `{model}`, which does not exist in the repository.", "引用的 `{model}` 在仓库中不存在。"),
+}
+
+
+class _Blank(dict):
+    def __missing__(self, key: str) -> str:
+        return "?"
+
+
+def code_text(item: dict) -> str:
+    """Render one evidence/reason item: {'code': ..., 'detail': {...}} or {'code': ..., **detail}."""
+    detail = {**{k: v for k, v in item.items() if k not in ("code", "detail")}, **(item.get("detail") or {})}
+    detail = {k: (str(v)[:12] + "…" if isinstance(v, str) and len(v) == 64 else v) for k, v in detail.items()}
+    en, zh = CODE_TEXT.get(item.get("code", ""), (item.get("code", ""), item.get("code", "")))
+    return tr(en, zh).format_map(_Blank(detail))
+
+
+@st.cache_data(show_spinner=False)
+def load_provenance_mapping(path_str: str) -> pd.DataFrame:
+    path = Path(path_str)
+    return pd.read_csv(path) if path.exists() else pd.DataFrame()
 
 
 @st.cache_data(show_spinner=False)
 def headline_numbers() -> dict:
-    """Every number in the header is computed from files in the repo, never typed in."""
-    out = {"datasets": 0, "records": 0, "cone_burns": 0, "folds": 0, "physics_tests": 0}
-    if RECORDS_PATH.exists():
-        rec = load_records(str(RECORDS_PATH))
-        out["datasets"], out["records"] = int(rec["dataset_key"].nunique()), int(len(rec))
-    meta_path = ROOT / "models" / "spacecraft_fire_peak_hrr_v1.metadata.json"
-    if meta_path.exists():
-        out["cone_burns"] = int(json.loads(meta_path.read_text(encoding="utf-8")).get("training_data", {}).get("rows", 0))
-    folds_path = REPORTS_DIR / "cv_fold_metrics.csv"
-    if folds_path.exists():
-        out["folds"] = int(pd.read_csv(folds_path)["eval_id"].nunique())
+    """Every number in the header is computed from data files and generated reports, never typed in."""
+    out = {"nasa_verified": sum(ds_status(k)["status"] == "VERIFIED_SOURCE" for k in NASA_KEYS),
+           "nasa_total": len(NASA_KEYS), "cone_burns": 0, "cone_status": ds_status("MACFP_PMMA_CONE")["status"],
+           "folds": 0, "tasks_evaluated": 0, "physics_tests": 0}
+    if PROV_REPORT:
+        out["cone_burns"] = int(PROV_REPORT["datasets"].get("MACFP_PMMA_CONE", {}).get("rows") or 0)
+    if CV_SUMMARY:
+        evaluated = [t for t in CV_SUMMARY.get("tasks", []) if t.get("evaluation_status") == "EVALUATED"]
+        out["tasks_evaluated"] = len(evaluated)
+        out["folds"] = sum(int(t.get("outer_folds_total", 0)) for t in evaluated)
     tests_path = ROOT / "tests" / "test_simulation_physics_limits.py"
     if tests_path.exists():
         out["physics_tests"] = tests_path.read_text(encoding="utf-8").count("\ndef test_")
     return out
 
 
-PROVENANCE = load_provenance()
-PLACEHOLDER_KEYS = sorted(k for k, v in PROVENANCE.get("datasets", {}).items() if v.get("status") == "synthetic_placeholder")
 _nums = headline_numbers()
 _telemetry = [
-    (str(_nums["datasets"]), tr("NASA-format datasets", "NASA 格式数据集")
-     + (tr(" · placeholder data", " · 占位数据") if PLACEHOLDER_KEYS else "")),
-    (str(_nums["cone_burns"]), tr("Real MaCFP cone burns", "真实 MaCFP 锥形量热试验")),
-    (str(_nums["folds"]), tr("CV folds (exploratory)", "交叉验证折（探索性）")),
+    (f"{_nums['nasa_verified']}/{_nums['nasa_total']}", tr("NASA flight datasets verified", "NASA 飞行数据集已核实")),
+    (str(_nums["cone_burns"]), tr("Real MaCFP cone burns", "真实 MaCFP 锥形量热试验")
+     + (tr(" · verified", " · 已核实") if _nums["cone_status"] == "VERIFIED_SOURCE" else tr(" · unverified", " · 未核实"))),
+    (str(_nums["folds"]), tr(f"Leakage-audited CV folds · {_nums['tasks_evaluated']} "
+                             + ("task" if _nums["tasks_evaluated"] == 1 else "tasks"),
+                             f"无泄漏审计的交叉验证折 · {_nums['tasks_evaluated']} 个任务")),
     (str(_nums["physics_tests"]), tr("Physics sanity tests", "物理合理性测试")),
 ]
 _briefing = [
@@ -479,17 +584,25 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-if PLACEHOLDER_KEYS:
-    _names = ", ".join(cfg_text(PROVENANCE["datasets"][k], "display_name", k) for k in PLACEHOLDER_KEYS)
-    st.warning(tr(
-        f"**Data status in this build.** The {_names} tables are **synthetic placeholders** in NASA's table format, "
-        "generated by `src/download_nasa_tables.py`. They are **not NASA measurements**, so the Evidence rankings and the "
-        "Scientific Audit scores are demonstrations of the pipeline, not scientific results. The MaCFP cone data used by "
-        "the prediction tab is real. Full details: Evidence tab → Data provenance.",
-        f"**本版本数据状态。** {_names} 数据表是按 NASA 表格格式由 `src/download_nasa_tables.py` 生成的**合成占位数据**，"
-        "**并非 NASA 实测数据**，因此证据排名与科学审计得分只是流程演示，不是科学结论。预测页使用的 MaCFP 锥形量热数据为真实数据。"
-        "详情见：证据页 → 数据来源。",
-    ), icon="⚠️")
+if PROV_REPORT is None:
+    st.error(tr(
+        "**Provenance report missing.** `reports/data_provenance_audit.json` could not be read, so every dataset is "
+        "treated as UNVERIFIED. Run `python -m src.provenance_audit` to compute statuses.",
+        "**缺少数据来源报告。** 无法读取 `reports/data_provenance_audit.json`，因此所有数据集都按“未核实”处理。"
+        "请运行 `python -m src.provenance_audit` 计算状态。",
+    ), icon="🚫")
+else:
+    _not_verified = [k for k in NASA_KEYS if ds_status(k)["status"] != "VERIFIED_SOURCE"]
+    if _not_verified:
+        _parts = [f"{cfg_text(SOURCES['datasets'].get(k, {}), 'display_name', k)}: {status_badge(ds_status(k)['status'])}"
+                  for k in _not_verified]
+        st.warning(tr(
+            "**Data status (computed by `src/provenance_audit.py`).** " + " · ".join(_parts) + ". These tables are not "
+            "NASA measurements, so their rankings are demonstrations and no model is scored on them. The MaCFP cone "
+            "data behind the prediction tab is verified real measurement. Details: Evidence tab → Data provenance.",
+            "**数据状态（由 `src/provenance_audit.py` 计算）。** " + " · ".join(_parts) + "。这些数据表并非 NASA 实测，"
+            "因此其排名仅为演示，也不会用它们给任何模型打分。预测页使用的 MaCFP 锥形量热数据是已核实的真实测量。详情见：证据页 → 数据来源。",
+        ), icon="⚠️")
 
 def _flame_path(cx: float, base: float, w: float, h: float) -> str:
     return (f"M {cx - w:.1f} {base:.1f} "
@@ -499,13 +612,18 @@ def _flame_path(cx: float, base: float, w: float, h: float) -> str:
 
 
 def flame_diagram_svg(flux: float, duration: float, mean_hrr: float, peak: float,
-                      threshold: float, ref_peak: float, title: str) -> str:
+                      threshold: float, ref_peak: float, title: str, measured: float | None = None) -> str:
     """Animated, labelled cone-calorimeter schematic for one burn.
 
     Flame height scales with peak HRR^0.4 (Heskestad-style flame-height scaling), the
     sustained flame size with mean/peak HRR, and the number of radiant-heat arrows with
     the applied heat flux. Schematic only; not to scale and not CFD.
+    `peak` is the model prediction. When the real `measured` peak is known it drives the flame,
+    and the bottom bar shows measured vs predicted instead of the hazard flag.
     """
+    predicted = peak
+    if measured is not None:
+        peak = measured
     cx, base = 210.0, 250.0
     norm = max(0.0, min(1.0, peak / ref_peak)) if ref_peak > 0 else 0.5
     h = 45 + 130 * norm ** 0.4
@@ -603,12 +721,26 @@ def flame_diagram_svg(flux: float, duration: float, mean_hrr: float, peak: float
 <text x="45" y="356" fill="#8f9ab8" font-size="10">0 s</text>
 <text x="515" y="356" fill="#8f9ab8" font-size="10" text-anchor="end">{duration:.0f} s</text>
 <text x="280" y="356" fill="#8f9ab8" font-size="10" text-anchor="middle">{lbl['time']}</text>
-<rect x="14" y="366" width="532" height="34" rx="10" fill="#151c3a" stroke="#2a3355"/>
-<text x="28" y="388" fill="#aab3cc" font-size="12">{lbl['peak']}</text>
-<text x="{170 if lang == 'en' else 150}" y="389" fill="#FFFFFF" font-size="17" font-weight="800">{peak:,.0f} kW/m²</text>
-<rect x="370" y="372" width="168" height="22" rx="11" fill="{badge_col}" fill-opacity="0.18" stroke="{badge_col}"/>
-<text x="454" y="387" fill="{badge_col}" font-size="11" font-weight="800" text-anchor="middle">{lbl['badge']}</text>
+{_result_bar(lbl, predicted, measured, badge_col)}
 </svg>"""
+
+
+def _result_bar(lbl: dict, predicted: float, measured: float | None, badge_col: str) -> str:
+    """Bottom bar: predicted peak + hazard flag, or (when known) measured vs out-of-fold prediction + error."""
+    if measured is None:
+        return (f'<rect x="14" y="366" width="532" height="34" rx="10" fill="#151c3a" stroke="#2a3355"/>'
+                f'<text x="28" y="388" fill="#aab3cc" font-size="12">{lbl["peak"]}</text>'
+                f'<text x="{170 if lang == "en" else 150}" y="389" fill="#FFFFFF" font-size="17" font-weight="800">{predicted:,.0f} kW/m²</text>'
+                f'<rect x="370" y="372" width="168" height="22" rx="11" fill="{badge_col}" fill-opacity="0.18" stroke="{badge_col}"/>'
+                f'<text x="454" y="387" fill="{badge_col}" font-size="11" font-weight="800" text-anchor="middle">{lbl["badge"]}</text>')
+    err = (predicted - measured) / measured * 100 if measured else 0.0
+    return (f'<rect x="14" y="364" width="532" height="40" rx="10" fill="#151c3a" stroke="#2a3355"/>'
+            f'<text x="28" y="379" fill="#2EBD6B" font-size="9.5" font-weight="700" letter-spacing="1">{tr("MEASURED (REAL)", "实测（真实）")}</text>'
+            f'<text x="28" y="397" fill="#FFFFFF" font-size="15" font-weight="800">{measured:,.0f} kW/m²</text>'
+            f'<text x="200" y="379" fill="#7CB6FF" font-size="9.5" font-weight="700" letter-spacing="1">{tr("MODEL PREDICTION (OUT-OF-FOLD)", "模型预测（折外）")}</text>'
+            f'<text x="200" y="397" fill="#7CB6FF" font-size="15" font-weight="800">{predicted:,.0f} kW/m²</text>'
+            f'<rect x="420" y="372" width="118" height="24" rx="12" fill="#8f9ab8" fill-opacity="0.15" stroke="#8f9ab8"/>'
+            f'<text x="479" y="388" fill="#c9d2ea" font-size="11" font-weight="800" text-anchor="middle">{tr("error", "误差")} {err:+.0f}%</text>')
 
 
 def render_flame_gallery(rows: list[dict], ref_peak: float, threshold: float, max_cards: int = 6) -> None:
@@ -624,6 +756,7 @@ def render_flame_gallery(rows: list[dict], ref_peak: float, threshold: float, ma
                 peak=float(row["predicted_peak_hrr_kw_m2"]),
                 threshold=threshold, ref_peak=ref_peak,
                 title=row.get("_title") or tr(f"BURN {i + 1}", f"燃烧试验 {i + 1}"),
+                measured=row.get("measured_peak_hrr_kw_m2"),
             )
             b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
             col.markdown(f'<img class="flame-card" alt="" src="data:image/svg+xml;base64,{b64}">',
@@ -631,6 +764,31 @@ def render_flame_gallery(rows: list[dict], ref_peak: float, threshold: float, ma
     if len(rows) > max_cards:
         st.caption(tr(f"Showing the first {max_cards} of {len(rows)} burns. All results are in the table below.",
                       f"显示前 {max_cards} 条（共 {len(rows)} 条）。完整结果见下表。"))
+
+
+def preview_burns() -> list[dict]:
+    """Two real MaCFP burns chosen by a fixed rule (the median-peak run at the lowest and at the highest heat
+    flux), each paired with the network's out-of-fold prediction from reports/cv_predictions.csv, i.e. a model
+    that never saw that laboratory. Nothing is typed in; returns [] if either file is missing."""
+    data = load_report_csv(str(ROOT / "data" / "processed" / "macfp_measured_cone_experiments.csv"))
+    preds = load_report_csv(str(REPORTS_DIR / "cv_predictions.csv"))
+    if data.empty or preds.empty:
+        return []
+    p = preds[(preds["task_id"] == "macfp_pmma_peak_hrr") & (preds["model"] == "tf_nn_deployed_config")]
+    if p.empty:
+        return []
+    oof = p.groupby("record_id")["y_pred"].mean()
+    rows = []
+    for flux in (data["radiant_heat_flux_kw_m2"].min(), data["radiant_heat_flux_kw_m2"].max()):
+        sub = data[data["radiant_heat_flux_kw_m2"] == flux].sort_values("target_peak_hrr_kw_m2").reset_index(drop=True)
+        r = sub.iloc[(len(sub) - 1) // 2]
+        if r["experiment_id"] in oof.index:
+            rows.append({"radiant_heat_flux_kw_m2": r["radiant_heat_flux_kw_m2"], "real_burn_duration_s": r["real_burn_duration_s"],
+                         "real_mean_hrr_kw_m2": r["real_mean_hrr_kw_m2"], "predicted_peak_hrr_kw_m2": float(oof[r["experiment_id"]]),
+                         "measured_peak_hrr_kw_m2": float(r["target_peak_hrr_kw_m2"]),
+                         "_title": tr(f"REAL BURN · {r['laboratory']} · {r['experiment_id']}",
+                                      f"真实燃烧试验 · {r['laboratory']} · {r['experiment_id']}")})
+    return rows
 
 
 def _svg_img(svg: str, cls: str) -> str:
@@ -700,19 +858,17 @@ def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float
 </svg>"""
 
 
-def solid_svg(material: str, co_mean: float, co_max_all: float) -> str:
-    """Solid sample burning in the BASS-II flow duct (side view), modelled on NASA ISS photos.
+def solid_svg(material_class: str, co_mean: float | None, co_max_all: float) -> str:
+    """One BASS-II material class burning in the flow duct (side view), modelled on NASA ISS photos.
 
-    In microgravity the flame is a blue, bullet/lens-shaped envelope lying along the
-    airflow with an orange glow where it is hottest; smoke is carried downstream by the
-    flow (nothing rises). Rods burn at the rounded tip; thin films burn on both faces and
-    vanish; the cotton-fiberglass fabric leaves its fiberglass mesh behind. Number of
-    smoke wisps scales with the measured mean CO. Illustration, not footage.
+    In microgravity the flame is a blue, bullet/lens-shaped envelope lying along the airflow with an
+    orange glow where it is hottest; smoke is carried downstream (nothing rises). Rods and the candle burn
+    at the tip; films and slabs burn on both faces as the front moves along; SIBAL leaves its fiberglass
+    mesh; the sphere section carries a dome-shaped flame. Smoke wisps scale with the class's mean final CO.
+    Illustration, not footage.
     """
-    name = material.lower()
-    micron = next((int(t) for t in name.split() if t.isdigit()), 0)
-    co_frac = co_mean / co_max_all if co_max_all > 0 else 0.5
-    n_smoke = 2 + int(round(3 * co_frac))
+    co_frac = (co_mean / co_max_all) if (co_mean and co_max_all) else 0.2
+    n_smoke = 1 + int(round(4 * co_frac))
     cy = 75.0
     flow = "".join(
         f'<line class="flow" x1="0" y1="{y}" x2="220" y2="{y}" style="animation-delay:{-0.5 * i:.1f}s"/>'
@@ -732,53 +888,62 @@ def solid_svg(material: str, co_mean: float, co_max_all: float) -> str:
         ".smoke { opacity: 0; transform-box: fill-box; transform-origin: center; animation: smoke 2.4s ease-out infinite; }"
         "@keyframes smoke { 0% { opacity: .45; transform: translate(0, 0) scale(.6); } 100% { opacity: 0; transform: translate(46px, 0) scale(1.8); } }"
     )
+    extra_defs, extra_css = "", ""
 
-    if "rod" in name:
-        # Delrin rod: white acetal rod with a rounded (hemispherical) tip, clamped at the base, burning at the tip.
-        tip_x, rad = 150.0, 9.0
-        smoke = "".join(
-            f'<ellipse class="smoke" cx="{tip_x + 34:.0f}" cy="{cy + (k - n_smoke / 2) * 5:.1f}" rx="7" ry="4" fill="#7d8597" '
-            f'style="animation-delay:{-0.6 * k:.1f}s"/>' for k in range(n_smoke)
-        )
+    def smoke_at(x: float, spread: float = 5.0) -> str:
+        return "".join(
+            f'<ellipse class="smoke" cx="{x:.0f}" cy="{cy + (k - n_smoke / 2) * spread:.1f}" rx="7" ry="4" fill="#7d8597" '
+            f'style="animation-delay:{-0.6 * k:.1f}s"/>' for k in range(n_smoke))
+
+    if material_class in ("pmma_rod_clear", "pmma_rod_black", "wax_candle"):
+        tip_x, rad, start = (150.0, 9.0, 24.0) if material_class != "wax_candle" else (140.0, 11.0, 70.0)
+        stops = {"pmma_rod_clear": ("#e9f4ff", "#a8c8e8", "0.75"), "pmma_rod_black": ("#5a5f6e", "#15171d", "1"),
+                 "wax_candle": ("#fffaf0", "#e0d2b4", "1")}[material_class]
+        extra_defs = (f'<linearGradient id="rodfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{stops[0]}"/>'
+                      f'<stop offset="1" stop-color="{stops[1]}"/></linearGradient>')
         body = f"""
   <rect x="6" y="{cy - 8}" width="18" height="16" rx="2" fill="#4a5270"/>
-  <path d="M24 {cy - rad} H{tip_x} A{rad} {rad} 0 0 1 {tip_x} {cy + rad} H24 Z" fill="url(#delrin)"/>
-  <path d="M{tip_x - 18} {cy - rad} H{tip_x} A{rad} {rad} 0 0 1 {tip_x} {cy + rad} H{tip_x - 18} Z" fill="#3a2a22" opacity="0.55"/>
-  {smoke}
+  <rect x="24" y="{cy - 3}" width="{start - 24}" height="6" fill="#4a5270"/>
+  <path d="M{start} {cy - rad} H{tip_x} A{rad} {rad} 0 0 1 {tip_x} {cy + rad} H{start} Z" fill="url(#rodfill)" fill-opacity="{stops[2]}" stroke="#ffffff" stroke-opacity="0.25"/>
+  <path d="M{tip_x - 16} {cy - rad} H{tip_x} A{rad} {rad} 0 0 1 {tip_x} {cy + rad} H{tip_x - 16} Z" fill="#3a2a22" opacity="0.5"/>
+  {smoke_at(tip_x + 34)}
   <g class="breathe">
-    <path d="M96 {cy - 22} Q {tip_x + 2} {cy - 30} {tip_x + 30} {cy} Q {tip_x + 2} {cy + 30} 96 {cy + 22}" fill="rgba(255,150,120,0.10)" stroke="url(#env)" stroke-width="3" filter="url(#soft)"/>
+    <path d="M{tip_x - 54} {cy - 22} Q {tip_x + 2} {cy - 30} {tip_x + 30} {cy} Q {tip_x + 2} {cy + 30} {tip_x - 54} {cy + 22}" fill="rgba(255,150,120,0.10)" stroke="url(#env)" stroke-width="3" filter="url(#soft)"/>
   </g>
   <ellipse cx="{tip_x + 3}" cy="{cy}" rx="11" ry="13" fill="url(#glow)"/>"""
-        extra_defs = ('<linearGradient id="delrin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/>'
-                      '<stop offset="0.55" stop-color="#e6e7ec"/><stop offset="1" stop-color="#a9adbb"/></linearGradient>')
-        extra_css = ""
+    elif material_class == "pmma_sphere_section":
+        body = f"""
+  <rect x="96" y="{cy + 16}" width="28" height="12" rx="2" fill="#4a5270"/>
+  <path d="M84 {cy + 16} A26 26 0 0 1 136 {cy + 16} Z" fill="#cfe6ff" fill-opacity="0.6" stroke="#ffffff" stroke-opacity="0.3"/>
+  {smoke_at(160, 4)}
+  <g class="breathe">
+    <path d="M74 {cy + 16} A36 40 0 0 1 150 {cy + 16}" fill="rgba(255,150,120,0.08)" stroke="url(#env)" stroke-width="3" filter="url(#soft)"/>
+  </g>
+  <ellipse cx="122" cy="{cy - 4}" rx="10" ry="12" fill="url(#glow)"/>"""
     else:
-        # Thin sheet held at one end; the flame front travels downstream along it, burning both faces.
-        is_fabric = "fabric" in name
-        thick = 4.0 if is_fabric else 1.2 + micron / 120
+        # Sheets: thin film, slab, SIBAL or Nomex fabric. Held at one end; the flame front travels downstream.
+        thick = {"pmma_thin_film": 1.8, "pmma_slab": 7.0, "sibal_fabric": 4.0, "nomex_fabric": 4.0}.get(material_class, 2.0)
+        fabric = material_class in ("sibal_fabric", "nomex_fabric")
         x0, x1 = 20.0, 205.0
-        flame_ry = 10 + thick * 1.6
+        flame_ry = 10 + thick * 1.4
         mesh = (f'<line x1="{x0}" y1="{cy}" x2="{x1}" y2="{cy}" stroke="#9aa0ad" stroke-width="{thick:.1f}" '
-                f'stroke-dasharray="2 2" opacity="0.7"/>') if is_fabric else ""
-        sheet_fill = "url(#weave)" if is_fabric else "#bfe0ff"
-        sheet_op = "1" if is_fabric else "0.55"
-        smoke = "".join(
-            f'<ellipse class="smoke" cx="{x0 + 30}" cy="{cy + (k - n_smoke / 2) * 5:.1f}" rx="6" ry="3.5" fill="#7d8597" '
-            f'style="animation-delay:{-0.55 * k:.1f}s"/>' for k in range(n_smoke)
-        )
+                f'stroke-dasharray="2 2" opacity="0.7"/>') if material_class == "sibal_fabric" else ""
+        weave = "#d9c9a8" if material_class == "sibal_fabric" else "#e8dfa0"
+        sheet_fill = "url(#weave)" if fabric else "#bfe0ff"
+        sheet_op = "1" if fabric else ("0.55" if material_class == "pmma_thin_film" else "0.7")
         body = f"""
   <rect x="6" y="{cy - 10}" width="14" height="20" rx="2" fill="#4a5270"/>
   {mesh}
   <rect class="unburnt" x="{x0}" y="{cy - thick / 2:.2f}" width="{x1 - x0}" height="{thick:.2f}" fill="{sheet_fill}" fill-opacity="{sheet_op}"/>
   <g class="front">
-    {smoke}
+    {smoke_at(x0 + 30, 5)}
     <g class="breathe">
       <ellipse cx="{x0 + 12}" cy="{cy}" rx="28" ry="{flame_ry:.1f}" fill="rgba(255,150,120,0.10)" stroke="url(#env)" stroke-width="2.5" filter="url(#soft)"/>
     </g>
     <ellipse cx="{x0 + 2}" cy="{cy - thick / 2 - 3:.1f}" rx="9" ry="5" fill="url(#glow)"/>
     <ellipse cx="{x0 + 2}" cy="{cy + thick / 2 + 3:.1f}" rx="9" ry="5" fill="url(#glow)"/>
   </g>"""
-        extra_defs = ('<pattern id="weave" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="#d9c9a8"/>'
+        extra_defs = (f'<pattern id="weave" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="{weave}"/>'
                       '<path d="M0 0 L5 5 M5 0 L0 5" stroke="#a8946c" stroke-width="0.8"/></pattern>')
         extra_css = (f".unburnt {{ transform-box: view-box; transform-origin: {x1}px {cy}px; animation: burn 7s linear infinite; }}"
                      "@keyframes burn { from { transform: scaleX(1); } to { transform: scaleX(0); } }"
@@ -796,52 +961,77 @@ def solid_svg(material: str, co_mean: float, co_max_all: float) -> str:
 </svg>"""
 
 
-def ranking_cards_html(track_key: str, ranking: list[dict], d0_by_fuel: dict) -> str:
-    """Card per material/fuel: animated object, medal, and stat bars around it."""
+def ranking_cards_html(track_key: str, ranking: list[dict]) -> str:
+    """Card per material class / fuel: animated object, medal, and stat bars, all from the ranking rows."""
     medals = ["🥇", "🥈", "🥉"]
 
-    def bar(label: str, value: str, frac: float, color: str) -> str:
-        pct = max(4.0, min(100.0, 100 * frac))
+    def bar(label: str, value: str, frac: float | None, color: str) -> str:
+        pct = max(4.0, min(100.0, 100 * (frac or 0)))
         return (f'<div class="stat"><div class="stat-top"><span>{label}</span><b>{value}</b></div>'
                 f'<div class="stat-bar"><i style="width:{pct:.0f}%;background:{color}"></i></div></div>')
 
+    def fmt(x: float | None, pattern: str) -> str:
+        return "—" if x is None else pattern.format(x)
+
     cards = []
     if track_key == "liquid_droplet":
-        rate_max = max(r["mean_burning_rate_mm_s"] for r in ranking)
-        ext_max = max((r["mean_extinction_diameter_mm"] or 0) for r in ranking) or 1.0
+        rate_max = max((r["mean_burning_rate_constant_mm2_s"] or 0) for r in ranking) or 1.0
+        d_max = max(max((r["mean_initial_diameter_mm"] or 0), (r["mean_extinction_diameter_mm"] or 0)) for r in ranking) or 1.0
         for r in ranking:
-            d0 = float(d0_by_fuel.get(r["fuel_name"], 2.0))
-            d_ext = float(r["mean_extinction_diameter_mm"] or d0 * 0.5)
-            # bigger burning rate -> droplet reaches extinction faster (shorter loop)
-            cycle = 4.5 + 3.0 * (1 - r["mean_burning_rate_mm_s"] / rate_max) + 1.5
-            obj = _svg_img(droplet_svg(r["fuel_name"], r["mean_burning_rate_mm_s"], rate_max, d0, d_ext, cycle), "rank-obj")
-            stats = (bar(tr("Burning rate", "燃烧速率"), f'{r["mean_burning_rate_mm_s"]:.3f}', r["mean_burning_rate_mm_s"] / rate_max, "#FF8A3D")
-                     + bar(tr("Extinction diameter", "熄火直径"), f"{d_ext:.2f} mm", d_ext / ext_max, "#7CC4FF")
-                     + bar(tr("Start diameter", "初始直径"), f"{d0:.2f} mm", min(1.0, d0 / 2.5), "#9DA8C8")
-                     + bar(tr("Tests ending in extinction", "以熄火结束的试验"), f'{r["empirical_extinction_ratio"] * 100:.0f}%', r["empirical_extinction_ratio"], "#FC3D21"))
-            name, count = r["fuel_name"], r["empirical_test_count"]
-            cards.append((r["rank"], name, count, obj, stats))
+            k = r["mean_burning_rate_constant_mm2_s"] or 0.0
+            d0 = r["mean_initial_diameter_mm"] or 2.0
+            d_ext = r["mean_extinction_diameter_mm"] or d0 * 0.5
+            cycle = 4.5 + 3.0 * (1 - k / rate_max) + 1.5  # faster-burning fuel shrinks faster
+            obj = _svg_img(droplet_svg(r["fuel_name"], k, rate_max, d0, d_ext, cycle), "rank-obj")
+            oc = r["outcome_counts"]
+            ext_n, comp_n, disr_n = oc["Extinction"], oc["Completion"], oc["Disruption"]
+            outcome_line = tr(f"Outcomes: {ext_n} extinction · {comp_n} completion · {disr_n} disruption",
+                              f"结果：熄灭 {ext_n} · 燃尽 {comp_n} · 破碎 {disr_n}")
+            share = r["extinction_share_of_non_disrupted"]
+            stats = (bar(tr("Burning-rate constant K", "燃烧速率常数 K"), fmt(r["mean_burning_rate_constant_mm2_s"], "{:.3f} mm²/s"), k / rate_max, "#FF8A3D")
+                     + bar(tr("Initial droplet diameter", "初始液滴直径"), fmt(r["mean_initial_diameter_mm"], "{:.2f} mm"), d0 / d_max, "#9DA8C8")
+                     + bar(tr("Diameter when the flame went out", "熄火时液滴直径"), fmt(r["mean_extinction_diameter_mm"], "{:.2f} mm"), d_ext / d_max, "#7CC4FF")
+                     + bar(tr("Flame went out (of non-disrupted tests)", "火焰熄灭比例（不含破碎试验）"), fmt(share * 100 if share is not None else None, "{:.0f}%"), share, "#FC3D21")
+                     + f'<div class="rank-sub" style="margin-top:2px">{outcome_line}</div>')
+            cards.append((r["rank"], r["fuel_name"], r["empirical_test_count"], obj, stats))
     else:
-        co_max_all = max(r["max_co_production_ppm"] for r in ranking)
+        co_max_all = max((r["max_final_co_ppm"] or 0) for r in ranking) or 1.0
         for r in ranking:
-            obj = _svg_img(solid_svg(r["material_name"], r["mean_co_production_ppm"], co_max_all), "rank-obj")
-            stats = (bar(tr("Mean CO", "平均 CO"), f'{r["mean_co_production_ppm"]:.1f} ppm', r["mean_co_production_ppm"] / co_max_all, "#FF8A3D")
-                     + bar(tr("Peak CO", "峰值 CO"), f'{r["max_co_production_ppm"]:.0f} ppm', r["max_co_production_ppm"] / co_max_all, "#FC3D21")
-                     + bar(tr("O₂ consumed", "O₂ 消耗"), f'{r["mean_o2_depletion_pct"]:.2f} %vol', min(1.0, r["mean_o2_depletion_pct"] / 1.0), "#7CC4FF"))
-            cards.append((r["rank"], r["material_name"], r["empirical_test_count"], obj, stats))
+            obj = _svg_img(solid_svg(r["material_class"], r["mean_final_co_ppm"], co_max_all), "rank-obj")
+            over, n_used = r["co_over_range_readings"], r["co_numeric_readings"]
+            co_note = tr(f"{n_used} CO readings used" + (f"; {over} over range, not averaged" if over else ""),
+                         f"使用 {n_used} 个 CO 读数" + (f"；{over} 个超量程读数未计入平均" if over else ""))
+            stats = (bar(tr("Mean final CO", "平均最终 CO"), fmt(r["mean_final_co_ppm"], "{:.0f} ppm"), (r["mean_final_co_ppm"] or 0) / co_max_all, "#FF8A3D")
+                     + bar(tr("Highest final CO", "最高最终 CO"), fmt(r["max_final_co_ppm"], "{:.0f} ppm"), (r["max_final_co_ppm"] or 0) / co_max_all, "#FC3D21")
+                     + bar(tr("O₂ consumed", "O₂ 消耗"), fmt(r["mean_o2_depletion_pct_vol"], "{:.2f} %vol"), min(1.0, (r["mean_o2_depletion_pct_vol"] or 0) / 1.5), "#7CC4FF")
+                     + f'<div class="rank-sub" style="margin-top:2px">{co_note}</div>')
+            cards.append((r["rank"], cfg_text(r, "material_name"), r["empirical_test_count"], obj, stats))
 
     html = []
     for rank, name, count, obj, stats in cards:
         medal = medals[rank - 1] if rank <= 3 else f"#{rank}"
         html.append(
             f'<div class="rank-card"><div class="rank-head"><span class="medal">{medal}</span>'
-            f'<div><div class="rank-name">{name}</div><div class="rank-sub">{tr(f"{count} records in table", f"表中 {count} 条记录")}</div></div></div>'
+            f'<div><div class="rank-name">{name}</div><div class="rank-sub">{tr(f"{count} ISS tests", f"{count} 次空间站试验")}</div></div></div>'
             f'{obj}<div class="stats">{stats}</div></div>'
         )
     return f'<div class="rank-grid">{"".join(html)}</div>'
 
 
-AUDIT_INPUTS = ("Re", "log Ri", "pO₂", "u_b", "Da")  # the 5 physics features in config/scientific_validation.json
+FEATURE_SHORT = {  # short chip labels for model diagrams, keyed by registry feature/target column
+    "radiant_heat_flux_kw_m2": ("heat flux", "热通量"),
+    "real_burn_duration_s": ("burn time", "燃烧时间"),
+    "real_mean_hrr_kw_m2": ("mean HRR", "平均 HRR"),
+    "target_peak_hrr_kw_m2": ("peak HRR", "峰值 HRR"),
+    "is_heptane": ("fuel", "燃料"),
+    "pressure_mmhg": ("pressure", "压力"),
+    "x_o2": ("O₂", "O₂"),
+    "x_co2": ("CO₂", "CO₂"),
+    "x_he": ("He", "He"),
+    "d0_mm": ("drop size", "液滴直径"),
+    "burning_rate_constant_mm2_s": ("burn rate K", "燃烧速率 K"),
+    "extinction_label": ("flame out?", "是否熄火？"),
+}
 _SVG_HEAD = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220" font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">'
 _SVG_CSS = (
     "<style>"
@@ -856,51 +1046,97 @@ _SVG_CSS = (
 )
 
 
-def _input_chips(x: float, ys: list, dim: bool = False) -> str:
+def short_label(column: str) -> str:
+    en, zh = FEATURE_SHORT.get(column, (column, column))
+    return tr(en, zh)
+
+
+def _chips(x: float, ys: list, labels: list[str], dim: bool = False, w: int = 64) -> str:
     out = []
-    for y, name in zip(ys, AUDIT_INPUTS):
+    for y, name in zip(ys, labels):
         op = ' opacity="0.35"' if dim else ""
-        out.append(f'<g{op}><rect class="chip" x="{x}" y="{y - 9}" width="44" height="18" rx="9"/>'
-                   f'<text class="lbl" x="{x + 22}" y="{y + 3.5}" text-anchor="middle">{name}</text></g>')
+        out.append(f'<g{op}><rect class="chip" x="{x}" y="{y - 9}" width="{w}" height="18" rx="9"/>'
+                   f'<text class="lbl" x="{x + w / 2}" y="{y + 3.5}" text-anchor="middle">{name}</text></g>')
         if dim:
-            out.append(f'<line x1="{x + 4}" y1="{y}" x2="{x + 40}" y2="{y}" stroke="#FC3D21" stroke-width="1.2" opacity="0.7"/>')
+            out.append(f'<line x1="{x + 5}" y1="{y}" x2="{x + w - 5}" y2="{y}" stroke="#FC3D21" stroke-width="1.2" opacity="0.7"/>')
     return "".join(out)
 
 
-def baseline_svg() -> str:
-    """Dummy baseline: ignores every input and always predicts the training average."""
-    ys = [40, 70, 100, 130, 160]
+def _in_ys(n: int) -> list[float]:
+    step = 32 if n <= 4 else 27
+    return [108 + (i - (n - 1) / 2) * step for i in range(n)]
+
+
+def baseline_svg(inputs: list[str], output: str, classification: bool = False) -> str:
+    """Baseline: ignores every input and always predicts the training average (or most common class)."""
+    if classification:
+        ys = _in_ys(len(inputs))
+        return (_SVG_HEAD + _SVG_CSS + _chips(6, ys, inputs, dim=True)
+                + '<path d="M72 110 H104" stroke="#3a4670" stroke-width="1.5" stroke-dasharray="4 3"/>'
+                + '<rect x="104" y="88" width="88" height="44" rx="10" fill="#151c3a" stroke="#8f9ab8"/>'
+                + f'<text class="lbl" x="148" y="107" text-anchor="middle" font-weight="700">{tr("MOST COMMON", "最常见结果")}</text>'
+                + f'<text class="mut" x="148" y="121" text-anchor="middle">{tr("same answer", "答案不变")}</text>'
+                + '<path d="M192 110 H222" stroke="#FF9A4D" stroke-width="2"/>'
+                + f'<rect class="chip" x="222" y="100" width="72" height="20" rx="10"/><text class="lbl" x="258" y="114" text-anchor="middle">{output}</text>'
+                + f'<text class="mut" x="6" y="208">{tr("Inputs ignored ✕ · never predicts the rare outcome", "忽略全部输入 ✕ · 从不预测少见结果")}</text>'
+                + "</svg>")
+    ys = _in_ys(len(inputs))
     truth = [(205, 62), (220, 140), (234, 88), (248, 158), (262, 74), (276, 120), (290, 98)]
     resid = "".join(
         f'<line x1="{x}" y1="{y}" x2="{x}" y2="110" stroke="#FC3D21" stroke-width="1.6" stroke-dasharray="3 2" '
         f'opacity="0.8"><animate attributeName="opacity" values="0.2;0.9;0.2" dur="2.4s" begin="{i * 0.25:.2f}s" repeatCount="indefinite"/></line>'
         for i, (x, y) in enumerate(truth))
     dots = "".join(f'<circle cx="{x}" cy="{y}" r="4" fill="#7CC4FF"/>' for x, y in truth)
-    return (_SVG_HEAD + _SVG_CSS + _input_chips(8, ys, dim=True)
-            + '<path d="M58 100 H100" stroke="#3a4670" stroke-width="1.5" stroke-dasharray="4 3"/>'
-            + '<rect x="100" y="80" width="70" height="40" rx="10" fill="#151c3a" stroke="#8f9ab8"/>'
-            + f'<text class="lbl" x="135" y="98" text-anchor="middle" font-weight="700">{tr("AVERAGE", "平均值")}</text>'
-            + f'<text class="mut" x="135" y="111" text-anchor="middle">{tr("same answer", "答案不变")}</text>'
-            + '<path d="M170 110 H300" stroke="#FF9A4D" stroke-width="2.2" stroke-dasharray="6 4"/>'
+    return (_SVG_HEAD + _SVG_CSS + _chips(6, ys, inputs, dim=True)
+            + '<path d="M72 110 H104" stroke="#3a4670" stroke-width="1.5" stroke-dasharray="4 3"/>'
+            + '<rect x="104" y="90" width="70" height="40" rx="10" fill="#151c3a" stroke="#8f9ab8"/>'
+            + f'<text class="lbl" x="139" y="108" text-anchor="middle" font-weight="700">{tr("AVERAGE", "平均值")}</text>'
+            + f'<text class="mut" x="139" y="121" text-anchor="middle">{tr("same answer", "答案不变")}</text>'
+            + '<path d="M174 110 H300" stroke="#FF9A4D" stroke-width="2.2" stroke-dasharray="6 4"/>'
             + resid + dots
-            + f'<text class="mut" x="8" y="200">{tr("Inputs ignored ✕", "忽略全部输入 ✕")}</text>'
-            + f'<text class="mut" x="196" y="200">{tr("● real   — guess   ┆ error", "● 真实  — 猜测  ┆ 误差")}</text>'
+            + f'<text class="mut" x="6" y="204">{tr("Inputs ignored ✕", "忽略全部输入 ✕")}</text>'
+            + f'<text class="mut" x="190" y="204">{tr("● measured  — guess  ┆ error", "● 实测  — 猜测  ┆ 误差")}</text>'
             + "</svg>")
 
 
-def forest_svg() -> str:
-    """Random forest: many decision trees answer yes/no questions, then their answers are averaged."""
-    ys = [40, 70, 100, 130, 160]
-    parts = [_SVG_HEAD, _SVG_CSS, _input_chips(8, ys)]
+def ridge_svg(inputs: list[str], output: str, logistic: bool = False) -> str:
+    """Ridge (or logistic) regression: one weight per input, summed; logistic squashes it into a probability."""
+    ys = _in_ys(len(inputs))
+    subs = "₁₂₃₄₅₆₇₈₉"
+    parts = [_SVG_HEAD, _SVG_CSS, _chips(6, ys, inputs)]
+    for i, y in enumerate(ys):
+        parts.append(f'<line class="edge" x1="70" y1="{y}" x2="114" y2="110" style="stroke-width:1.6"/>')
+        parts.append(f'<line class="pulse" x1="70" y1="{y}" x2="114" y2="110" style="animation-delay:{-0.4 * i:.1f}s"/>')
+    # Dark box with a pulsing outline (not a pulsing fill), so the text inside always stays readable.
+    parts.append('<rect x="114" y="86" width="98" height="48" rx="10" fill="#151c3a" stroke="#FF9A4D" stroke-width="2">'
+                 '<animate attributeName="stroke-opacity" values="0.35;1;0.35" dur="1.8s" repeatCount="indefinite"/></rect>')
+    formula = "σ(Σ wᵢxᵢ + b)" if logistic else "Σ wᵢxᵢ + b"
+    parts.append(f'<text class="lbl" x="163" y="107" text-anchor="middle" font-weight="700">{formula}</text>')
+    parts.append(f'<text class="mut" x="163" y="122" text-anchor="middle">'
+                 f'{tr("probability", "概率") if logistic else tr("weighted sum", "加权求和")}</text>')
+    parts.append('<path d="M212 110 H226" stroke="#FF9A4D" stroke-width="2"/>')
+    parts.append(f'<rect class="chip" x="226" y="100" width="70" height="20" rx="10"/><text class="lbl" x="261" y="114" text-anchor="middle">{output}</text>')
+    terms = " + ".join(f"w{subs[i]}x{subs[i]}" for i in range(min(len(inputs), 4))) + (" + …" if len(inputs) > 4 else "")
+    parts.append(f'<text class="mut" x="150" y="196" text-anchor="middle">{terms} + b</text>')
+    note = (tr("C picked on inner validation; classes weighted equally", "C 由内层验证选出；两类权重均衡") if logistic
+            else tr("penalty keeps weights small (alpha picked on inner validation)", "惩罚项使权重保持较小（alpha 由内层验证选出）"))
+    parts.append(f'<text class="mut" x="150" y="210" text-anchor="middle">{note}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def forest_svg(inputs: list[str], output: str, classification: bool = False) -> str:
+    """Random forest: many decision trees answer yes/no questions, then their answers are averaged (or voted)."""
+    ys = _in_ys(len(inputs))
+    parts = [_SVG_HEAD, _SVG_CSS, _chips(6, ys, inputs)]
     leaf_pts = []
-    for t, cx in enumerate((110, 178, 246)):
+    for t, cx in enumerate((124, 186, 248)):
         root, kids = (cx, 40), [(cx - 16, 74), (cx + 16, 74)]
         leaves = [(cx - 24, 108), (cx - 8, 108), (cx + 8, 108), (cx + 24, 108)]
         for k, (kx, ky) in enumerate(kids):
             parts.append(f'<line class="edge" x1="{root[0]}" y1="{root[1]}" x2="{kx}" y2="{ky}"/>')
             for lx, ly in leaves[2 * k:2 * k + 2]:
                 parts.append(f'<line class="edge" x1="{kx}" y1="{ky}" x2="{lx}" y2="{ly}"/>')
-        # the decision path this sample takes through tree t (lights up in turn)
         kid = kids[t % 2]
         leaf = leaves[(t % 2) * 2 + (1 if t == 1 else 0)]
         parts.append(f'<polyline points="{root[0]},{root[1]} {kid[0]},{kid[1]} {leaf[0]},{leaf[1]}" fill="none" '
@@ -910,86 +1146,159 @@ def forest_svg() -> str:
             parts.append(f'<circle cx="{nx}" cy="{ny}" r="4.5" fill="#2a3560" stroke="#6f7ca8"/>')
         leaf_pts.append(leaf)
     for lx, ly in leaf_pts:
-        parts.append(f'<line x1="{lx}" y1="{ly}" x2="178" y2="150" stroke="rgba(255,154,77,.45)" stroke-width="1.2"/>')
-    parts.append(f'<text class="mut" x="178" y="20" text-anchor="middle">{tr("3 of the 100 trees shown", "显示 100 棵树中的 3 棵")}</text>')
-    parts.append('<circle class="glow" cx="178" cy="150" r="10" stroke="#FF9A4D"/>')
-    parts.append(f'<text class="lbl" x="194" y="154">{tr("average answers", "汇总答案")}</text>')
-    parts.append('<path d="M178 160 L130 186 M178 160 L226 186" stroke="#FF9A4D" stroke-width="1.5"/>')
-    parts.append(f'<rect class="chip" x="88" y="186" width="84" height="20" rx="10"/><text class="lbl" x="130" y="200" text-anchor="middle">{tr("burn rate", "燃烧速率")}</text>')
-    parts.append(f'<rect class="chip" x="184" y="186" width="84" height="20" rx="10"/><text class="lbl" x="226" y="200" text-anchor="middle">{tr("flame out?", "是否熄火？")}</text>')
+        parts.append(f'<line x1="{lx}" y1="{ly}" x2="186" y2="150" stroke="rgba(255,154,77,.45)" stroke-width="1.2"/>')
+    parts.append(f'<text class="mut" x="186" y="20" text-anchor="middle">{tr("3 of the 200 trees shown", "显示 200 棵树中的 3 棵")}</text>')
+    parts.append('<circle class="glow" cx="186" cy="150" r="10" stroke="#FF9A4D"/>')
+    parts.append(f'<text class="lbl" x="202" y="154">'
+                 f'{tr("trees vote", "树木投票") if classification else tr("average answers", "汇总答案")}</text>')
+    parts.append('<path d="M186 160 L186 184" stroke="#FF9A4D" stroke-width="1.5"/>')
+    parts.append(f'<rect class="chip" x="151" y="184" width="70" height="20" rx="10"/><text class="lbl" x="186" y="198" text-anchor="middle">{output}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
 
-def network_svg() -> str:
-    """Multitask neural network: 5 inputs -> 32 -> 16 shared neurons -> two output heads."""
-    layers_x = (66, 140, 205, 262)
-    ys_in = [40, 70, 100, 130, 160]
-    ys_h1 = [30 + i * 20 for i in range(8)]   # 8 drawn of 32
-    ys_h2 = [45 + i * 22 for i in range(6)]   # 6 drawn of 16
-    ys_out = [78, 132]
+def network_svg(inputs: list[str], output: str) -> str:
+    """The deployed network: inputs -> 32 -> 16 -> 1 (drawn with fewer neurons than it has)."""
+    layers_x = (96, 156, 214, 268)
+    ys_in = _in_ys(len(inputs))
+    ys_h1 = [30 + i * 22 for i in range(8)]   # 8 drawn of 32
+    ys_h2 = [55 + i * 22 for i in range(6)]   # 6 drawn of 16
+    ys_out = [110]
     parts = [_SVG_HEAD, _SVG_CSS]
     cols = [(layers_x[0], ys_in), (layers_x[1], ys_h1), (layers_x[2], ys_h2), (layers_x[3], ys_out)]
     for (xa, ya), (xb, yb) in zip(cols, cols[1:]):
         for y1 in ya:
             for y2 in yb:
                 parts.append(f'<line class="edge" x1="{xa}" y1="{y1}" x2="{xb}" y2="{y2}"/>')
-    # a few signals travelling forward through the network
-    pulse_edges = [(0, 0, 2), (0, 2, 5), (0, 4, 7), (1, 1, 1), (1, 4, 3), (1, 6, 5), (2, 0, 0), (2, 3, 1), (2, 5, 1), (2, 2, 0)]
+    pulse_edges = [(0, 0, 2), (0, 1, 5), (0, len(ys_in) - 1, 7), (1, 1, 1), (1, 4, 3), (1, 6, 5), (2, 0, 0), (2, 3, 0), (2, 5, 0)]
     for i, (layer, a, b) in enumerate(pulse_edges):
         (xa, ya), (xb, yb) = cols[layer], cols[layer + 1]
-        parts.append(f'<line class="pulse" x1="{xa}" y1="{ya[a]}" x2="{xb}" y2="{yb[b]}" style="animation-delay:{-0.17 * i:.2f}s"/>')
+        if a < len(ya) and b < len(yb):
+            parts.append(f'<line class="pulse" x1="{xa}" y1="{ya[a]}" x2="{xb}" y2="{yb[b]}" style="animation-delay:{-0.17 * i:.2f}s"/>')
     for layer, (x, ys) in enumerate(cols):
         for y in ys:
             delay = f' style="animation-delay:{0.45 * layer:.2f}s"' if layer else ""
             parts.append(f'<circle class="glow" cx="{x}" cy="{y}" r="6" stroke="#6f7ca8"{delay}/>')
-    for y, name in zip(ys_in, AUDIT_INPUTS):
+    for y, name in zip(ys_in, inputs):
         parts.append(f'<text class="lbl" x="{layers_x[0] - 10}" y="{y + 3.5}" text-anchor="end">{name}</text>')
-    parts.append(f'<text class="mut" x="{layers_x[1]}" y="200" text-anchor="middle">{tr("32 neurons", "32 个神经元")}</text>')
-    parts.append(f'<text class="mut" x="{layers_x[2]}" y="200" text-anchor="middle">{tr("16 neurons", "16 个神经元")}</text>')
-    parts.append(f'<text class="lbl" x="{layers_x[3]}" y="{ys_out[0] - 12}" text-anchor="middle">{tr("burn rate", "燃烧速率")}</text>')
-    parts.append(f'<text class="lbl" x="{layers_x[3]}" y="{ys_out[1] + 20}" text-anchor="middle">{tr("flame out?", "是否熄火？")}</text>')
-    parts.append(f'<text class="mut" x="{(layers_x[1] + layers_x[2]) / 2}" y="16" text-anchor="middle">{tr("shared layers", "共享层")}</text>')
+    parts.append(f'<text class="mut" x="{layers_x[1]}" y="208" text-anchor="middle">{tr("32 neurons", "32 个神经元")}</text>')
+    parts.append(f'<text class="mut" x="{layers_x[2]}" y="208" text-anchor="middle">{tr("16 neurons", "16 个神经元")}</text>')
+    parts.append(f'<text class="lbl" x="{layers_x[3]}" y="{ys_out[0] - 14}" text-anchor="middle">{output}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
 
-def model_panel_html(stats: dict, base: dict, how: str) -> str:
-    """Right-hand panel: ring gauges, error-vs-baseline bars, and plain-language notes."""
-    def ring(label: str, mean: float, std: float) -> str:
+MODEL_ART = {
+    "mean_baseline": baseline_svg, "ridge": ridge_svg, "random_forest": forest_svg, "tf_nn_deployed_config": network_svg,
+    "majority_baseline": lambda i, o: baseline_svg(i, o, classification=True),
+    "logistic_regression": lambda i, o: ridge_svg(i, o, logistic=True),
+    "random_forest_classifier": lambda i, o: forest_svg(i, o, classification=True),
+}
+MODEL_LABELS = {
+    "mean_baseline": ("🎯 Baseline", "🎯 基线模型"),
+    "ridge": ("📏 Ridge (linear)", "📏 岭回归（线性）"),
+    "random_forest": ("🌳 Random forest", "🌳 随机森林"),
+    "tf_nn_deployed_config": ("🧠 Neural network (deployed)", "🧠 神经网络（已部署）"),
+    "majority_baseline": ("🎯 Baseline", "🎯 基线模型"),
+    "logistic_regression": ("📈 Logistic regression", "📈 逻辑回归"),
+    "random_forest_classifier": ("🌳 Random forest", "🌳 随机森林"),
+}
+MODEL_HOW = {
+    "mean_baseline": ("Ignores every input and always predicts the average peak seen in training. Any useful model has to beat it.",
+                      "忽略全部输入，始终预测训练集中的平均峰值。任何有用的模型都必须胜过它。"),
+    "ridge": ("Multiplies each input by a weight and adds them up, with a penalty that keeps the weights small. The penalty "
+              "strength is chosen on inner-validation labs only.",
+              "将每个输入乘以权重后相加，并用惩罚项使权重保持较小。惩罚强度只在内层验证实验室上选择。"),
+    "random_forest": ("200 decision trees each ask yes/no questions about the inputs and give an answer; the forest averages "
+                      "them. The minimum leaf size is chosen on inner-validation labs only.",
+                      "200 棵决策树分别对输入提出是/否问题并给出答案，森林再取平均。最小叶节点大小只在内层验证实验室上选择。"),
+    "tf_nn_deployed_config": ("The exact configuration of the deployed model (32 and 16 neurons, 60 epochs), retrained inside "
+                              "every training partition. It is not tuned, so this measures the deployed recipe as it is.",
+                              "与已部署模型完全相同的配置（32 与 16 个神经元，60 轮），在每个训练分区内重新训练。未做调参，"
+                              "因此衡量的就是已部署方案本身。"),
+    "majority_baseline": ("Ignores every input and always predicts the outcome that was most common in training "
+                          "(here: the flame goes out). Any useful model has to beat it.",
+                          "忽略全部输入，始终预测训练中最常见的结果（此处为“火焰熄灭”）。任何有用的模型都必须胜过它。"),
+    "logistic_regression": ("Adds up weighted inputs and turns the total into a probability that the flame goes out. "
+                            "Rare outcomes get equal weight, and the penalty strength is chosen on inner-validation days only.",
+                            "将加权输入求和并转换为火焰熄灭的概率。少见结果获得同等权重，惩罚强度只在内层验证日期上选择。"),
+    "random_forest_classifier": ("200 decision trees vote on whether the flame goes out, with rare outcomes weighted up. "
+                                 "The minimum leaf size is chosen on inner-validation days only.",
+                                 "200 棵决策树对火焰是否熄灭进行投票，少见结果的权重被提高。最小叶节点大小只在内层验证日期上选择。"),
+}
+
+
+def _ring(label: str, stats: dict) -> str:
+    mean, std = stats.get("mean"), stats.get("std")
+    if mean is None:
+        return f'<div class="ring-wrap"><div class="ring"><div class="ring-in"><b>—</b></div></div><div class="ring-lbl">{label}</div></div>'
+    pct = max(0.0, min(1.0, mean)) * 100
+    return (f'<div class="ring-wrap"><div class="ring" style="background:conic-gradient(#d95926 {pct:.1f}%, rgba(255,255,255,.08) 0)">'
+            f'<div class="ring-in"><b>{mean:.2f}</b><span>± {std:.2f}</span></div></div><div class="ring-lbl">{label}</div></div>')
+
+
+def classification_panel_html(m: dict, base: dict, how: str, is_base: bool, minority: str) -> str:
+    """Panel for classification tasks: fold-level balanced accuracy, ROC-AUC and minority-class recall."""
+    fl = m["fold_level"]
+    ba, bba, auc, rec = fl["balanced_accuracy"], base["fold_level"]["balanced_accuracy"], fl["roc_auc"], fl["recall_neg"]
+    bar = (f'<div class="eb"><div class="eb-top"><span>{tr("Balanced accuracy (25 folds)", "平衡准确率（25 折）")}</span>'
+           f'<b>{ba["mean"]:.2f} ± {ba["std"]:.2f}</b></div>'
+           f'<div class="eb-row"><i class="eb-this" style="width:{100 * ba["mean"]:.0f}%"></i></div>'
+           f'<div class="eb-row"><i class="eb-base" style="width:{100 * bba["mean"]:.0f}%"></i></div>'
+           f'<div class="eb-key"><span class="k1"></span>{tr("this model", "本模型")}<span class="k2"></span>{tr("baseline", "基线")}'
+           f'&nbsp;·&nbsp;{tr("0.5 = guessing", "0.5 = 瞎猜")}</div></div>')
+    if is_base:
+        did = tr("The yardstick: it is right about the common outcome and always wrong about the rare one, so balanced accuracy is 0.5.",
+                 "参照标准：它对常见结果总是正确，对少见结果总是错误，因此平衡准确率为 0.5。")
+    else:
+        did = tr(f"On test days it never saw: balanced accuracy {ba['mean']:.2f} ± {ba['std']:.2f}, ROC-AUC {auc['mean']:.2f} ± {auc['std']:.2f}. "
+                 f"It caught {rec['mean'] * 100:.0f}% of the rare '{minority}' outcomes on average.",
+                 f"在从未见过的试验日上：平衡准确率 {ba['mean']:.2f} ± {ba['std']:.2f}，ROC-AUC {auc['mean']:.2f} ± {auc['std']:.2f}。"
+                 f"平均识别出 {rec['mean'] * 100:.0f}% 的少见“{minority}”结果。")
+    return ('<div class="mpanel"><div class="rings" style="grid-template-columns:repeat(2,1fr)">'
+            + _ring(tr("Balanced accuracy", "平衡准确率"), ba) + _ring("ROC-AUC", auc)
+            + "</div>" + bar
+            + f'<p class="mnote"><b>{tr("How it works", "工作原理")}</b> {how}</p>'
+            + f'<p class="mnote"><b>{tr("How it did", "表现如何")}</b> {did}</p></div>')
+
+
+def model_panel_html(m: dict, base: dict, how: str, unit: str, is_base: bool) -> str:
+    """Right-hand panel: R² rings, MAE versus the baseline, and plain-language notes, all from cv_summary.json."""
+    fl, ps = m["fold_level"], m["per_seed_pooled_summary"]
+
+    def ring(label: str, stats: dict) -> str:
+        mean, std = stats.get("mean"), stats.get("std")
+        if mean is None:
+            return f'<div class="ring-wrap"><div class="ring"><div class="ring-in"><b>—</b></div></div><div class="ring-lbl">{label}</div></div>'
         pct = max(0.0, min(1.0, mean)) * 100
         return (f'<div class="ring-wrap"><div class="ring" style="background:conic-gradient(#d95926 {pct:.1f}%, rgba(255,255,255,.08) 0)">'
                 f'<div class="ring-in"><b>{mean:.2f}</b><span>± {std:.2f}</span></div></div><div class="ring-lbl">{label}</div></div>')
 
-    def err_bar(label: str, key: str) -> str:
-        m, b = stats[key]["mean"], base[key]["mean"]
-        scale = max(m, b)
-        return (f'<div class="eb"><div class="eb-top"><span>{label}</span><b>{m:.3f} ± {stats[key]["std"]:.3f} mm/s</b></div>'
-                f'<div class="eb-row"><i class="eb-this" style="width:{100 * m / scale:.0f}%"></i></div>'
-                f'<div class="eb-row"><i class="eb-base" style="width:{100 * b / scale:.0f}%"></i></div>'
-                f'<div class="eb-key"><span class="k1"></span>{tr("this model", "本模型")}<span class="k2"></span>{tr("baseline", "基线")}</div></div>')
-
-    is_base = stats is base
-    mae_drop = (1 - stats["mae_mm_s"]["mean"] / base["mae_mm_s"]["mean"]) * 100
-    did = (tr("This is the yardstick: R² ≈ 0 means no skill beyond guessing the average.",
-              "这是参照标准：R² ≈ 0 表示除了猜平均值外没有任何预测能力。") if is_base else
-           tr(f"Across 25 held-out folds it explains about {stats['r2_score']['mean'] * 100:.0f}% of the variation in burn rate, "
-              f"with {mae_drop:.0f}% lower error than the baseline.",
-              f"在 25 个独立测试折中，它解释了约 {stats['r2_score']['mean'] * 100:.0f}% 的燃烧速率变化，误差比基线低 {mae_drop:.0f}%。"))
-    if PLACEHOLDER_KEYS and not is_base:
-        did += tr(" These scores come from placeholder data with leaked BASS-II labels, so they show the pipeline works, "
-                  "not how well the model would really predict.",
-                  " 这些得分来自含 BASS-II 标签泄漏的占位数据，只能说明流程可运行，不能代表模型的真实预测能力。")
-    return (
-        '<div class="mpanel"><div class="rings">'
-        + ring(tr("R² (burn rate)", "R²（燃烧速率）"), stats["r2_score"]["mean"], stats["r2_score"]["std"])
-        + ring(tr("Balanced accuracy", "平衡准确率"), stats["balanced_accuracy"]["mean"], stats["balanced_accuracy"]["std"])
-        + ring(tr("Macro-F1 (flame out?)", "Macro-F1（是否熄火）"), stats["macro_f1"]["mean"], stats["macro_f1"]["std"])
-        + "</div>"
-        + err_bar(tr("Mean absolute error", "平均绝对误差"), "mae_mm_s")
-        + f'<p class="mnote"><b>{tr("How it works", "工作原理")}</b> {how}</p>'
-        + f'<p class="mnote"><b>{tr("How it did", "表现如何")}</b> {did}</p></div>'
-    )
+    mae, bmae = fl["mae"], base["fold_level"]["mae"]
+    scale = max(mae["mean"], bmae["mean"])
+    digits = 0 if bmae["mean"] >= 10 else 3
+    num = lambda x: f"{x:.{digits}f}"  # noqa: E731 - keeps the panel readable for kW/m2 and mm2/s alike
+    err = (f'<div class="eb"><div class="eb-top"><span>{tr("Mean absolute error (25 folds)", "平均绝对误差（25 折）")}</span>'
+           f'<b>{num(mae["mean"])} ± {num(mae["std"])} {unit}</b></div>'
+           f'<div class="eb-row"><i class="eb-this" style="width:{100 * mae["mean"] / scale:.0f}%"></i></div>'
+           f'<div class="eb-row"><i class="eb-base" style="width:{100 * bmae["mean"] / scale:.0f}%"></i></div>'
+           f'<div class="eb-key"><span class="k1"></span>{tr("this model", "本模型")}<span class="k2"></span>{tr("baseline", "基线")}'
+           f'&nbsp;·&nbsp;{tr("range", "范围")} {num(mae["min"])}–{num(mae["max"])} · RMSE {num(fl["rmse"]["mean"])}</div></div>')
+    if is_base:
+        did = tr(f"The yardstick: MAE {num(mae['mean'])} {unit} and R² near or below 0 mean no skill beyond the average.",
+                 f"参照标准：MAE {num(mae['mean'])} {unit}，R² 接近或低于 0，表示除平均值外没有预测能力。")
+    else:
+        drop = (1 - mae["mean"] / bmae["mean"]) * 100
+        did = tr(f"On groups it never saw, MAE was {num(mae['mean'])} ± {num(mae['std'])} {unit}, {drop:.0f}% lower than the "
+                 f"baseline. Pooled over each repeat, R² = {ps['r2']['mean']:.2f} ± {ps['r2']['std']:.2f}.",
+                 f"在从未见过的分组上，MAE 为 {num(mae['mean'])} ± {num(mae['std'])} {unit}，比基线低 {drop:.0f}%。"
+                 f"按每次重复汇总，R² = {ps['r2']['mean']:.2f} ± {ps['r2']['std']:.2f}。")
+    return ('<div class="mpanel"><div class="rings" style="grid-template-columns:repeat(2,1fr)">'
+            + ring(tr("R² per fold", "每折 R²"), fl["r2"])
+            + ring(tr("R² pooled per repeat", "按重复汇总的 R²"), ps["r2"])
+            + "</div>" + err
+            + f'<p class="mnote"><b>{tr("How it works", "工作原理")}</b> {how}</p>'
+            + f'<p class="mnote"><b>{tr("How it did", "表现如何")}</b> {did}</p></div>')
 
 
 tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction = st.tabs([
@@ -1044,13 +1353,14 @@ def render_evidence():
             track_df = track_df.loc[mask]
 
         ds_key = "BASS_II" if track_key == "solid_fuel" else "FLEX"
-        prov = PROVENANCE.get("datasets", {}).get(ds_key, {})
-        is_placeholder = prov.get("status") == "synthetic_placeholder"
+        prov = SOURCES.get("datasets", {}).get(ds_key, {})  # static facts only
+        computed = ds_status(ds_key)                          # status computed by src/provenance_audit.py
+        is_placeholder = computed["status"] != "VERIFIED_SOURCE"
         st.info(tr(
-            f"📌 **Current track**: {track_mode} | **Real dataset**: NASA DOI `{doi}` | [Open NASA data repository]({source_url})"
-            + (" | **Data shown here: synthetic placeholder** (see Data provenance below)" if is_placeholder else ""),
-            f"📌 **当前实验轨道**: {track_mode} | **真实数据集**: NASA DOI `{doi}` | [访问 NASA 官方实验库]({source_url})"
-            + (" | **此处显示：合成占位数据**（见下方数据来源）" if is_placeholder else ""),
+            f"📌 **Current track**: {track_mode} | **NASA dataset**: DOI `{doi}` | [Open NASA data repository]({source_url})"
+            f" | **Data shown here:** {status_badge(computed['status'])} (see Data provenance below)",
+            f"📌 **当前实验轨道**: {track_mode} | **NASA 数据集**: DOI `{doi}` | [访问 NASA 官方实验库]({source_url})"
+            f" | **此处显示：** {status_badge(computed['status'])}（见下方数据来源）",
         ))
 
         st.markdown(tr(
@@ -1062,39 +1372,49 @@ def render_evidence():
             st.caption(tr(
                 "Animated illustration modelled on NASA flight photos (not real footage). Sizes, colours and speeds are "
                 "driven by the averages computed from the loaded table"
-                + (", which in this build is a synthetic placeholder, so the ranking itself is not a scientific result. "
+                + (", which is not verified NASA data in this build, so the ranking itself is not a scientific result. "
                    if is_placeholder else ". ")
                 + ("Each tiny droplet sits inside its olive-sized spherical flame and shrinks until it reaches the "
-                   "table's extinction diameter, where the flame goes out." if track_key == "liquid_droplet" else
+                   "average diameter at which the flame went out. K is the d²-law burning-rate constant (mm²/s, "
+                   "NASA/TP-2015-216046); 'flame went out' counts only tests that ended by extinction or completion, "
+                   "because disrupted tests ended for another reason." if track_key == "liquid_droplet" else
                    "Side view inside the flow duct: in microgravity the flame is a blue envelope lying along the airflow, "
-                   "and smoke is carried downstream rather than rising. More smoke = more CO in the table."),
+                   "and smoke is carried downstream rather than rising. Final CO is the chamber reading after each test; "
+                   "it depends on sample size, airflow and burn time, so this ranks the tests as they were run, not each "
+                   "material's intrinsic toxicity. Over-range readings are counted but not averaged."),
                 "动画示意图，参照 NASA 在轨照片绘制（非真实影像）。大小、颜色与速度由已载入数据表计算的平均值驱动"
-                + ("；本版本该表为合成占位数据，因此排名本身不是科学结论。" if is_placeholder else "。")
-                + ("每个微小液滴位于橄榄大小的球形火焰中，逐渐缩小至表中的熄火直径时火焰熄灭。" if track_key == "liquid_droplet" else
-                   "流道内侧视图：微重力下火焰是沿气流方向的蓝色包络，烟雾随气流向下游飘散而不会上升。烟越多表示表中 CO 越高。"),
+                + ("；本版本该表并非已核实的 NASA 数据，因此排名本身不是科学结论。" if is_placeholder else "。")
+                + ("每个微小液滴位于橄榄大小的球形火焰中，逐渐缩小至火焰熄灭时的平均直径。K 为 d² 定律燃烧速率常数（mm²/s，"
+                   "NASA/TP-2015-216046）；“火焰熄灭比例”只统计以熄灭或燃尽结束的试验，因为液滴破碎的试验是由其他原因结束的。"
+                   if track_key == "liquid_droplet" else
+                   "流道内侧视图：微重力下火焰是沿气流方向的蓝色包络，烟雾随气流向下游飘散而不会上升。最终 CO 是每次试验后舱内的读数，"
+                   "受样品尺寸、气流与燃烧时长影响，因此该排名反映的是试验实际情况，而非材料本身的毒性。超量程读数会被计数，但不计入平均。"),
             ))
-            flex_df = records_df[records_df["dataset_key"] == "FLEX"]
-            d0_by_fuel = (flex_df.groupby("fuel")["droplet_initial_diameter_mm"].mean().to_dict()
-                          if "droplet_initial_diameter_mm" in flex_df else {})
-            st.markdown(ranking_cards_html(track_key, ranking_data, d0_by_fuel), unsafe_allow_html=True)
+            st.markdown(ranking_cards_html(track_key, ranking_data), unsafe_allow_html=True)
             with st.expander(tr("Show ranking as a data table", "以数据表查看排名")):
                 st.dataframe(pd.DataFrame(ranking_data), use_container_width=True, hide_index=True)
 
         st.markdown(tr("#### Data provenance", "#### 数据来源"))
-        status_badge = {
-            "synthetic_placeholder": tr("🟠 SYNTHETIC PLACEHOLDER: not NASA measurements", "🟠 合成占位数据：非 NASA 实测"),
-            "nasa_measured": tr("🟢 NASA MEASURED DATA", "🟢 NASA 实测数据"),
-        }.get(prov.get("status", ""), tr("⚪ status not declared", "⚪ 未声明状态"))
         full_track = records_df[records_df["dataset_key"] == ds_key]
+        report_entry = (PROV_REPORT or {}).get("datasets", {}).get(ds_key, {})
         st.markdown(
-            f"**{cfg_text(prov, 'display_name', ds_key)}** · {status_badge}\n\n"
+            f"**{cfg_text(prov, 'display_name', ds_key)}** · {status_badge(computed['status'])}\n\n"
             + tr(f"- **Rows loaded:** {len(full_track)} (computed from `data/processed/dashboard_records.csv`)\n",
                  f"- **已载入行数：** {len(full_track)}（由 `data/processed/dashboard_records.csv` 计算）\n")
-            + tr(f"- **Produced by:** `{prov.get('generated_by', 'unknown')}`\n", f"- **生成方式：** `{prov.get('generated_by', 'unknown')}`\n")
-            + tr(f"- **Real NASA source:** [{prov.get('real_source_page', '')}]({prov.get('real_source_page', '')}) · DOI `{prov.get('real_source_doi', '')}` · {cfg_text(prov, 'real_source_license')}\n",
-                 f"- **真实 NASA 来源：** [{prov.get('real_source_page', '')}]({prov.get('real_source_page', '')}) · DOI `{prov.get('real_source_doi', '')}` · {cfg_text(prov, 'real_source_license')}\n")
-            + "".join(f"- ⚠️ {issue}\n" for issue in cfg_text(prov, "known_issues", []))
+            + (tr("- **Source:** ", "- **来源：** ") if not is_placeholder
+               else tr("- **Where real data should come from:** ", "- **真实数据应来自：** "))
+            + f"[{prov.get('real_source_page', '')}]({prov.get('real_source_page', '')}) · DOI `{prov.get('real_source_doi', '')}` · {cfg_text(prov, 'real_source_license')}\n"
+            + "\n"
+            + tr("**Evidence** (computed by `src/provenance_audit.py`"
+                 + (f", {PROV_REPORT.get('generated_at_utc')}" if PROV_REPORT else "") + "):\n",
+                 "**证据**（由 `src/provenance_audit.py` 计算"
+                 + (f"，{PROV_REPORT.get('generated_at_utc')}" if PROV_REPORT else "") + "）：\n")
+            + ("".join(f"- {code_text(e)}\n" for e in report_entry.get("evidence", []))
+               or f"- {computed.get('warning') or ''}\n")
         )
+        if report_entry.get("required_to_verify"):
+            with st.expander(tr("What is needed to verify this dataset", "核实该数据集还需要什么")):
+                st.markdown("\n".join(f"{i}. {step}" for i, step in enumerate(cfg_text(report_entry, "required_to_verify", []), 1)))
 
         with st.expander(tr("🔎 Record inspector: trace one row back to its source", "🔎 记录溯源：追踪单条记录的来源")):
             if full_track.empty:
@@ -1105,12 +1425,17 @@ def render_evidence():
                 catalog_path = ROOT / "data" / "processed" / "field_catalog.csv"
                 catalog = pd.read_csv(catalog_path) if catalog_path.exists() else pd.DataFrame()
                 catalog = catalog[catalog.get("dataset_key", pd.Series(dtype=str)) == ds_key] if not catalog.empty else catalog
+                mapping = load_provenance_mapping(str(REPORTS_DIR / "provenance_mapping.csv"))
+                mrow = mapping[mapping["internal_record_id"] == rec_id] if not mapping.empty else mapping
+                rec_status = mrow["verification_status"].iloc[0] if len(mrow) else "UNVERIFIED_SOURCE"
                 st.markdown(
-                    tr(f"**Source file:** `{row.get('source_file', '')}` · **row** {row.get('source_row_number', '')} · "
-                       f"**license field:** {row.get('source_license_status', '')}",
-                       f"**来源文件：** `{row.get('source_file', '')}` · **第** {row.get('source_row_number', '')} **行** · "
-                       f"**许可字段：** {row.get('source_license_status', '')}")
+                    tr(f"**Verification:** {status_badge(rec_status)} · **Source file:** `{row.get('source_file', '')}` · "
+                       f"**row** {row.get('source_row_number', '')} · **licence field:** {row.get('source_license_status', '')}",
+                       f"**核实状态：** {status_badge(rec_status)} · **来源文件：** `{row.get('source_file', '')}` · "
+                       f"**第** {row.get('source_row_number', '')} **行** · **许可字段：** {row.get('source_license_status', '')}")
                 )
+                if len(mrow):
+                    st.caption(str(cfg_text(mrow.iloc[0].to_dict(), "explanation")))
                 trace = []
                 for _, f in catalog.iterrows():
                     field = f["field_name"]
@@ -1121,12 +1446,10 @@ def render_evidence():
                                       tr("unit", "单位"): unit, tr("column in app", "应用内列名"): field})
                 st.dataframe(pd.DataFrame(trace), use_container_width=True, hide_index=True)
                 st.caption(tr("Processing log (src/build_dashboard_data.py): column names normalised to snake_case; values copied "
-                              "unchanged; source URL, DOI and licence columns attached from config/dataset_catalog.csv. Those "
-                              "columns describe the real NASA dataset, so on placeholder rows they say where real data should "
-                              "come from, not where these values came from.",
-                              "处理记录（src/build_dashboard_data.py）：列名统一为 snake_case；数值原样复制；来源网址、DOI 与许可列取自 "
-                              "config/dataset_catalog.csv。这些列描述的是真实 NASA 数据集，因此在占位数据行上仅表示真实数据应来自何处，"
-                              "而非这些数值的来源。"))
+                              "unchanged. Files under data/demo/ never receive the real investigation's DOI, page or licence. "
+                              "Full record-by-record mapping: reports/provenance_mapping.csv.",
+                              "处理记录（src/build_dashboard_data.py）：列名统一为 snake_case；数值原样复制。data/demo/ 下的文件不会被附上"
+                              "真实实验的 DOI、页面或许可。逐条记录映射见 reports/provenance_mapping.csv。"))
 
         st.markdown(tr("#### Raw table as loaded", "#### 已载入的原始数据表"))
         st.dataframe(track_df, use_container_width=True, hide_index=True)
@@ -1150,6 +1473,10 @@ def render_sweep():
         "and read the first-principles reasoning behind it.",
         "探索不同物理变量（风速、重力、氧浓度）如何影响燃烧流体状态，解译背后的第一性原理规律。",
     ))
+    st.caption(status_badge("SIMULATED_RESULT") + tr(
+        " · computed from scaling formulas in app/services/research_engine.py; not measured data and not a trained model. "
+        "The flame-spread index is a relative proxy without physical units.",
+        " · 由 app/services/research_engine.py 中的尺度公式计算；不是测量数据，也不是训练出的模型。火焰蔓延指数是没有物理单位的相对代理量。"))
 
     col_sweep_cfg, col_sweep_plot = st.columns([1, 2])
 
@@ -1293,6 +1620,9 @@ with tab_sweep:
 @st.fragment
 def render_simulation():
     st.subheader(tr("2D microgravity combustion physics sandbox", "2D 空间微重力燃烧物理沙盒"))
+    st.caption(status_badge("SIMULATED_RESULT") + tr(
+        " · educational physics model (app/services/simulation_service.py); not NASA imagery, not measured data, not CFD.",
+        " · 教学用物理模型（app/services/simulation_service.py）；不是 NASA 影像、不是测量数据，也不是 CFD。"))
     st.markdown(tr(
         "Adjust gravity and ventilation speed to watch the hot plume evolve from symmetric microgravity "
         "diffusion to Earth-like buoyant lift.",
@@ -1516,142 +1846,239 @@ with tab_simulation:
 # =========================================================================
 # TAB 4: 科学审计与 25 折验证监视器 (Phase 1 成果可视化)
 # =========================================================================
+@st.cache_data(show_spinner=False)
+def load_report_csv(path_str: str) -> pd.DataFrame:
+    path = Path(path_str)
+    return pd.read_csv(path) if path.exists() else pd.DataFrame()
+
+
+def recheck_manifest(man: pd.DataFrame) -> dict[str, int]:
+    """Recompute the leakage checks from the saved split manifest, independently of the pipeline's own audit."""
+    out = {"splits": 0, "group_overlaps": 0, "record_conflicts": 0, "groups_not_once_per_repeat": 0}
+    if man.empty:
+        return out
+    for _, s in man.groupby(["seed", "fold"]):
+        out["splits"] += 1
+        parts = {p: set(s.loc[s["partition"] == p, "group_id"]) for p in ("inner_train", "inner_validation", "outer_test")}
+        out["group_overlaps"] += (len(parts["inner_train"] & parts["inner_validation"])
+                                  + len(parts["inner_train"] & parts["outer_test"])
+                                  + len(parts["inner_validation"] & parts["outer_test"]))
+        out["record_conflicts"] += int(s["record_id"].duplicated().sum())
+    tests = man[man["partition"] == "outer_test"].drop_duplicates(["seed", "fold", "group_id"])
+    per_group = tests.groupby(["seed", "group_id"]).size()
+    out["groups_not_once_per_repeat"] = int((per_group != 1).sum())
+    n_groups = man["group_id"].nunique()
+    for _, n in tests.drop_duplicates(["seed", "group_id"]).groupby("seed")["group_id"].nunique().items():
+        out["groups_not_once_per_repeat"] += int(n_groups - n)
+    return out
+
+
+def _unit_display(unit: str) -> str:
+    return unit.replace("^2", "²").replace("kW/m2", "kW/m²")
+
+
+def render_task_results(t: dict, reg: dict) -> None:
+    ttype = t["task_type"]
+    target = reg.get("target") or {}
+    label = reg.get("label") or {}
+    unit = _unit_display(target.get("unit", "")) if ttype == "regression" else ""
+    feats = [f["column"] for f in reg.get("features", [])]
+    out_col = target.get("column") if ttype == "regression" else label.get("column")
+    st.markdown(f"#### {cfg_text(reg, 'title', t['task_id'])}")
+    if ttype == "regression":
+        evidence = cfg_text(target, "unit_evidence") or cfg_text(target, "definition")
+        st.caption(tr(f"Target: `{out_col}` in {unit}. {evidence}", f"目标：`{out_col}`，单位 {unit}。{evidence}"))
+    else:
+        mapping = " · ".join(f"**{k}** → {v}" for k, v in cfg_text(label, "mapping", {}).items())
+        note = cfg_text(label, "mapping_note")
+        st.caption(tr(f"Label from `{label.get('source_column')}`: {mapping}. {note}",
+                      f"标签来自 `{label.get('source_column')}`：{mapping}。{note}"))
+    st.caption(tr("Independent group: ", "独立分组：") + cfg_text(reg, "group_definition", "")
+               + (" " + cfg_text(reg, "prediction_stage_note") if reg.get("prediction_stage_note") else ""))
+
+    manifest = load_report_csv(str(REPORTS_DIR / "experiment_split_manifest.csv"))
+    man = manifest[manifest["task_id"] == t["task_id"]] if not manifest.empty else manifest
+    live = recheck_manifest(man)
+    issues = live["group_overlaps"] + live["record_conflicts"] + live["groups_not_once_per_repeat"]
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric(tr("Rows used", "使用行数"), str(t["rows_used"]),
+              help=tr("Rows with a valid target/label after the documented exclusions.", "按记录的排除规则处理后，目标/标签有效的行数。"))
+    group_names = {"laboratory": ("labs", "个实验室"), "group_test_date": ("test days", "个试验日")}
+    g_en, g_zh = group_names.get(t["group_column"], (t["group_column"], t["group_column"]))
+    c2.metric(tr("Independent groups", "独立分组"), tr(f"{t['independent_groups']} {g_en}", f"{t['independent_groups']} {g_zh}"))
+    c3.metric(tr("Outer test folds (5 seeds × 5)", "外层测试折（5 种子 × 5）"), str(t["outer_folds_total"]))
+    c4.metric(tr("Leakage re-check", "泄漏复查"), tr(f"{issues} issues in {live['splits']} splits", f"{live['splits']} 次划分中 {issues} 个问题"),
+              help=tr("Recomputed now from reports/experiment_split_manifest.csv: no group shared between inner-train, inner-validation "
+                      "and test; no record in two partitions; every group tested exactly once per repeat. It checks the splits, "
+                      "not the labels.",
+                      "现在由 reports/experiment_split_manifest.csv 重新计算：内层训练、内层验证与测试之间没有共享分组；没有记录出现在两个分区；"
+                      "每个分组在每次重复中恰好被测试一次。这只检查划分，不检查标签。"))
+
+    base_key = "mean_baseline" if ttype == "regression" else "majority_baseline"
+    base = t["models"].get(base_key)
+    families = list(t["models"].keys())
+    inputs, output = [short_label(c) for c in feats], short_label(out_col)
+    folds_df = load_report_csv(str(REPORTS_DIR / "cv_fold_metrics.csv"))
+    preds_df = load_report_csv(str(REPORTS_DIR / "cv_predictions.csv"))
+    folds_df = folds_df[folds_df["task_id"] == t["task_id"]] if not folds_df.empty else folds_df
+    preds_df = preds_df[preds_df["task_id"] == t["task_id"]] if not preds_df.empty else preds_df
+    metric = "mae" if ttype == "regression" else "balanced_accuracy"
+    metric_name = tr("MAE", "MAE") if ttype == "regression" else tr("balanced accuracy", "平衡准确率")
+    axis = dict(gridcolor="rgba(255,255,255,0.06)", zeroline=False, tickfont=dict(color="#8f9ab8", size=11))
+
+    for mtab, fam in zip(st.tabs([tr(*MODEL_LABELS.get(f, (f, f))) for f in families]), families):
+        with mtab:
+            left, right = st.columns([1, 1.15], gap="large")
+            if fam in MODEL_ART:
+                left.markdown(_svg_img(MODEL_ART[fam](inputs, output), "model-art"), unsafe_allow_html=True)
+            how = tr(*MODEL_HOW.get(fam, ("", "")))
+            if base is None:
+                right.info(tr("Baseline missing from the summary.", "汇总中缺少基线。"))
+            elif ttype == "regression":
+                right.markdown(model_panel_html(t["models"][fam], base, how, unit, fam == base_key), unsafe_allow_html=True)
+            else:
+                right.markdown(classification_panel_html(t["models"][fam], base, how, fam == base_key,
+                                                         tr("burned completely", "完全燃尽")), unsafe_allow_html=True)
+
+            f = folds_df[folds_df["model"] == fam].sort_values(["seed", "fold"]).reset_index(drop=True)
+            if not f.empty:
+                fig_f = go.Figure(go.Scatter(
+                    x=list(range(1, len(f) + 1)), y=f[metric], mode="markers",
+                    marker=dict(size=9, color="#3987e5", line=dict(width=2, color="#0f1426")),
+                    customdata=f[["seed", "fold"]],
+                    hovertemplate=tr("Seed %{customdata[0]}, fold %{customdata[1]}<br>%{y:.3f}<extra></extra>",
+                                     "种子 %{customdata[0]}，第 %{customdata[1]} 折<br>%{y:.3f}<extra></extra>")))
+                fig_f.add_hline(y=float(f[metric].mean()), line=dict(color="#d95926", width=2, dash="dot"),
+                                annotation_text=tr("mean", "均值"), annotation_position="top right",
+                                annotation_font=dict(color="#c9d2ea", size=11))
+                fig_f.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                    height=210, margin=dict(l=10, r=10, t=36, b=10), showlegend=False,
+                                    title=dict(text=tr(f"{metric_name} on each of the 25 held-out tests (one dot = one test)",
+                                                       f"25 次独立测试的{metric_name}（每个点代表一次测试）"),
+                                               font=dict(size=13, color="#c9d2ea"), x=0),
+                                    xaxis=dict(showgrid=False, showticklabels=False, zeroline=False), yaxis=axis)
+                st.plotly_chart(fig_f, use_container_width=True, config={"displayModeBar": False})
+
+            p = preds_df[preds_df["model"] == fam]
+            if not p.empty:
+                agg = p.groupby("record_id").agg(y_true=("y_true", "first"), y_pred=("y_pred", "mean"),
+                                                 group=("group_id", "first")).reset_index()
+                if ttype == "regression":
+                    lo, hi = float(min(agg.y_true.min(), agg.y_pred.min())), float(max(agg.y_true.max(), agg.y_pred.max()))
+                    fig_p = go.Figure()
+                    fig_p.add_trace(go.Scatter(x=[lo, hi], y=[lo, hi], mode="lines", hoverinfo="skip",
+                                               line=dict(color="#8f9ab8", width=1, dash="dash")))
+                    fig_p.add_trace(go.Scatter(x=agg.y_true, y=agg.y_pred, mode="markers",
+                                               marker=dict(size=8, color="#3987e5", opacity=0.85, line=dict(width=1, color="#0f1426")),
+                                               customdata=agg[["record_id", "group"]],
+                                               hovertemplate=tr("%{customdata[0]} (%{customdata[1]})<br>measured %{x:.3g}<br>predicted %{y:.3g}<extra></extra>",
+                                                                "%{customdata[0]}（%{customdata[1]}）<br>实测 %{x:.3g}<br>预测 %{y:.3g}<extra></extra>")))
+                    fig_p.update_layout(xaxis_title=tr(f"Measured ({unit})", f"实测（{unit}）"),
+                                        yaxis_title=tr(f"Predicted ({unit})", f"预测（{unit}）"))
+                    title = tr("Measured vs predicted, out-of-fold (mean of 5 repeats). On the dashed line = perfect.",
+                               "实测与预测（折外预测，5 次重复取均值）。落在虚线上表示完全准确。")
+                else:
+                    outcome = agg.y_true.map({1.0: tr("flame went out", "火焰熄灭"), 0.0: tr("burned completely", "完全燃尽")})
+                    fig_p = go.Figure(go.Box(x=agg.y_pred, y=outcome, orientation="h", boxpoints="all", jitter=0.4,
+                                             pointpos=0, marker=dict(size=6, color="#3987e5", opacity=0.75),
+                                             line=dict(color="#8f9ab8", width=1), fillcolor="rgba(57,135,229,0.10)",
+                                             hovertemplate="%{x:.2f}<extra></extra>"))
+                    fig_p.add_vline(x=float(t.get("decision_threshold") or 0.5), line=dict(color="#d95926", width=1.5, dash="dot"))
+                    fig_p.update_layout(xaxis_title=tr("Predicted chance the flame goes out", "预测火焰熄灭的概率"),
+                                        xaxis_range=[0, 1])
+                    title = tr("Predicted chance the flame goes out, by what actually happened (out-of-fold). Dotted line = decision threshold.",
+                               "按实际结果分组的火焰熄灭预测概率（折外预测）。点线为判定阈值。")
+                fig_p.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                    height=320, margin=dict(l=10, r=10, t=40, b=10), showlegend=False,
+                                    title=dict(text=title, font=dict(size=13, color="#c9d2ea"), x=0), xaxis=axis, yaxis=axis)
+                st.plotly_chart(fig_p, use_container_width=True, config={"displayModeBar": False})
+
+    notes = list(cfg_text(t, "warnings", []))
+    if t.get("derived_classification") and t["derived_classification"].get("evaluation_status") == "NOT_EVALUATED":
+        notes.append(tr("High-hazard flag (≥ 350 kW/m²) not evaluated: every measured peak is on the same side of the "
+                        "threshold, so there is nothing to discriminate.",
+                        "高危标记（≥ 350 kW/m²）未评估：所有实测峰值都位于阈值同一侧，因此无从区分。"))
+    if t["task_id"] == "macfp_pmma_peak_hrr" and "tf_nn_deployed_config" in t["models"]:
+        meta = load_json_file(str(ROOT / "models" / "spacecraft_fire_peak_hrr_v1.metadata.json")) or {}
+        stored = (meta.get("validation", {}).get("metrics", {}).get("TensorFlow_NN") or {}).get("mae_kw_m2")
+        rep = t["models"]["tf_nn_deployed_config"]["fold_level"]["mae"]["mean"]
+        best = min(t["models"], key=lambda k: t["models"][k]["fold_level"]["mae"]["mean"])
+        if stored:
+            notes.append(tr(f"The deployed network's metadata reports MAE {stored:.0f} kW/m² from one 5-fold run. Under this "
+                            f"repeated protocol its configuration averages {rep:.0f} kW/m², and the best model here is "
+                            f"'{tr(*MODEL_LABELS.get(best, (best, best)))}'.",
+                            f"已部署网络的元数据报告的 MAE 为 {stored:.0f} kW/m²（单次 5 折）。在本重复协议下，该配置平均为 "
+                            f"{rep:.0f} kW/m²，此处最佳模型为“{tr(*MODEL_LABELS.get(best, (best, best)))}”。"))
+    if t.get("dependence_note"):  # the report states it in English; shown here in the UI language
+        notes.append(tr("Dependence: the 25 outer folds come from 5 repeats over the same rows, so they are correlated "
+                        "re-splits, not 25 independent experiments. Per-repeat pooled scores show repeat-to-repeat "
+                        "variation; neither spread is a confidence interval for new experiments.",
+                        "相关性：25 个外层折来自对同一批数据的 5 次重复划分，彼此相关，并非 25 次独立实验。按重复汇总的得分展示了重复之间的"
+                        "波动；两种波动范围都不是针对新实验的置信区间。"))
+    if t.get("pooled_note"):
+        notes.append(tr("Pooled classification scores combine probabilities from separately fitted models, which are not "
+                        "on a common scale (the constant baseline's pooled ROC-AUC even falls below 0.5), so fold-level "
+                        "scores are the primary result.",
+                        "汇总的分类得分混合了分别训练的模型给出的概率，它们不在同一尺度上（常数基线的汇总 ROC-AUC 甚至低于 0.5），"
+                        "因此以逐折得分为主要结果。"))
+    st.markdown("\n".join(f"- {n}" for n in notes))
+
+
+@st.fragment
+def render_audit():
+    st.subheader(tr("Scientific audit: data provenance and leakage-audited evaluation", "科学审计：数据来源与无泄漏评估"))
+    if CV_SUMMARY is None:
+        st.error(tr("reports/cv_summary.json is missing. Run `python -m src.provenance_audit` and then "
+                    "`python -m src.run_cv_evaluation`.",
+                    "缺少 reports/cv_summary.json。请先运行 `python -m src.provenance_audit`，再运行 `python -m src.run_cv_evaluation`。"),
+                 icon="🚫")
+        return
+    st.caption(tr(f"Every number on this tab is read from reports/ (generated by src/run_cv_evaluation.py at "
+                  f"{CV_SUMMARY.get('generated_at_utc')}). Statuses come from src/provenance_audit.py.",
+                  f"本页所有数字均读取自 reports/（由 src/run_cv_evaluation.py 于 {CV_SUMMARY.get('generated_at_utc')} 生成）。"
+                  "状态来自 src/provenance_audit.py。"))
+    reg_by_id = {t["task_id"]: t for t in REGISTRY.get("tasks", [])}
+    tasks = CV_SUMMARY.get("tasks", [])
+    st.markdown(tr("#### Prediction tasks", "#### 预测任务"))
+    lines = []
+    for t in tasks:
+        reg = reg_by_id.get(t["task_id"], {})
+        ds_key = t.get("dataset_key") or reg.get("dataset_key", "")
+        reasons = "; ".join(code_text(r) for r in t.get("reasons", []))
+        lines.append(f"- **{cfg_text(reg, 'title', t['task_id'])}** · {status_badge(t['evaluation_status'])} · "
+                     + tr("data: ", "数据：") + status_badge(ds_status(ds_key)["status"])
+                     + (f"  \n  ↳ {reasons}" if reasons else ""))
+    st.markdown("\n".join(lines))
+
+    evaluated = [t for t in tasks if t["evaluation_status"] == "EVALUATED"]
+    if evaluated:
+        names = [cfg_text(reg_by_id.get(t["task_id"], {}), "title", t["task_id"]) for t in evaluated]
+        choice = st.radio(tr("Show results for", "查看结果"), names, key="audit_task")
+        task = evaluated[names.index(choice)]
+        render_task_results(task, reg_by_id.get(task["task_id"], {}))
+
+    st.markdown(tr("#### Reports", "#### 报告文件"))
+    files = ["experiment_split_manifest.csv", "cv_fold_metrics.csv", "cv_predictions.csv", "cv_summary.json",
+             "cv_protocol.json", "data_audit_report.json", "data_provenance_audit.json", "provenance_mapping.csv"]
+    cols = st.columns(4)
+    for i, name in enumerate(files):
+        path = REPORTS_DIR / name
+        if path.exists():
+            cols[i % 4].download_button(f"⬇ {name}", path.read_bytes(), file_name=name, key=f"dl_{name}",
+                                        mime="text/csv" if name.endswith(".csv") else "application/json")
+
+    with st.expander(tr("Retired evaluation on synthetic data: why it was removed", "已退役的合成数据评估：为何移除")):
+        st.markdown(tr("Earlier versions scored models on 80 formula-generated rows labelled as NASA data, with a BASS-II target "
+                       "computed from an input. Those files are kept unchanged in `data/legacy/` and `reports/legacy/`; the audit "
+                       "found:",
+                       "早期版本在 80 行由公式生成、却被标为 NASA 数据的记录上为模型打分，且 BASS-II 目标值由输入计算得到。这些文件原样保存在 "
+                       "`data/legacy/` 与 `reports/legacy/`；审计发现："))
+        for path, d in (PROV_REPORT or {}).get("legacy_files", {}).items():
+            st.markdown(f"- `{path}` · **{d['status']}**\n" + "".join(f"  - {code_text(e)}\n" for e in d["evidence"]))
+
+
 with tab_audit:
-    st.subheader(tr("Scientific audit and 5×5 repeated group cross-validation report", "科学审计与 5×5 重复分组交叉验证报告"))
-    audit_json = REPORTS_DIR / "data_audit_report.json"
-    metrics_csv = REPORTS_DIR / "cv_fold_metrics.csv"
-
-    if audit_json.exists() and metrics_csv.exists():
-        with open(audit_json, "r", encoding="utf-8") as f:
-            a_data = json.load(f)
-        m_df = pd.read_csv(metrics_csv)
-
-        # Group-leakage check recomputed here from the saved split manifest, not read from a hard-coded label.
-        manifest_path = REPORTS_DIR / "experiment_split_manifest.csv"
-        overlaps, n_splits = None, 0
-        if manifest_path.exists():
-            man = pd.read_csv(manifest_path)
-            overlaps = 0
-            for _, split in man.groupby("eval_id"):
-                train_g = set(split.loc[split["partition"].str.contains("train"), "group_id"])
-                hold_g = set(split.loc[~split["partition"].str.contains("train"), "group_id"])
-                overlaps += len(train_g & hold_g)
-                n_splits += 1
-
-        eval_status = str(a_data.get("model_evaluation_status", "unknown"))
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric(tr("Evaluation status", "评估状态"),
-                  tr("Exploratory", "探索性") if "exploratory" in eval_status else eval_status,
-                  help=tr(f"From reports/data_audit_report.json: {eval_status}. Exploratory means the provenance checks were "
-                          "overridden, so scores must not be presented as validated.",
-                          f"来自 reports/data_audit_report.json：{eval_status}。探索性表示来源检查被跳过，得分不能作为已验证结果。"))
-        c2.metric(tr("Experiment groups", "实验组数"),
-                  tr(f"{a_data.get('experiment_group_count', 0)} groups", f"{a_data.get('experiment_group_count', 0)} 组"))
-        c3.metric(tr("Evaluation splits", "评估划分数"), tr(f"{m_df['eval_id'].nunique()} (5 seeds × 5 folds)", f"{m_df['eval_id'].nunique()}（5 种子 × 5 折）"))
-        c4.metric(tr("Group overlap train ↔ test", "训练/测试组重叠"),
-                  tr(f"{overlaps} in {n_splits} splits", f"{n_splits} 次划分中 {overlaps} 个") if overlaps is not None else tr("manifest missing", "缺少清单"),
-                  help=tr("Recomputed live from reports/experiment_split_manifest.csv. 0 means no experiment group appears in both "
-                          "training and testing. This checks the split only; it cannot detect bad labels or fake data.",
-                          "由 reports/experiment_split_manifest.csv 实时重新计算。0 表示没有实验组同时出现在训练与测试中。"
-                          "这只检查划分，无法发现错误标签或虚假数据。"))
-
-        cv_issues = cfg_text(PROVENANCE.get("cross_validation_dataset", {}), "known_issues", [])
-        if cv_issues:
-            st.error(
-                tr("**Why these scores are not scientific evidence (read before quoting any number below):**\n",
-                   "**为什么以下得分不是科学证据（引用任何数字前请先阅读）：**\n")
-                + "\n".join(f"- {issue}" for issue in cv_issues)
-                + tr("\n\nWhat this tab does show: the evaluation pipeline works (grouped splits, no group overlap, every seed and "
-                     "fold saved, uncertainty reported). Re-running it on the real NASA tables is what would turn it into evidence.",
-                     "\n\n本页真正能说明的是：评估流程本身可用（分组划分、无组重叠、保存每个种子与折、报告不确定性）。"
-                     "只有在真实 NASA 数据表上重新运行，才能使其成为证据。"),
-                icon="🚫",
-            )
-            dl1, dl2 = st.columns(2)
-            if manifest_path.exists():
-                dl1.download_button(tr("⬇ Split manifest (every seed, fold, record)", "⬇ 划分清单（每个种子、折、记录）"),
-                                    manifest_path.read_bytes(), file_name="experiment_split_manifest.csv", mime="text/csv")
-            dl2.download_button(tr("⬇ Per-fold metrics", "⬇ 每折指标"), metrics_csv.read_bytes(),
-                                file_name="cv_fold_metrics.csv", mime="text/csv")
-
-        st.markdown(tr("#### Meet the three models", "#### 认识三个模型"))
-        st.caption(tr(
-            "All three get the same 5 physics inputs and are tested on experiment groups they never saw "
-            "(5 seeds × 5 folds = 25 tests). Pick a model to see how it works and how it scored.",
-            "三个模型使用相同的 5 个物理输入，并在从未见过的实验组上测试（5 个随机种子 × 5 折 = 25 次测试）。选择一个模型查看其原理与得分。",
-        ))
-        metric_cols = ["mae_mm_s", "rmse_mm_s", "r2_score", "balanced_accuracy", "macro_f1"]
-        stats_by_model = {
-            fam: {c: {"mean": float(g[c].mean()), "std": float(g[c].std())} for c in metric_cols}
-            for fam, g in m_df.groupby("model_family")
-        }
-        model_specs = [
-            ("Dummy_Baseline", tr("🎯 Baseline", "🎯 基线模型"), baseline_svg,
-             tr("Ignores all five physics inputs. It always predicts the average burn rate seen in training and the most "
-                "common outcome for extinction. Any useful model has to beat it.",
-                "忽略全部 5 个物理输入，始终预测训练集的平均燃烧速率和最常见的熄火结果。任何有用的模型都必须胜过它。")),
-            ("Random_Forest", tr("🌳 Random forest", "🌳 随机森林"), forest_svg,
-             tr("100 decision trees each ask yes/no questions about the inputs (for example, \"is log Ri below −1?\") and give "
-                "an answer; the forest averages them. One forest predicts burn rate, another whether the flame goes out.",
-                "100 棵决策树分别对输入提出是/否问题（例如“log Ri 是否小于 −1？”）并给出答案，森林再取平均。一个森林预测燃烧速率，另一个预测火焰是否熄灭。")),
-            ("TensorFlow_Multitask_NN", tr("🧠 Neural network", "🧠 神经网络"), network_svg,
-             tr("The five inputs flow through two shared layers (32 and 16 neurons). Two output heads then predict both the "
-                "burn rate and the chance the flame goes out: one network, two tasks.",
-                "5 个输入经过两层共享神经元（32 和 16 个），再由两个输出头同时预测燃烧速率与火焰熄灭概率：一个网络，两个任务。")),
-        ]
-        base_stats = stats_by_model.get("Dummy_Baseline")
-        present = [spec for spec in model_specs if spec[0] in stats_by_model]
-        if base_stats and present:
-            model_tabs = st.tabs([spec[1] for spec in present])
-            for mtab, (fam, _label, svg_fn, how) in zip(model_tabs, present):
-                with mtab:
-                    left, right = st.columns([1, 1.15], gap="large")
-                    left.markdown(_svg_img(svg_fn(), "model-art"), unsafe_allow_html=True)
-                    right.markdown(model_panel_html(stats_by_model[fam], base_stats, how), unsafe_allow_html=True)
-
-                    folds = m_df[m_df["model_family"] == fam].sort_values("eval_id")
-                    fig_f = go.Figure(go.Scatter(
-                        x=folds["eval_id"], y=folds["r2_score"], mode="markers",
-                        marker=dict(size=9, color="#3987e5", line=dict(width=2, color="#0f1426")),
-                        customdata=folds[["seed", "fold"]],
-                        hovertemplate=tr("Seed %{customdata[0]}, fold %{customdata[1]}<br>R² = %{y:.3f}<extra></extra>",
-                                         "种子 %{customdata[0]}，第 %{customdata[1]} 折<br>R² = %{y:.3f}<extra></extra>"),
-                    ))
-                    fig_f.add_hline(y=float(folds["r2_score"].mean()), line=dict(color="#d95926", width=2, dash="dot"),
-                                    annotation_text=tr("mean", "均值"), annotation_position="top right",
-                                    annotation_font=dict(color="#c9d2ea", size=11))
-                    fig_f.update_layout(
-                        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        height=210, margin=dict(l=10, r=10, t=36, b=10), showlegend=False,
-                        title=dict(text=tr("R² on each of the 25 held-out tests (one dot = one test)",
-                                           "25 次独立测试的 R²（每个点代表一次测试）"), font=dict(size=13, color="#c9d2ea"), x=0),
-                        xaxis=dict(showgrid=False, showticklabels=False, zeroline=False, title=None),
-                        yaxis=dict(range=[-0.35, 1.05], gridcolor="rgba(255,255,255,0.06)", zeroline=False,
-                                   tickfont=dict(color="#8f9ab8", size=11)),
-                    )
-                    st.plotly_chart(fig_f, use_container_width=True, config={"displayModeBar": False})
-
-        with st.expander(tr("Show the full summary table (mean ± std)", "查看完整汇总表（均值 ± 标准差）")):
-            summary = m_df.groupby("model_family").agg({
-                "mae_mm_s": ["mean", "std"], "rmse_mm_s": ["mean", "std"],
-                "r2_score": ["mean", "std"], "balanced_accuracy": ["mean", "std"], "macro_f1": ["mean", "std"]
-            }).round(4)
-            st.dataframe(summary, use_container_width=True)
-
-        st.markdown(tr("#### Audit warnings and scientific honesty declarations", "#### 审计警示与科学诚实声明 (Honesty Declarations)"))
-        # The audit script writes these warnings in English; known messages get a Chinese version here.
-        # An unknown (new) message is shown in English rather than hidden.
-        report_warnings_zh = {
-            "At least one exact feature+target pattern occurs across distinct group IDs. Inspect whether this is a "
-            "legitimate repeated condition or accidental row duplication; group separation alone cannot fix mislabeled group IDs.":
-                "至少有一组完全相同的特征+目标组合出现在不同的实验组 ID 中。请检查这是合理的重复工况还是意外的重复行；"
-                "仅靠分组划分无法修正标错的组 ID。",
-            "Exploratory mode: provenance/target review blockers were overridden. Do not present resulting metrics as "
-            "scientifically validated.":
-                "探索模式：来源/目标审查的阻断项已被跳过。不得将所得指标作为已科学验证的结果呈现。",
-        }
-        for warn in a_data.get("warnings", []):
-            st.warning(f"⚠️ {report_warnings_zh.get(warn, warn) if lang == 'zh' else warn}")
+    render_audit()
 
 
 # =========================================================================
@@ -1704,22 +2131,27 @@ with tab_prediction:
     uploaded_csv = st.file_uploader(tr("Upload after-test CSV", "上传试验后 CSV"), type="csv", key="fire_prediction_csv")
     if uploaded_csv is None:
         st.session_state.pop("fire_prediction_result", None)
-        # Preview so the tab shows what a prediction looks like before any upload.
-        # Fixed illustrative numbers (no model call), so TensorFlow is not loaded just to view the tab.
-        st.markdown(tr("#### 🔥 Preview: what a prediction looks like", "#### 🔥 预览：预测结果的样子"))
-        render_flame_gallery(
-            [
-                {"radiant_heat_flux_kw_m2": 25, "real_burn_duration_s": 900, "real_mean_hrr_kw_m2": 300,
-                 "predicted_peak_hrr_kw_m2": 650, "_title": tr("EXAMPLE · LOW HEAT FLUX", "示例 · 低热通量")},
-                {"radiant_heat_flux_kw_m2": 65, "real_burn_duration_s": 200, "real_mean_hrr_kw_m2": 1500,
-                 "predicted_peak_hrr_kw_m2": 2400, "_title": tr("EXAMPLE · HIGH HEAT FLUX", "示例 · 高热通量")},
-            ],
-            ref_peak=2909.0, threshold=350.0,
-        )
-        st.caption(tr(
-            "Example values for illustration only. Upload a CSV (or the sample above) to see your own burns.",
-            "示例数值仅作演示。上传 CSV（或上方的示例文件）即可查看你自己的燃烧数据。",
-        ))
+        # Preview with two REAL MaCFP burns and their out-of-fold predictions (read from reports/, no model call,
+        # so TensorFlow is not loaded just to view the tab).
+        st.markdown(tr("#### 🔥 Preview: two real burns, measured vs predicted", "#### 🔥 预览：两次真实燃烧，实测与预测对比"))
+        examples = preview_burns()
+        if examples:
+            meta = load_json_file(str(ROOT / "models" / "spacecraft_fire_peak_hrr_v1.metadata.json")) or {}
+            render_flame_gallery(examples, ref_peak=float(meta.get("training_data", {}).get("peak_hrr_max_kw_m2") or 3000.0),
+                                 threshold=350.0)
+            st.caption(tr(
+                f"{status_badge('REAL_MEASUREMENT')}: the burn's inputs and peak come from the verified MaCFP lab file. "
+                f"{status_badge('MODEL_PREDICTION')}: the deployed network's recipe, trained without that laboratory "
+                "(out-of-fold, mean of 5 repeats). Burns chosen by a fixed rule: the median-peak run at the lowest and "
+                "highest heat flux. Upload a CSV (or the sample above) to see your own burns.",
+                f"{status_badge('REAL_MEASUREMENT')}：输入与峰值来自已核实的 MaCFP 实验室文件。"
+                f"{status_badge('MODEL_PREDICTION')}：已部署网络的方案，在不含该实验室数据的情况下训练（折外预测，5 次重复取均值）。"
+                "试验按固定规则选取：最低与最高热通量下峰值居中的一次。上传 CSV（或上方的示例文件）即可查看你自己的燃烧数据。",
+            ))
+        else:
+            st.info(tr("Preview unavailable: reports/cv_predictions.csv or the MaCFP dataset is missing. "
+                       "Run `python -m src.run_cv_evaluation`.",
+                       "预览不可用：缺少 reports/cv_predictions.csv 或 MaCFP 数据集。请运行 `python -m src.run_cv_evaluation`。"))
     if uploaded_csv is not None:
         try:
             upload_hash = sha256(uploaded_csv.getvalue()).hexdigest()
@@ -1762,11 +2194,11 @@ with tab_prediction:
                     f"模型来源：{model_info['source']}。适用范围：{scope_zh}",
                 ))
                 st.markdown(tr("#### 🔥 What each burn looks like", "#### 🔥 每次燃烧的可视化"))
-                st.caption(tr(
-                    "Animated schematic of the cone-calorimeter test. Flame height scales with predicted peak HRR "
+                st.caption(status_badge("MODEL_PREDICTION") + tr(
+                    " · Animated schematic of the cone-calorimeter test. Flame height scales with predicted peak HRR "
                     "(∝ HRR^0.4), the sustained flame with mean/peak HRR, and the orange arrows with heat flux. "
                     "Illustrative, not to scale.",
-                    "锥形量热仪试验的动画示意图。火焰高度随预测峰值 HRR 变化（∝ HRR^0.4），持续火焰大小对应平均/峰值 HRR，"
+                    " · 锥形量热仪试验的动画示意图。火焰高度随预测峰值 HRR 变化（∝ HRR^0.4），持续火焰大小对应平均/峰值 HRR，"
                     "橙色箭头数量对应热通量。仅为示意，非按比例。",
                 ))
                 training = model_info.get("training_data") or {}

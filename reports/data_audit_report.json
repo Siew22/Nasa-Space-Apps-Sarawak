@@ -1,347 +1,216 @@
 {
-  "report_schema_version": "1.0",
-  "dataset_name": "Empirical combustion dataset as identified in companion metadata, if provided",
-  "created_by_script": "src/generate_scientific_validation.py",
-  "data_file": "/home/patrick0307/Nasa Space Apps/data/processed/research_curated_dataset.csv",
-  "metadata_file": "/home/patrick0307/Nasa Space Apps/data/processed/research_curated_dataset.metadata.json",
-  "audit_status": "completed",
-  "model_evaluation_status": "completed_exploratory_grouped_cv",
-  "scientific_interpretation": "No predictive claim is supported unless source, target, grouping, and leakage checks pass.",
-  "software_versions": {
-    "python": "3.11.17",
-    "scikit_learn": "1.5.2",
-    "pandas": "2.3.3",
-    "numpy": "1.26.4"
-  },
-  "blockers": [],
-  "warnings": [
-    "At least one exact feature+target pattern occurs across distinct group IDs. Inspect whether this is a legitimate repeated condition or accidental row duplication; group separation alone cannot fix mislabeled group IDs.",
-    "Exploratory mode: provenance/target review blockers were overridden. Do not present resulting metrics as scientifically validated."
-  ],
-  "provenance_and_target_leakage": {
-    "automatic_status": "not_provable_from_csv_alone",
-    "note": "Software checks structural conditions. The meaning and origin of targets/features and the absence of rule-derived label leakage require an explicit, reviewable metadata declaration and scientific inspection.",
-    "metadata_declaration_present": true,
-    "metadata_review_required": true,
-    "no_synthetic_rule_leakage": "not_provable_automatically",
-    "provenance_gate_overridden_for_exploration": true
-  },
-  "data_sha256": "feb371d8cc96b3bff6902eaf24ac50a692857f13f815e36e2f86ceb603308522",
-  "table_shape": {
-    "records": 80,
-    "columns": 10
-  },
-  "columns": [
-    "dataset_source",
-    "experiment_group",
-    "material",
-    "target_rate_mm_s",
-    "target_is_extinguished",
-    "mod_reynolds_number",
-    "mod_log_richardson",
-    "mod_o2_partial_pressure_kpa",
-    "mod_buoyancy_velocity_scale",
-    "mod_damkohler_proxy"
-  ],
-  "duplicate_full_rows": 0,
-  "feature_audit": {
-    "mod_reynolds_number": {
-      "present": true,
-      "missing_or_non_numeric": 0,
-      "non_finite": 0,
-      "n_unique_non_missing": 14,
-      "mean": 61.036499999999975,
-      "sample_std": 55.041900327116736,
-      "variance": 3029.610791620253,
-      "min": 1.333,
-      "median": 35.4665,
-      "max": 149.333
-    },
-    "mod_log_richardson": {
-      "present": true,
-      "missing_or_non_numeric": 0,
-      "non_finite": 0,
-      "n_unique_non_missing": 1,
-      "mean": -5.0,
-      "sample_std": 0.0,
-      "variance": 0.0,
-      "min": -5.0,
-      "median": -5.0,
-      "max": -5.0
-    },
-    "mod_o2_partial_pressure_kpa": {
-      "present": true,
-      "missing_or_non_numeric": 0,
-      "non_finite": 0,
-      "n_unique_non_missing": 25,
-      "mean": 23.564024999999997,
-      "sample_std": 2.9656015462318366,
-      "variance": 8.794792531012659,
-      "min": 17.998,
-      "median": 24.241,
-      "max": 27.746
-    },
-    "mod_buoyancy_velocity_scale": {
-      "present": true,
-      "missing_or_non_numeric": 0,
-      "non_finite": 0,
-      "n_unique_non_missing": 1,
-      "mean": 0.0,
-      "sample_std": 0.0,
-      "variance": 0.0,
-      "min": 0.0,
-      "median": 0.0,
-      "max": 0.0
-    },
-    "mod_damkohler_proxy": {
-      "present": true,
-      "missing_or_non_numeric": 0,
-      "non_finite": 0,
-      "n_unique_non_missing": 36,
-      "mean": 0.07499375,
-      "sample_std": 0.07708723538418806,
-      "variance": 0.005942441859177216,
-      "min": 0.0149,
-      "median": 0.0269,
-      "max": 0.2338
-    }
-  },
-  "target_audit": {
-    "target_rate_mm_s": {
-      "present": true,
-      "missing_or_non_numeric": 0,
-      "non_finite": 0,
-      "n_unique_non_missing": 12,
-      "mean": 0.3315,
-      "sample_std": 0.20395519488109967,
-      "variance": 0.04159772151898734,
-      "min": 0.108,
-      "median": 0.28400000000000003,
-      "max": 0.65
-    },
-    "target_is_extinguished": {
-      "present": true,
-      "missing_or_non_numeric": 0,
-      "non_finite": 0,
-      "n_unique_non_missing": 2,
-      "mean": 0.375,
-      "sample_std": 0.4871773518462232,
-      "variance": 0.23734177215189872,
-      "min": 0.0,
-      "median": 0.0,
-      "max": 1.0
-    }
-  },
-  "source_distribution": {
-    "BASS_II": 40,
-    "FLEX": 40
-  },
-  "experiment_group_count": 80,
-  "rows_per_group": {
-    "BASS_SAMPLE_101.0": 1,
-    "BASS_SAMPLE_102.0": 1,
-    "BASS_SAMPLE_103.0": 1,
-    "BASS_SAMPLE_104.0": 1,
-    "BASS_SAMPLE_105.0": 1,
-    "BASS_SAMPLE_106.0": 1,
-    "BASS_SAMPLE_107.0": 1,
-    "BASS_SAMPLE_108.0": 1,
-    "BASS_SAMPLE_109.0": 1,
-    "BASS_SAMPLE_110.0": 1,
-    "BASS_SAMPLE_111.0": 1,
-    "BASS_SAMPLE_112.0": 1,
-    "BASS_SAMPLE_113.0": 1,
-    "BASS_SAMPLE_114.0": 1,
-    "BASS_SAMPLE_115.0": 1,
-    "BASS_SAMPLE_116.0": 1,
-    "BASS_SAMPLE_117.0": 1,
-    "BASS_SAMPLE_118.0": 1,
-    "BASS_SAMPLE_119.0": 1,
-    "BASS_SAMPLE_120.0": 1,
-    "BASS_SAMPLE_121.0": 1,
-    "BASS_SAMPLE_122.0": 1,
-    "BASS_SAMPLE_123.0": 1,
-    "BASS_SAMPLE_124.0": 1,
-    "BASS_SAMPLE_125.0": 1,
-    "BASS_SAMPLE_126.0": 1,
-    "BASS_SAMPLE_127.0": 1,
-    "BASS_SAMPLE_128.0": 1,
-    "BASS_SAMPLE_129.0": 1,
-    "BASS_SAMPLE_130.0": 1,
-    "BASS_SAMPLE_131.0": 1,
-    "BASS_SAMPLE_132.0": 1,
-    "BASS_SAMPLE_133.0": 1,
-    "BASS_SAMPLE_134.0": 1,
-    "BASS_SAMPLE_135.0": 1,
-    "BASS_SAMPLE_136.0": 1,
-    "BASS_SAMPLE_137.0": 1,
-    "BASS_SAMPLE_138.0": 1,
-    "BASS_SAMPLE_139.0": 1,
-    "BASS_SAMPLE_140.0": 1,
-    "CAL_01": 1,
-    "CAL_02": 1,
-    "CAL_03": 1,
-    "CAL_04": 1,
-    "CAL_05": 1,
-    "CAL_06": 1,
-    "CAL_07": 1,
-    "CAL_08": 1,
-    "CAL_09": 1,
-    "CAL_10": 1,
-    "CAL_11": 1,
-    "CAL_12": 1,
-    "CAL_13": 1,
-    "CAL_14": 1,
-    "CAL_15": 1,
-    "CAL_16": 1,
-    "CAL_17": 1,
-    "CAL_18": 1,
-    "CAL_19": 1,
-    "CAL_20": 1,
-    "CAL_21": 1,
-    "CAL_22": 1,
-    "CAL_23": 1,
-    "CAL_24": 1,
-    "CAL_25": 1,
-    "CAL_26": 1,
-    "CAL_27": 1,
-    "CAL_28": 1,
-    "CAL_29": 1,
-    "CAL_30": 1,
-    "CAL_31": 1,
-    "CAL_32": 1,
-    "CAL_33": 1,
-    "CAL_34": 1,
-    "CAL_35": 1,
-    "CAL_36": 1,
-    "CAL_37": 1,
-    "CAL_38": 1,
-    "CAL_39": 1,
-    "CAL_40": 1
-  },
-  "required_columns": [
-    "dataset_source",
-    "experiment_group",
-    "mod_reynolds_number",
-    "mod_log_richardson",
-    "mod_o2_partial_pressure_kpa",
-    "mod_buoyancy_velocity_scale",
-    "mod_damkohler_proxy",
-    "target_rate_mm_s",
-    "target_is_extinguished"
-  ],
-  "missing_required_columns": [],
-  "exact_feature_target_patterns_in_multiple_groups": 10,
-  "metadata_review": {
-    "file_exists": true,
-    "metadata_blockers": [
-      "metadata.source_datasets['BASS_II'].source_file is missing or still a template placeholder.",
-      "metadata.source_datasets['FLEX'].source_file is missing or still a template placeholder.",
-      "metadata.source_target_mapping['BASS_II']['target_rate_mm_s'].status is missing or still a template placeholder.",
-      "metadata.source_target_mapping['BASS_II']['target_rate_mm_s'].field_or_method is missing or still a template placeholder.",
-      "metadata.source_target_mapping['BASS_II']['target_rate_mm_s'].unit_conversion is missing or still a template placeholder.",
-      "metadata.source_target_mapping['BASS_II']['target_is_extinguished'].status is missing or still a template placeholder.",
-      "metadata.source_target_mapping['BASS_II']['target_is_extinguished'].field_or_method is missing or still a template placeholder.",
-      "metadata.source_target_mapping['FLEX']['target_rate_mm_s'].status is missing or still a template placeholder.",
-      "metadata.source_target_mapping['FLEX']['target_rate_mm_s'].field_or_method is missing or still a template placeholder.",
-      "metadata.source_target_mapping['FLEX']['target_rate_mm_s'].unit_conversion is missing or still a template placeholder.",
-      "metadata.source_target_mapping['FLEX']['target_is_extinguished'].status is missing or still a template placeholder.",
-      "metadata.source_target_mapping['FLEX']['target_is_extinguished'].field_or_method is missing or still a template placeholder.",
-      "metadata.features['mod_reynolds_number'].definition is missing or still a template placeholder.",
-      "metadata.features['mod_reynolds_number'].unit is missing or still a template placeholder.",
-      "metadata.features['mod_reynolds_number'].derivation is missing or still a template placeholder.",
-      "metadata.features['mod_log_richardson'].definition is missing or still a template placeholder.",
-      "metadata.features['mod_log_richardson'].unit is missing or still a template placeholder.",
-      "metadata.features['mod_log_richardson'].derivation is missing or still a template placeholder.",
-      "metadata.features['mod_o2_partial_pressure_kpa'].definition is missing or still a template placeholder.",
-      "metadata.features['mod_o2_partial_pressure_kpa'].derivation is missing or still a template placeholder.",
-      "metadata.features['mod_buoyancy_velocity_scale'].definition is missing or still a template placeholder.",
-      "metadata.features['mod_buoyancy_velocity_scale'].unit is missing or still a template placeholder.",
-      "metadata.features['mod_buoyancy_velocity_scale'].derivation is missing or still a template placeholder.",
-      "metadata.features['mod_damkohler_proxy'].definition is missing or still a template placeholder.",
-      "metadata.features['mod_damkohler_proxy'].unit is missing or still a template placeholder.",
-      "metadata.features['mod_damkohler_proxy'].derivation is missing or still a template placeholder.",
-      "metadata.target_definitions['target_rate_mm_s'].definition is missing or still a template placeholder.",
-      "metadata.target_definitions['target_rate_mm_s'].measurement_method is missing or still a template placeholder.",
-      "metadata.target_definitions['target_rate_mm_s'].empirical_or_derived must be 'empirical' or 'derived', with method explained.",
-      "metadata.target_definitions['target_is_extinguished'].definition is missing or still a template placeholder.",
-      "metadata.target_definitions['target_is_extinguished'].measurement_method is missing or still a template placeholder.",
-      "metadata.target_definitions['target_is_extinguished'].positive_class is missing or still a template placeholder.",
-      "A human leakage review has not been marked complete in metadata.",
-      "Metadata must attest, after review, that no feature improperly encodes the prediction target.",
-      "Metadata must attest, after review, that targets are not synthetic rule labels.",
-      "metadata.leakage_review.reviewer must identify the reviewer and document the review."
-    ],
-    "meaning": "Metadata assertions are declared by the project team and still require a scientifically responsible human review; they are not automatically proven by this script."
-  },
-  "structural_blockers": [],
-  "cross_validation": {
-    "status": "completed_exploratory_grouped_cv",
-    "seed_list": [
-      42,
-      101,
-      2024,
-      3060,
-      9999
-    ],
-    "folds_per_seed": 5,
-    "evaluation_folds": 25,
-    "independent_experiment_groups": 80,
-    "recommended_minimum_groups": 25,
-    "recommended_minimum_groups_passed": true,
-    "models_evaluated": [
-      "Dummy_Baseline",
-      "Random_Forest",
-      "TensorFlow_Multitask_NN"
-    ],
-    "tensorflow_status": "included",
-    "leakage_check": "All 25 train/holdout group-intersection assertions passed.",
-    "caution": "The five repeated 5-fold runs are correlated evaluations, not 25 statistically independent experiments. Hyperparameter/model selection requires nested grouped CV or a separately reserved group-level test set.",
-    "aggregate_mean_std_descriptive_only": [
-      {
-        "model_family": "Dummy_Baseline",
-        "mae_mm_s_mean": 0.19586734374999998,
-        "mae_mm_s_std": 0.011816741530625582,
-        "rmse_mm_s_mean": 0.20488193126475746,
-        "rmse_mm_s_std": 0.012199434219855964,
-        "r2_mean": -0.0824440399621431,
-        "r2_std": 0.09916587429111443,
-        "balanced_accuracy_mean": 0.5,
-        "balanced_accuracy_std": 0.0,
-        "macro_f1_mean": 0.38101737099038446,
-        "macro_f1_std": 0.04898829393551236
+  "report": "data_audit_report",
+  "generated_at_utc": "2026-10-24T09:05:36+00:00",
+  "repository_commit": "572ddeb982f633a15baf960eb812377f183a7337",
+  "generated_by": "src/run_cv_evaluation.py",
+  "provenance_report": "reports/data_provenance_audit.json",
+  "provenance_generated_at_utc": "2026-10-24T08:54:33+00:00",
+  "tasks": {
+    "macfp_pmma_peak_hrr": {
+      "dataset_key": "MACFP_PMMA_CONE",
+      "dataset_status": "VERIFIED_SOURCE",
+      "data_file": "data/processed/macfp_measured_cone_experiments.csv",
+      "data_sha256": "de10787fd00d75a7aeeb9c07bcb182ab905bb55492f382abf92a55eb4341fe12",
+      "row_filter_column": null,
+      "rows": 54,
+      "independent_groups": 10,
+      "group_column": "laboratory",
+      "rows_per_group_summary": {
+        "n": 10,
+        "mean": 5.4,
+        "std": 2.6331223544175333,
+        "min": 2.0,
+        "max": 11.0
       },
-      {
-        "model_family": "Random_Forest",
-        "mae_mm_s_mean": 0.04539816576770453,
-        "mae_mm_s_std": 0.009342879849689891,
-        "rmse_mm_s_mean": 0.06732839449037456,
-        "rmse_mm_s_std": 0.010506897122593345,
-        "r2_mean": 0.8792502395660433,
-        "r2_std": 0.046330828511006304,
-        "balanced_accuracy_mean": 0.9932867132867134,
-        "balanced_accuracy_std": 0.02332284029914056,
-        "macro_f1_mean": 0.988,
-        "macro_f1_std": 0.04181086160494842
+      "duplicate_record_ids": 0,
+      "duplicate_feature_target_rows": 0,
+      "missing_values": {
+        "radiant_heat_flux_kw_m2": 0,
+        "real_burn_duration_s": 0,
+        "real_mean_hrr_kw_m2": 0,
+        "target_peak_hrr_kw_m2": 0
       },
-      {
-        "model_family": "TensorFlow_Multitask_NN",
-        "mae_mm_s_mean": 0.05478853363662958,
-        "mae_mm_s_std": 0.011145155735681877,
-        "rmse_mm_s_mean": 0.0701348556240002,
-        "rmse_mm_s_std": 0.014403775763913551,
-        "r2_mean": 0.8649545826419819,
-        "r2_std": 0.08028230531260044,
-        "balanced_accuracy_mean": 0.9955555555555555,
-        "balanced_accuracy_std": 0.02222222222222224,
-        "macro_f1_mean": 0.995,
-        "macro_f1_std": 0.025
+      "features": [
+        {
+          "column": "radiant_heat_flux_kw_m2",
+          "unit": "kW/m2",
+          "origin": "test condition parsed from the source file name",
+          "available": "before_test"
+        },
+        {
+          "column": "real_burn_duration_s",
+          "unit": "s",
+          "origin": "derived from the same measured HRR curve: time between first and last HRR >= 10 kW/m2",
+          "available": "after_test"
+        },
+        {
+          "column": "real_mean_hrr_kw_m2",
+          "unit": "kW/m2",
+          "origin": "derived from the same measured HRR curve: time-weighted mean while burning",
+          "available": "after_test"
+        }
+      ],
+      "post_test_features": [
+        "real_burn_duration_s",
+        "real_mean_hrr_kw_m2"
+      ],
+      "prediction_stage": "after_test",
+      "invalid_targets": 0,
+      "target_distribution": {
+        "n": 54,
+        "mean": 1003.6144727037037,
+        "std": 451.36070788752164,
+        "min": 379.1,
+        "max": 2908.98
       }
-    ]
-  },
-  "output_files": {
-    "audit_report": "/home/patrick0307/Nasa Space Apps/reports/data_audit_report.json",
-    "split_manifest": "/home/patrick0307/Nasa Space Apps/reports/experiment_split_manifest.csv",
-    "fold_metrics": "/home/patrick0307/Nasa Space Apps/reports/cv_fold_metrics.csv"
+    },
+    "flex_droplet_burning_rate_constant": {
+      "dataset_key": "FLEX",
+      "dataset_status": "VERIFIED_SOURCE",
+      "data_file": "data/processed/tasks/flex_tests.csv",
+      "data_sha256": "abba94b6441a9f7a236fac0c2a549add80918fbb4020105b713cdea00105c89f",
+      "row_filter_column": "use_burning_rate_task",
+      "rows": 255,
+      "independent_groups": 80,
+      "group_column": "group_test_date",
+      "rows_per_group_summary": {
+        "n": 80,
+        "mean": 3.1875,
+        "std": 1.535188521800614,
+        "min": 1.0,
+        "max": 8.0
+      },
+      "duplicate_record_ids": 0,
+      "duplicate_feature_target_rows": 0,
+      "missing_values": {
+        "is_heptane": 0,
+        "pressure_mmhg": 0,
+        "x_o2": 0,
+        "x_co2": 0,
+        "x_he": 0,
+        "d0_mm": 0,
+        "burning_rate_constant_mm2_s": 0
+      },
+      "features": [
+        {
+          "column": "is_heptane",
+          "unit": "1 = heptane, 0 = methanol",
+          "origin": "test condition (fuel)",
+          "available": "before_test"
+        },
+        {
+          "column": "pressure_mmhg",
+          "unit": "mmHg",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "x_o2",
+          "unit": "mole fraction",
+          "origin": "test condition (PSI header 'O')",
+          "available": "before_test"
+        },
+        {
+          "column": "x_co2",
+          "unit": "mole fraction",
+          "origin": "test condition (PSI header 'CO' = CO2 per NASA/TP-2015-216046 Table IX)",
+          "available": "before_test"
+        },
+        {
+          "column": "x_he",
+          "unit": "mole fraction",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "d0_mm",
+          "unit": "mm",
+          "origin": "measured at ignition",
+          "available": "before_test"
+        }
+      ],
+      "post_test_features": [],
+      "prediction_stage": "before_test",
+      "invalid_targets": 0,
+      "target_distribution": {
+        "n": 255,
+        "mean": 0.5023529411764706,
+        "std": 0.13814559584280725,
+        "min": 0.05,
+        "max": 1.06
+      }
+    },
+    "flex_extinction_outcome": {
+      "dataset_key": "FLEX",
+      "dataset_status": "VERIFIED_SOURCE",
+      "data_file": "data/processed/tasks/flex_tests.csv",
+      "data_sha256": "abba94b6441a9f7a236fac0c2a549add80918fbb4020105b713cdea00105c89f",
+      "row_filter_column": "use_extinction_task",
+      "rows": 204,
+      "independent_groups": 73,
+      "group_column": "group_test_date",
+      "rows_per_group_summary": {
+        "n": 73,
+        "mean": 2.7945205479452055,
+        "std": 1.3840249687614927,
+        "min": 1.0,
+        "max": 6.0
+      },
+      "duplicate_record_ids": 0,
+      "duplicate_feature_target_rows": 0,
+      "missing_values": {
+        "is_heptane": 0,
+        "pressure_mmhg": 0,
+        "x_o2": 0,
+        "x_co2": 0,
+        "x_he": 0,
+        "d0_mm": 0,
+        "extinction_label": 0
+      },
+      "features": [
+        {
+          "column": "is_heptane",
+          "unit": "1 = heptane, 0 = methanol",
+          "origin": "test condition (fuel)",
+          "available": "before_test"
+        },
+        {
+          "column": "pressure_mmhg",
+          "unit": "mmHg",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "x_o2",
+          "unit": "mole fraction",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "x_co2",
+          "unit": "mole fraction",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "x_he",
+          "unit": "mole fraction",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "d0_mm",
+          "unit": "mm",
+          "origin": "measured at ignition",
+          "available": "before_test"
+        }
+      ],
+      "post_test_features": [],
+      "prediction_stage": "before_test",
+      "class_counts": {
+        "1": 177,
+        "0": 27
+      }
+    }
   }
 }

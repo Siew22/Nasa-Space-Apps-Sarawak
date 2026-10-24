@@ -2,17 +2,17 @@
   "input_file_count": 2,
   "files": [
     {
-      "file": "data/raw/PSI-25_BASS_II_experimental_table.csv",
+      "file": "data/raw/nasa_psi/PSI-25_Experimental table_BASS-II.csv",
       "status": "loaded",
-      "rows": 40,
+      "rows": 129,
       "dataset_key": "BASS_II"
     },
     {
-      "file": "data/raw/PSI-69_FLEX_experimental_table.csv",
+      "file": "data/raw/nasa_psi/PSI-69_Experimental table_FLEX.csv",
       "status": "loaded",
-      "rows": 40,
+      "rows": 274,
       "dataset_key": "FLEX"
     }
   ],
-  "row_count": 80
+  "row_count": 403
 }

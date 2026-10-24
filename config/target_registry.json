@@ -1,0 +1,251 @@
+{
+  "_note": "Machine-readable definition of every prediction task: what is predicted, in which unit, where the value comes from, which inputs are allowed, and what counts as one independent experiment. src/run_cv_evaluation.py only evaluates a task when its dataset is VERIFIED_SOURCE in reports/data_provenance_audit.json AND every unit/label below is marked verified. Physically different quantities are never merged into one target. Text convention: plain key = English, *_zh = Chinese.",
+  "protocol": {
+    "seeds": [
+      42,
+      101,
+      2024,
+      3060,
+      9999
+    ],
+    "outer_folds": 5,
+    "inner_validation_fraction": 0.2,
+    "min_independent_groups": 5,
+    "selection_metric": "mae"
+  },
+  "tasks": [
+    {
+      "task_id": "macfp_pmma_peak_hrr",
+      "title": "Peak heat-release rate of PMMA in the cone calorimeter (ground tests)",
+      "title_zh": "锥形量热仪中 PMMA 的峰值热释放率（地面试验）",
+      "dataset_key": "MACFP_PMMA_CONE",
+      "data_file": "data/processed/macfp_measured_cone_experiments.csv",
+      "record_id_column": "experiment_id",
+      "group_column": "laboratory",
+      "group_definition": "Testing laboratory. Runs from one lab share apparatus, specimen batch and procedure, so a whole lab is always kept in one partition. This is stricter than treating each run as independent.",
+      "group_definition_zh": "测试实验室。同一实验室的试验共享设备、试样批次与流程，因此整个实验室始终位于同一分区，比把每次试验视为独立更严格。",
+      "task_type": "regression",
+      "target": {
+        "column": "target_peak_hrr_kw_m2",
+        "quantity": "peak_heat_release_rate_per_unit_area",
+        "unit": "kW/m2",
+        "unit_verified": true,
+        "unit_evidence": "Unit row of every source CSV is checked to be kW/m2 by src/build_measured_cone_dataset.py (_summarize_file).",
+        "origin": "extracted_from_measured_time_series",
+        "definition": "Maximum recorded HRR over the complete measured experiment.",
+        "unit_evidence_zh": "src/build_measured_cone_dataset.py（_summarize_file）会检查每个来源 CSV 的单位行是否为 kW/m2。"
+      },
+      "features": [
+        {
+          "column": "radiant_heat_flux_kw_m2",
+          "unit": "kW/m2",
+          "origin": "test condition parsed from the source file name",
+          "available": "before_test"
+        },
+        {
+          "column": "real_burn_duration_s",
+          "unit": "s",
+          "origin": "derived from the same measured HRR curve: time between first and last HRR >= 10 kW/m2",
+          "available": "after_test"
+        },
+        {
+          "column": "real_mean_hrr_kw_m2",
+          "unit": "kW/m2",
+          "origin": "derived from the same measured HRR curve: time-weighted mean while burning",
+          "available": "after_test"
+        }
+      ],
+      "prediction_stage": "after_test",
+      "prediction_stage_note": "Two inputs summarise the same curve the target comes from, so this task estimates a missing peak from a burn summary. It is not a pre-test forecast and says nothing about microgravity.",
+      "prediction_stage_note_zh": "其中两个输入来自同一条测量曲线，因此该任务是根据燃烧汇总估算缺失的峰值，而不是试验前的预测，也与微重力无关。",
+      "models": [
+        "mean_baseline",
+        "ridge",
+        "random_forest",
+        "tf_nn_deployed_config"
+      ],
+      "derived_classification": {
+        "name": "high_hazard_350",
+        "rule": "predicted peak >= 350 kW/m2 (project threshold, not a trained classifier)",
+        "evaluate_only_if_both_classes_present": true
+      }
+    },
+    {
+      "task_id": "flex_droplet_burning_rate_constant",
+      "title": "FLEX droplet burning-rate constant (microgravity, ISS)",
+      "title_zh": "FLEX 液滴燃烧速率常数（微重力，国际空间站）",
+      "dataset_key": "FLEX",
+      "data_file": "data/processed/tasks/flex_tests.csv",
+      "row_filter_column": "use_burning_rate_task",
+      "record_id_column": "record_id",
+      "group_column": "group_test_date",
+      "group_definition": "Test date. Tests on the same day share a chamber fill and hardware setup, so a whole day is kept in one partition instead of treating each droplet as independent.",
+      "group_definition_zh": "试验日期。同一天的试验共用一次舱内充气与硬件设置，因此整天的试验放在同一分区，而不是把每个液滴视为独立。",
+      "task_type": "regression",
+      "target": {
+        "column": "burning_rate_constant_mm2_s",
+        "source_column": "Burning rate; mm",
+        "quantity": "droplet_burning_rate_constant",
+        "unit": "mm^2/s",
+        "unit_verified": true,
+        "unit_evidence": "NASA/TP-2015-216046 Appendix A.1: 'average burning rate constant from a linear fit of the droplet diameter squared versus time'; Table IX header 'Burning rate, mm2/s'. The PSI CSV header 'Burning rate; mm' is truncated.",
+        "origin": "reported_in_source_table",
+        "unit_evidence_zh": "NASA/TP-2015-216046 附录 A.1：“由液滴直径平方对时间的线性拟合得到的平均燃烧速率常数”；表 IX 表头为“Burning rate, mm2/s”。PSI CSV 表头“Burning rate; mm”是被截断的写法。"
+      },
+      "features": [
+        {
+          "column": "is_heptane",
+          "unit": "1 = heptane, 0 = methanol",
+          "origin": "test condition (fuel)",
+          "available": "before_test"
+        },
+        {
+          "column": "pressure_mmhg",
+          "unit": "mmHg",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "x_o2",
+          "unit": "mole fraction",
+          "origin": "test condition (PSI header 'O')",
+          "available": "before_test"
+        },
+        {
+          "column": "x_co2",
+          "unit": "mole fraction",
+          "origin": "test condition (PSI header 'CO' = CO2 per NASA/TP-2015-216046 Table IX)",
+          "available": "before_test"
+        },
+        {
+          "column": "x_he",
+          "unit": "mole fraction",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "d0_mm",
+          "unit": "mm",
+          "origin": "measured at ignition",
+          "available": "before_test"
+        }
+      ],
+      "excluded_features_note": "x_n2 is omitted because it equals 1 minus the other mole fractions. Extinction diameter, burn time and test end are outcomes of the same burn and are not available before the test.",
+      "models": [
+        "mean_baseline",
+        "ridge",
+        "random_forest"
+      ]
+    },
+    {
+      "task_id": "flex_extinction_outcome",
+      "title": "FLEX: does the flame go out before the droplet is used up?",
+      "title_zh": "FLEX：火焰是否在液滴耗尽前熄灭？",
+      "dataset_key": "FLEX",
+      "data_file": "data/processed/tasks/flex_tests.csv",
+      "row_filter_column": "use_extinction_task",
+      "record_id_column": "record_id",
+      "group_column": "group_test_date",
+      "group_definition": "Test date (same reason as the burning-rate task).",
+      "group_definition_zh": "试验日期（理由同燃烧速率任务）。",
+      "task_type": "classification",
+      "label": {
+        "column": "extinction_label",
+        "source_column": "Test end",
+        "mapping_verified": true,
+        "mapping": {
+          "Extinction": "1: the visible flame went out while fuel remained",
+          "Completion": "0: the droplet burned completely",
+          "Disruption": "excluded: the droplet broke apart, so the burn ended for another reason"
+        },
+        "mapping_evidence": "NASA/TP-2015-216046 Appendix A.1: a '-' extinction diameter 'indicates flame extinction did not occur either because the droplet burned to completion or because a droplet disruption ended the test'. Table IX Test end values: Completion, Disruption, Extinction.",
+        "mapping_note": "Disruption is not pooled with Completion. This task predicts the reported test outcome; it does not define or validate a quenching boundary.",
+        "mapping_zh": {
+          "Extinction": "1：可见火焰在燃料尚存时熄灭",
+          "Completion": "0：液滴完全燃尽",
+          "Disruption": "排除：液滴破碎，燃烧因其他原因结束"
+        },
+        "mapping_note_zh": "破碎不与燃尽合并。该任务预测的是报告中的试验结果，并不定义或验证熄火边界。"
+      },
+      "features": [
+        {
+          "column": "is_heptane",
+          "unit": "1 = heptane, 0 = methanol",
+          "origin": "test condition (fuel)",
+          "available": "before_test"
+        },
+        {
+          "column": "pressure_mmhg",
+          "unit": "mmHg",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "x_o2",
+          "unit": "mole fraction",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "x_co2",
+          "unit": "mole fraction",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "x_he",
+          "unit": "mole fraction",
+          "origin": "test condition",
+          "available": "before_test"
+        },
+        {
+          "column": "d0_mm",
+          "unit": "mm",
+          "origin": "measured at ignition",
+          "available": "before_test"
+        }
+      ],
+      "decision_threshold": 0.5,
+      "models": [
+        "majority_baseline",
+        "logistic_regression",
+        "random_forest_classifier"
+      ]
+    },
+    {
+      "task_id": "bass_ii_flame_spread_speed",
+      "title": "BASS-II solid-fuel flame-spread speed",
+      "title_zh": "BASS-II 固体燃料火焰蔓延速度",
+      "dataset_key": "BASS_II",
+      "task_type": "regression",
+      "target": {
+        "column": null,
+        "quantity": "flame_front_propagation_speed",
+        "unit": "mm/s",
+        "unit_verified": false,
+        "origin": "not_present_in_table",
+        "note": "The verified PSI-25 experimental table has no flame-spread column. Measured spread rates appear only in report tables such as NASA/TM-20210011385 Table 5.1 (PMMA slabs); they would have to be transcribed and verified first."
+      },
+      "unavailable_reason_codes": [
+        "TARGET_NOT_MEASURED"
+      ],
+      "history": "The retired pipeline invented this target as fan_setting x 0.0016 x 1.5, which also fed an input feature (label leakage)."
+    },
+    {
+      "task_id": "bass_ii_extinction",
+      "title": "BASS-II extinction",
+      "title_zh": "BASS-II 熄灭",
+      "dataset_key": "BASS_II",
+      "task_type": "classification",
+      "label": {
+        "source_column": null,
+        "mapping_verified": false,
+        "note": "The verified PSI-25 experimental table records no extinction outcome."
+      },
+      "unavailable_reason_codes": [
+        "LABEL_NOT_OBSERVED"
+      ],
+      "history": "The retired pipeline labelled a burn 'extinguished' when final CO <= 2 ppm, a rule rather than an observed outcome."
+    }
+  ]
+}
