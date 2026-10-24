@@ -1,0 +1,50 @@
+{
+  "_note": "Single source of truth for what each dataset in this build really is. The dashboard reads this file to label data. When the real NASA PSI tables replace a placeholder, change its status to \"nasa_measured\" and fill in the source fields.",
+  "datasets": {
+    "BASS_II": {
+      "status": "synthetic_placeholder",
+      "display_name": "BASS-II (Burning and Suppression of Solids II)",
+      "generated_by": "src/download_nasa_tables.py (generate_bass_dataset)",
+      "imitates": "NASA PSI-25 BASS-II experimental table format",
+      "real_source_page": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-25",
+      "real_source_doi": "10.60555/4qc4-de67",
+      "real_source_license": "CC0-1.0 (per PSI-25 page)",
+      "known_issues": [
+        "Rows are produced by formulas (regular steps in fan setting, O2, frames, GMT), not copied from the NASA table.",
+        "The real PSI-25 experimental table has about 130 records; it has not been downloaded into this repository."
+      ]
+    },
+    "FLEX": {
+      "status": "synthetic_placeholder",
+      "display_name": "FLEX (Flame Extinguishment Experiment)",
+      "generated_by": "src/download_nasa_tables.py (generate_flex_dataset)",
+      "imitates": "NASA PSI-69 FLEX experimental table format",
+      "real_source_page": "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69",
+      "real_source_doi": "10.60555/mbq8-0451",
+      "real_source_license": "CC0-1.0 (per PSI-69 page)",
+      "known_issues": [
+        "Rows are produced by formulas (arithmetic steps in pressure, diameter, burning rate, burn time), not copied from the NASA table."
+      ]
+    },
+    "MACFP_PMMA_CONE": {
+      "status": "real_measured",
+      "display_name": "MaCFP PMMA cone calorimeter (ground tests)",
+      "generated_by": "src/build_measured_cone_dataset.py from the MaCFP/matl-db repository",
+      "real_source_page": "https://github.com/MaCFP/matl-db/tree/master/PMMA/Calibration_Data",
+      "real_source_commit": "b72eb237cb78be2ab022b32fc93916c584ca6a16",
+      "known_issues": [
+        "Ground-based (1 g) tests; not microgravity or spacecraft data."
+      ]
+    }
+  },
+  "cross_validation_dataset": {
+    "file": "data/processed/research_curated_dataset.csv",
+    "built_by": "src/research_dataset_curation.py",
+    "known_issues": [
+      "Built from the synthetic BASS-II and FLEX placeholder tables above.",
+      "BASS-II burn-rate target is computed as fan_setting x 0.0016 x 1.5, and the same fan setting also drives an input feature (Reynolds number): label leakage.",
+      "BASS-II 'extinguished' label is a rule (final CO <= 2 ppm), not an observed extinction.",
+      "The 5 x 5 repeated folds are correlated re-splits of the same 80 rows, not 25 independent experiments."
+    ]
+  }
+}

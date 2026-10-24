@@ -72,6 +72,10 @@ def cached_simulation(gravity: float, flow: float, t_hot: float, duration: float
         "centroids": [tuple(f.plume_centroid_m) for f in res.frames],
         "radii": [f.diffusion_radius_m for f in res.frames],
         "derived": dict(res.derived_values),
+        "equations": [dict(e) for e in res.equations],
+        "assumptions": list(res.assumptions),
+        "limitations": list(res.limitations),
+        "status": res.scientific_status,
     }
 
 
@@ -391,11 +395,40 @@ with st.sidebar:
     ))
 
 st.markdown(APP_CSS, unsafe_allow_html=True)
+@st.cache_data(show_spinner=False)
+def load_provenance() -> dict:
+    path = ROOT / "config" / "data_provenance.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"datasets": {}}
+
+
+@st.cache_data(show_spinner=False)
+def headline_numbers() -> dict:
+    """Every number in the header is computed from files in the repo, never typed in."""
+    out = {"datasets": 0, "records": 0, "cone_burns": 0, "folds": 0, "physics_tests": 0}
+    if RECORDS_PATH.exists():
+        rec = load_records(str(RECORDS_PATH))
+        out["datasets"], out["records"] = int(rec["dataset_key"].nunique()), int(len(rec))
+    meta_path = ROOT / "models" / "spacecraft_fire_peak_hrr_v1.metadata.json"
+    if meta_path.exists():
+        out["cone_burns"] = int(json.loads(meta_path.read_text(encoding="utf-8")).get("training_data", {}).get("rows", 0))
+    folds_path = REPORTS_DIR / "cv_fold_metrics.csv"
+    if folds_path.exists():
+        out["folds"] = int(pd.read_csv(folds_path)["eval_id"].nunique())
+    tests_path = ROOT / "tests" / "test_simulation_physics_limits.py"
+    if tests_path.exists():
+        out["physics_tests"] = tests_path.read_text(encoding="utf-8").count("\ndef test_")
+    return out
+
+
+PROVENANCE = load_provenance()
+PLACEHOLDER_KEYS = sorted(k for k, v in PROVENANCE.get("datasets", {}).items() if v.get("status") == "synthetic_placeholder")
+_nums = headline_numbers()
 _telemetry = [
-    ("2", tr("NASA flight datasets", "NASA 飞行数据集")),
-    ("54", tr("Measured burns", "实测燃烧试验")),
-    ("25", tr("Validation folds", "验证折数")),
-    ("5", tr("Physics checks passed", "物理检验通过")),
+    (str(_nums["datasets"]), tr("NASA-format datasets", "NASA 格式数据集")
+     + (tr(" · placeholder data", " · 占位数据") if PLACEHOLDER_KEYS else "")),
+    (str(_nums["cone_burns"]), tr("Real MaCFP cone burns", "真实 MaCFP 锥形量热试验")),
+    (str(_nums["folds"]), tr("CV folds (exploratory)", "交叉验证折（探索性）")),
+    (str(_nums["physics_tests"]), tr("Physics sanity tests", "物理合理性测试")),
 ]
 _briefing = [
     ("01 · " + tr("THE PROBLEM", "问题"),
@@ -403,9 +436,9 @@ _briefing = [
         "a fire, while moderate ventilation can make it spread fast. Spacecraft fire safety depends on knowing which.",
         "微重力下没有浮力，火焰行为截然不同：气流太弱会使火焰窒息，适度通风却可能令其快速蔓延。航天器防火安全取决于能否分清这两种情况。")),
     ("02 · " + tr("OUR APPROACH", "我们的方法"),
-     tr("We keep NASA's solid-fuel (BASS-II) and droplet (FLEX) data in separate tracks and explain results "
-        "with first-principles physics, instead of one black-box model that can leak data.",
-        "我们将 NASA 固体燃料 (BASS-II) 与液滴 (FLEX) 数据分轨处理，并用第一性原理物理解释结果，而不是使用可能泄漏数据的单一黑箱模型。")),
+     tr("We keep the solid-fuel (BASS-II) and droplet (FLEX) tracks separate and explain results with "
+        "first-principles physics. Every dataset is labelled with where it came from and whether it is real.",
+        "我们将固体燃料 (BASS-II) 与液滴 (FLEX) 两条轨道分开处理，并用第一性原理物理解释结果。每个数据集都标明来源以及是否为真实数据。")),
     ("03 · " + tr("HOW TO EXPLORE", "如何探索"),
      tr("Browse the evidence, sweep gravity, airflow and oxygen, watch the 2D sandbox animate, "
         "then inspect the audit. Every claim shows its source and limits.",
@@ -422,14 +455,25 @@ st.markdown(
   </div>
   <h1><span class="flame">🔥</span> Flame in Freefall<br>
   <span class="grad">{tr("Microgravity Combustion Science & Safety Platform", "微重力燃烧科学与安全平台")}</span></h1>
-  <p>{tr("Physics-informed fire-safety insights from NASA microgravity combustion data, with transparent, auditable science for engineers and students.",
-         "基于 NASA 微重力燃烧数据的物理驱动防火安全洞察，为工程师与学生提供透明、可审计的科学分析。")}</p>
+  <p>{tr("Physics-informed fire-safety learning built around NASA's microgravity combustion experiments, with transparent, auditable science for engineers and students.",
+         "围绕 NASA 微重力燃烧实验构建的物理驱动防火安全学习平台，为工程师与学生提供透明、可审计的科学分析。")}</p>
   <div class="telemetry">{"".join(f'<div class="tele"><div class="tele-v">{v}</div><div class="tele-l">{l}</div></div>' for v, l in _telemetry)}</div>
 </div>
 <div class="briefing">{"".join(f'<div class="bcard"><div class="bk">{k}</div><p>{t}</p></div>' for k, t in _briefing)}</div>
 """,
     unsafe_allow_html=True,
 )
+if PLACEHOLDER_KEYS:
+    _names = ", ".join(PROVENANCE["datasets"][k]["display_name"] for k in PLACEHOLDER_KEYS)
+    st.warning(tr(
+        f"**Data status in this build.** The {_names} tables are **synthetic placeholders** in NASA's table format, "
+        "generated by `src/download_nasa_tables.py`. They are **not NASA measurements**, so the Evidence rankings and the "
+        "Scientific Audit scores are demonstrations of the pipeline, not scientific results. The MaCFP cone data used by "
+        "the prediction tab is real. Full details: Evidence tab → Data provenance.",
+        f"**本版本数据状态。** {_names} 数据表是按 NASA 表格格式由 `src/download_nasa_tables.py` 生成的**合成占位数据**，"
+        "**并非 NASA 实测数据**，因此证据排名与科学审计得分只是流程演示，不是科学结论。预测页使用的 MaCFP 锥形量热数据为真实数据。"
+        "详情见：证据页 → 数据来源。",
+    ), icon="⚠️")
 
 def _flame_path(cx: float, base: float, w: float, h: float) -> str:
     return (f"M {cx - w:.1f} {base:.1f} "
@@ -775,7 +819,7 @@ def ranking_cards_html(track_key: str, ranking: list[dict], d0_by_fuel: dict) ->
         medal = medals[rank - 1] if rank <= 3 else f"#{rank}"
         html.append(
             f'<div class="rank-card"><div class="rank-head"><span class="medal">{medal}</span>'
-            f'<div><div class="rank-name">{name}</div><div class="rank-sub">{tr(f"{count} flight tests", f"{count} 次飞行试验")}</div></div></div>'
+            f'<div><div class="rank-name">{name}</div><div class="rank-sub">{tr(f"{count} records in table", f"表中 {count} 条记录")}</div></div></div>'
             f'{obj}<div class="stats">{stats}</div></div>'
         )
     return f'<div class="rank-grid">{"".join(html)}</div>'
@@ -916,6 +960,10 @@ def model_panel_html(stats: dict, base: dict, how: str) -> str:
            tr(f"Across 25 held-out folds it explains about {stats['r2_score']['mean'] * 100:.0f}% of the variation in burn rate, "
               f"with {mae_drop:.0f}% lower error than the baseline.",
               f"在 25 个独立测试折中，它解释了约 {stats['r2_score']['mean'] * 100:.0f}% 的燃烧速率变化，误差比基线低 {mae_drop:.0f}%。"))
+    if PLACEHOLDER_KEYS and not is_base:
+        did += tr(" These scores come from placeholder data with leaked BASS-II labels, so they show the pipeline works, "
+                  "not how well the model would really predict.",
+                  " 这些得分来自含 BASS-II 标签泄漏的占位数据，只能说明流程可运行，不能代表模型的真实预测能力。")
     return (
         '<div class="mpanel"><div class="rings">'
         + ring(tr("R² (burn rate)", "R²（燃烧速率）"), stats["r2_score"]["mean"], stats["r2_score"]["std"])
@@ -979,27 +1027,35 @@ def render_evidence():
             mask = track_df.astype(str).apply(lambda col: col.str.lower().str.contains(search_query, regex=False, na=False)).any(axis=1)
             track_df = track_df.loc[mask]
 
+        ds_key = "BASS_II" if track_key == "solid_fuel" else "FLEX"
+        prov = PROVENANCE.get("datasets", {}).get(ds_key, {})
+        is_placeholder = prov.get("status") == "synthetic_placeholder"
         st.info(tr(
-            f"📌 **Current track**: {track_mode} | **DOI**: `{doi}` | [Open NASA data repository]({source_url})",
-            f"📌 **当前实验轨道**: {track_mode} | **DOI**: `{doi}` | [访问 NASA 官方实验库]({source_url})",
+            f"📌 **Current track**: {track_mode} | **Real dataset**: NASA DOI `{doi}` | [Open NASA data repository]({source_url})"
+            + (" | **Data shown here: synthetic placeholder** (see Data provenance below)" if is_placeholder else ""),
+            f"📌 **当前实验轨道**: {track_mode} | **真实数据集**: NASA DOI `{doi}` | [访问 NASA 官方实验库]({source_url})"
+            + (" | **此处显示：合成占位数据**（见下方数据来源）" if is_placeholder else ""),
         ))
 
         st.markdown(tr(
-            "#### Ranking aggregated from real experiments (zero hardcoding)",
-            "#### 真实实验数据聚合统计排行 (Zero Hardcoding)",
+            "#### Ranking computed live from the loaded table",
+            "#### 由已载入数据表实时计算的排名",
         ))
         ranking_data = load_ranking(track_key)
         if ranking_data:
             st.caption(tr(
-                "Animated illustration modelled on NASA flight photos and driven by the measured averages "
-                "(not real footage). "
-                + ("Each tiny droplet sits inside its olive-sized spherical flame and shrinks until it reaches its "
-                   "measured extinction diameter, where the flame goes out." if track_key == "liquid_droplet" else
+                "Animated illustration modelled on NASA flight photos (not real footage). Sizes, colours and speeds are "
+                "driven by the averages computed from the loaded table"
+                + (", which in this build is a synthetic placeholder, so the ranking itself is not a scientific result. "
+                   if is_placeholder else ". ")
+                + ("Each tiny droplet sits inside its olive-sized spherical flame and shrinks until it reaches the "
+                   "table's extinction diameter, where the flame goes out." if track_key == "liquid_droplet" else
                    "Side view inside the flow duct: in microgravity the flame is a blue envelope lying along the airflow, "
-                   "and smoke is carried downstream rather than rising. More smoke = more CO measured."),
-                "动画示意图，参照 NASA 在轨照片绘制，并由实测平均值驱动（非真实影像）。"
-                + ("每个微小液滴位于橄榄大小的球形火焰中，逐渐缩小至实测熄火直径时火焰熄灭。" if track_key == "liquid_droplet" else
-                   "流道内侧视图：微重力下火焰是沿气流方向的蓝色包络，烟雾随气流向下游飘散而不会上升。烟越多表示实测 CO 越高。"),
+                   "and smoke is carried downstream rather than rising. More smoke = more CO in the table."),
+                "动画示意图，参照 NASA 在轨照片绘制（非真实影像）。大小、颜色与速度由已载入数据表计算的平均值驱动"
+                + ("；本版本该表为合成占位数据，因此排名本身不是科学结论。" if is_placeholder else "。")
+                + ("每个微小液滴位于橄榄大小的球形火焰中，逐渐缩小至表中的熄火直径时火焰熄灭。" if track_key == "liquid_droplet" else
+                   "流道内侧视图：微重力下火焰是沿气流方向的蓝色包络，烟雾随气流向下游飘散而不会上升。烟越多表示表中 CO 越高。"),
             ))
             flex_df = records_df[records_df["dataset_key"] == "FLEX"]
             d0_by_fuel = (flex_df.groupby("fuel")["droplet_initial_diameter_mm"].mean().to_dict()
@@ -1008,7 +1064,55 @@ def render_evidence():
             with st.expander(tr("Show ranking as a data table", "以数据表查看排名")):
                 st.dataframe(pd.DataFrame(ranking_data), use_container_width=True, hide_index=True)
 
-        st.markdown(tr("#### Raw observation table (auditable detail)", "#### 原始观测数据表 (可审计明细)"))
+        st.markdown(tr("#### Data provenance", "#### 数据来源"))
+        status_badge = {
+            "synthetic_placeholder": tr("🟠 SYNTHETIC PLACEHOLDER: not NASA measurements", "🟠 合成占位数据：非 NASA 实测"),
+            "nasa_measured": tr("🟢 NASA MEASURED DATA", "🟢 NASA 实测数据"),
+        }.get(prov.get("status", ""), tr("⚪ status not declared", "⚪ 未声明状态"))
+        full_track = records_df[records_df["dataset_key"] == ds_key]
+        st.markdown(
+            f"**{prov.get('display_name', ds_key)}** · {status_badge}\n\n"
+            + tr(f"- **Rows loaded:** {len(full_track)} (computed from `data/processed/dashboard_records.csv`)\n",
+                 f"- **已载入行数：** {len(full_track)}（由 `data/processed/dashboard_records.csv` 计算）\n")
+            + tr(f"- **Produced by:** `{prov.get('generated_by', 'unknown')}`\n", f"- **生成方式：** `{prov.get('generated_by', 'unknown')}`\n")
+            + tr(f"- **Real NASA source:** [{prov.get('real_source_page', '')}]({prov.get('real_source_page', '')}) · DOI `{prov.get('real_source_doi', '')}` · {prov.get('real_source_license', '')}\n",
+                 f"- **真实 NASA 来源：** [{prov.get('real_source_page', '')}]({prov.get('real_source_page', '')}) · DOI `{prov.get('real_source_doi', '')}` · {prov.get('real_source_license', '')}\n")
+            + "".join(f"- ⚠️ {issue}\n" for issue in prov.get("known_issues", []))
+        )
+
+        with st.expander(tr("🔎 Record inspector: trace one row back to its source", "🔎 记录溯源：追踪单条记录的来源")):
+            if full_track.empty:
+                st.caption(tr("No rows for this track.", "该轨道无数据。"))
+            else:
+                rec_id = st.selectbox(tr("Choose a record", "选择记录"), full_track["record_id"].tolist(), key=f"inspect_{ds_key}")
+                row = full_track[full_track["record_id"] == rec_id].iloc[0]
+                catalog_path = ROOT / "data" / "processed" / "field_catalog.csv"
+                catalog = pd.read_csv(catalog_path) if catalog_path.exists() else pd.DataFrame()
+                catalog = catalog[catalog.get("dataset_key", pd.Series(dtype=str)) == ds_key] if not catalog.empty else catalog
+                st.markdown(
+                    tr(f"**Source file:** `{row.get('source_file', '')}` · **row** {row.get('source_row_number', '')} · "
+                       f"**license field:** {row.get('source_license_status', '')}",
+                       f"**来源文件：** `{row.get('source_file', '')}` · **第** {row.get('source_row_number', '')} **行** · "
+                       f"**许可字段：** {row.get('source_license_status', '')}")
+                )
+                trace = []
+                for _, f in catalog.iterrows():
+                    field = f["field_name"]
+                    if field in row.index and pd.notna(row[field]):
+                        original = str(f["original_field_name"])
+                        unit = original.split(";", 1)[1].strip() if ";" in original else ""
+                        trace.append({tr("original column", "原始列名"): original, tr("value", "数值"): str(row[field]),
+                                      tr("unit", "单位"): unit, tr("column in app", "应用内列名"): field})
+                st.dataframe(pd.DataFrame(trace), use_container_width=True, hide_index=True)
+                st.caption(tr("Processing log (src/build_dashboard_data.py): column names normalised to snake_case; values copied "
+                              "unchanged; source URL, DOI and licence columns attached from config/dataset_catalog.csv. Those "
+                              "columns describe the real NASA dataset, so on placeholder rows they say where real data should "
+                              "come from, not where these values came from.",
+                              "处理记录（src/build_dashboard_data.py）：列名统一为 snake_case；数值原样复制；来源网址、DOI 与许可列取自 "
+                              "config/dataset_catalog.csv。这些列描述的是真实 NASA 数据集，因此在占位数据行上仅表示真实数据应来自何处，"
+                              "而非这些数值的来源。"))
+
+        st.markdown(tr("#### Raw table as loaded", "#### 已载入的原始数据表"))
         st.dataframe(track_df, use_container_width=True, hide_index=True)
 
 
@@ -1178,6 +1282,24 @@ def render_simulation():
         "diffusion to Earth-like buoyant lift.",
         "通过调整重力与通风风速，观察热羽流从微重力对称扩散到地球浮力拉升的时空演变。",
     ))
+    with st.expander(tr("🎓 What can students observe here?", "🎓 学生可以在这里观察到什么？"), expanded=True):
+        o1, o2, o3 = st.columns(3)
+        o1.markdown(tr(
+            "**Effective gravity g**\n\nHot gas is lighter than the cooler air around it. Gravity turns that density "
+            "difference into a buoyant push (reduced gravity g′ = g·Δρ/ρ). Lower g → weaker push → the plume stops rising.",
+            "**有效重力 g**\n\n热气体比周围冷空气轻，重力把这一密度差转化为浮力（约化重力 g′ = g·Δρ/ρ）。g 越小，浮力越弱，羽流不再上升。"))
+        o2.markdown(tr(
+            "**Forced airflow u**\n\nCabin ventilation carries heat and combustion products sideways. In microgravity this "
+            "forced flow, not buoyancy, decides where the hot gas goes.",
+            "**强制气流 u**\n\n舱内通风把热量与燃烧产物横向输运。在微重力下，决定热气体去向的是这股强制气流，而不是浮力。"))
+        o3.markdown(tr(
+            "**Gas temperature T**\n\nHotter gas means a bigger density difference, so more buoyancy on Earth. Watch how the "
+            "hot patch spreads and cools over time through diffusion.",
+            "**气体温度 T**\n\n温度越高，密度差越大，在地球上浮力越强。观察热区如何随时间通过扩散而扩展、降温。"))
+        st.caption(tr(
+            "Microgravity does not switch every force off. Buoyancy-driven natural convection almost disappears, but "
+            "diffusion, pressure gradients and forced airflow still act, which is why ventilation matters so much in spacecraft.",
+            "微重力并不意味着所有作用力都消失。浮力驱动的自然对流几乎消失，但扩散、压力梯度与强制气流依然存在，这正是航天器中通风如此关键的原因。"))
 
     c_ctrl, c_vis = st.columns([1, 2])
     with c_ctrl:
@@ -1223,7 +1345,9 @@ def render_simulation():
                 go.Heatmap(
                     z=sim["z"][i], x=x_cm, y=y_cm, colorscale="Inferno", zsmooth="best",
                     zmin=300.0, zmax=sim_t_hot,
-                    colorbar=dict(title=tr("Gas temp (K)", "气体温度 (K)"), thickness=12),
+                    colorbar=dict(title=dict(text=tr("Temperature (K)<br>dark = cool<br>bright = hot",
+                                                      "温度 (K)<br>暗 = 冷<br>亮 = 热"), side="top"),
+                                  thickness=12),
                     hovertemplate="x=%{x:.1f} cm<br>y=%{y:.1f} cm<br>T=%{z:.0f} K<extra></extra>",
                 ),
                 go.Scatter(
@@ -1345,6 +1469,27 @@ def render_simulation():
         p4.metric(tr("Final spread width r_diff", "末帧扩散宽度 r_diff"), f"{sim['radii'][-1]*100:.2f} cm",
                   help=tr("How wide the hot patch has spread by the last frame.", "到最后一帧时热区扩散的宽度。"))
 
+    with st.expander(tr("🧮 What is actually computed (equations, assumptions, limits)", "🧮 实际计算了什么（方程、假设与局限）")):
+        st.markdown(tr(
+            "**Computed from physics equations every time you move a slider:** gas densities, buoyancy force, "
+            "reduced gravity g′, buoyancy velocity u_b, diffusion width, and the hot-gas centre's path.\n\n"
+            "**Not solved:** the temperature map itself. It is a Gaussian 'hot patch' placed at the computed centre with "
+            "the computed width, an illustration, not a solution of the heat and flow (Navier-Stokes) equations, and not "
+            "a flame model.",
+            "**每次移动滑块都会由物理方程实时计算：** 气体密度、浮力、约化重力 g′、浮力速度 u_b、扩散宽度以及热气体中心的运动轨迹。\n\n"
+            "**未求解：** 温度图本身。它是放置在计算出的中心、具有计算宽度的高斯“热区”，属于示意图，并非热量与流动（Navier-Stokes）方程的数值解，也不是火焰模型。",
+        ))
+        st.dataframe(
+            pd.DataFrame([{tr("equation", "方程"): e.get("equation", ""), tr("what it does", "作用"): e.get("description", "")}
+                          for e in sim["equations"]]),
+            use_container_width=True, hide_index=True,
+        )
+        if sim["assumptions"]:
+            st.markdown(tr("**Assumptions**", "**假设**") + "\n" + "\n".join(f"- {a}" for a in sim["assumptions"]))
+        if sim["limitations"]:
+            st.markdown(tr("**Limitations**", "**局限**") + "\n" + "\n".join(f"- {a}" for a in sim["limitations"]))
+        st.caption(tr(f"Solver status flag: `{sim['status']}`", f"求解器状态标记：`{sim['status']}`"))
+
 with tab_simulation:
     render_simulation()
 
@@ -1362,12 +1507,53 @@ with tab_audit:
             a_data = json.load(f)
         m_df = pd.read_csv(metrics_csv)
 
+        # Group-leakage check recomputed here from the saved split manifest, not read from a hard-coded label.
+        manifest_path = REPORTS_DIR / "experiment_split_manifest.csv"
+        overlaps, n_splits = None, 0
+        if manifest_path.exists():
+            man = pd.read_csv(manifest_path)
+            overlaps = 0
+            for _, split in man.groupby("eval_id"):
+                train_g = set(split.loc[split["partition"].str.contains("train"), "group_id"])
+                hold_g = set(split.loc[~split["partition"].str.contains("train"), "group_id"])
+                overlaps += len(train_g & hold_g)
+                n_splits += 1
+
+        eval_status = str(a_data.get("model_evaluation_status", "unknown"))
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric(tr("Audit status", "审计状态"), a_data.get("audit_status", "").upper())
-        c2.metric(tr("Independent experiment groups", "独立实验组数"),
+        c1.metric(tr("Evaluation status", "评估状态"),
+                  tr("Exploratory", "探索性") if "exploratory" in eval_status else eval_status,
+                  help=tr(f"From reports/data_audit_report.json: {eval_status}. Exploratory means the provenance checks were "
+                          "overridden, so scores must not be presented as validated.",
+                          f"来自 reports/data_audit_report.json：{eval_status}。探索性表示来源检查被跳过，得分不能作为已验证结果。"))
+        c2.metric(tr("Experiment groups", "实验组数"),
                   tr(f"{a_data.get('experiment_group_count', 0)} groups", f"{a_data.get('experiment_group_count', 0)} 组"))
-        c3.metric(tr("Evaluation folds", "评估折数"), tr(f"{m_df['eval_id'].nunique()} folds", f"{m_df['eval_id'].nunique()} 折"))
-        c4.metric(tr("Zero cross-group leakage assertion", "组间零泄漏断言"), "100% PASSED ✅")
+        c3.metric(tr("Evaluation splits", "评估划分数"), tr(f"{m_df['eval_id'].nunique()} (5 seeds × 5 folds)", f"{m_df['eval_id'].nunique()}（5 种子 × 5 折）"))
+        c4.metric(tr("Group overlap train ↔ test", "训练/测试组重叠"),
+                  tr(f"{overlaps} in {n_splits} splits", f"{n_splits} 次划分中 {overlaps} 个") if overlaps is not None else tr("manifest missing", "缺少清单"),
+                  help=tr("Recomputed live from reports/experiment_split_manifest.csv. 0 means no experiment group appears in both "
+                          "training and testing. This checks the split only; it cannot detect bad labels or fake data.",
+                          "由 reports/experiment_split_manifest.csv 实时重新计算。0 表示没有实验组同时出现在训练与测试中。"
+                          "这只检查划分，无法发现错误标签或虚假数据。"))
+
+        cv_issues = PROVENANCE.get("cross_validation_dataset", {}).get("known_issues", [])
+        if cv_issues:
+            st.error(
+                tr("**Why these scores are not scientific evidence (read before quoting any number below):**\n",
+                   "**为什么以下得分不是科学证据（引用任何数字前请先阅读）：**\n")
+                + "\n".join(f"- {issue}" for issue in cv_issues)
+                + tr("\n\nWhat this tab does show: the evaluation pipeline works (grouped splits, no group overlap, every seed and "
+                     "fold saved, uncertainty reported). Re-running it on the real NASA tables is what would turn it into evidence.",
+                     "\n\n本页真正能说明的是：评估流程本身可用（分组划分、无组重叠、保存每个种子与折、报告不确定性）。"
+                     "只有在真实 NASA 数据表上重新运行，才能使其成为证据。"),
+                icon="🚫",
+            )
+            dl1, dl2 = st.columns(2)
+            if manifest_path.exists():
+                dl1.download_button(tr("⬇ Split manifest (every seed, fold, record)", "⬇ 划分清单（每个种子、折、记录）"),
+                                    manifest_path.read_bytes(), file_name="experiment_split_manifest.csv", mime="text/csv")
+            dl2.download_button(tr("⬇ Per-fold metrics", "⬇ 每折指标"), metrics_csv.read_bytes(),
+                                file_name="cv_fold_metrics.csv", mime="text/csv")
 
         st.markdown(tr("#### Meet the three models", "#### 认识三个模型"))
         st.caption(tr(
@@ -1473,6 +1659,13 @@ with tab_prediction:
         help=tr("Four example burns inside the model's training range. Upload it below, then press Predict.",
                 "四条位于模型训练范围内的示例燃烧数据。在下方上传后点击预测。"),
     )
+    st.caption(tr(
+        "🧪 The sample CSV is **made-up demo input**, not measured burns. Uploading any CSV only runs predictions with the "
+        "already-trained model; it does not retrain or validate it. The model itself was trained and checked on the real "
+        "MaCFP measurements described above.",
+        "🧪 示例 CSV 是**虚构的演示输入**，并非实测燃烧数据。上传任何 CSV 只会用已训练好的模型进行预测，不会重新训练或验证模型。"
+        "模型本身是在上文所述的真实 MaCFP 实测数据上训练与检验的。",
+    ))
     st.caption(tr(
         "Accepted range (from training data): heat flux 25–65 kW/m², burn duration 195–1149 s, "
         "mean HRR 147–1881 kW/m². Values outside are rejected rather than guessed.",
