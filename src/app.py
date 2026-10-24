@@ -230,6 +230,21 @@ img.rank-obj { display: block; width: 100%; max-width: 260px; height: auto; marg
 .stat-bar { height: 7px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 4px; }
 .stat-bar i { display: block; height: 100%; border-radius: 99px; animation: grow 1.2s cubic-bezier(.2,.8,.2,1) both; transform-origin: left; }
 @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* Top three shown; the rest unfold below when the reader opens "show more" */
+.rank-extra { display: none; }
+.rank-wrap:has(> .rank-more[open]) > .rank-extra { display: grid; animation: rankIn .45s ease both; }
+@keyframes rankIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.rank-more { margin: 0 0 16px; }
+.rank-more summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 16px; border-radius: 14px; border: 1px dashed rgba(255,154,77,.45); background: rgba(255,106,43,.06);
+  color: #FFD9B8; font-weight: 600; font-size: .92rem; transition: background .2s ease, border-color .2s ease; }
+.rank-more summary::-webkit-details-marker { display: none; }
+.rank-more summary:hover { background: rgba(255,106,43,.13); border-color: #FF9A4D; }
+.rank-more summary:focus-visible { outline: 2px solid #FF9A4D; outline-offset: 2px; }
+.rank-more .less, .rank-more[open] .more { display: none; }
+.rank-more[open] .less { display: inline; }
+.rank-more .chev { display: inline-block; transition: transform .25s ease; }
+.rank-more[open] .chev { transform: rotate(180deg); }
 
 /* File uploader as a clear drag-and-drop zone */
 [data-testid="stFileUploaderDropzone"] {
@@ -961,6 +976,9 @@ def solid_svg(material_class: str, co_mean: float | None, co_max_all: float) -> 
 </svg>"""
 
 
+RANK_TOP_N = 3  # cards shown before "show more"
+
+
 def ranking_cards_html(track_key: str, ranking: list[dict]) -> str:
     """Card per material class / fuel: animated object, medal, and stat bars, all from the ranking rows."""
     medals = ["🥇", "🥈", "🥉"]
@@ -1007,15 +1025,29 @@ def ranking_cards_html(track_key: str, ranking: list[dict]) -> str:
                      + f'<div class="rank-sub" style="margin-top:2px">{co_note}</div>')
             cards.append((r["rank"], cfg_text(r, "material_name"), r["empirical_test_count"], obj, stats))
 
-    html = []
-    for rank, name, count, obj, stats in cards:
+    def card_html(rank: int, name: str, count: int, obj: str, stats: str) -> str:
         medal = medals[rank - 1] if rank <= 3 else f"#{rank}"
-        html.append(
+        return (
             f'<div class="rank-card"><div class="rank-head"><span class="medal">{medal}</span>'
             f'<div><div class="rank-name">{name}</div><div class="rank-sub">{tr(f"{count} ISS tests", f"{count} 次空间站试验")}</div></div></div>'
             f'{obj}<div class="stats">{stats}</div></div>'
         )
-    return f'<div class="rank-grid">{"".join(html)}</div>'
+
+    # Top three first; the rest stay folded behind a "show more" toggle (pure CSS, so no rerun).
+    cards.sort(key=lambda c: c[0])
+    top = "".join(card_html(*c) for c in cards[:RANK_TOP_N])
+    rest = cards[RANK_TOP_N:]
+    if not rest:
+        return f'<div class="rank-grid">{top}</div>'
+    noun_en, noun_zh = ("fuels", "种燃料") if track_key == "liquid_droplet" else ("materials", "种材料")
+    more = tr(f"Show {len(rest)} more {noun_en}", f"展开其余 {len(rest)} {noun_zh}")
+    less = tr(f"Show top {RANK_TOP_N} only", f"只看前 {RANK_TOP_N} 名")
+    return (
+        f'<div class="rank-wrap"><div class="rank-grid">{top}</div>'
+        f'<div class="rank-grid rank-extra">{"".join(card_html(*c) for c in rest)}</div>'
+        f'<details class="rank-more"><summary><span class="more">{more}</span><span class="less">{less}</span>'
+        f'<span class="chev">▾</span></summary></details></div>'
+    )
 
 
 FEATURE_SHORT = {  # short chip labels for model diagrams, keyed by registry feature/target column
