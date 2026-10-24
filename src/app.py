@@ -226,6 +226,28 @@ img.rank-obj { display: block; width: 100%; max-width: 260px; height: auto; marg
   color: #fff !important; border: 0 !important; border-radius: 12px !important; font-weight: 600; }
 [data-testid="stFileUploaderDropzone"] svg { color: #FF9A4D; }
 
+/* Scientific audit: model picture (left) + results panel (right) */
+img.model-art { width: 100%; height: auto; border-radius: 16px; background: #0f1530; border: 1px solid #2a3355; padding: 8px; }
+.mpanel { display: grid; gap: 14px; }
+.rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ring-wrap { text-align: center; }
+.ring { width: 92px; height: 92px; border-radius: 50%; margin: 0 auto; display: grid; place-items: center; }
+.ring-in { width: 72px; height: 72px; border-radius: 50%; background: #0f1426; display: grid; place-content: center; line-height: 1.1; }
+.ring-in b { font-size: 1.15rem; color: #fff; }
+.ring-in span { font-size: .7rem; color: #8f9ab8; }
+.ring-lbl { font-size: .76rem; color: #aab3cc; margin-top: 6px; }
+.eb-top { display: flex; justify-content: space-between; font-size: .82rem; color: #aab3cc; }
+.eb-top b { color: #fff; }
+.eb-row { height: 8px; border-radius: 99px; background: rgba(255,255,255,.06); margin-top: 5px; overflow: hidden; }
+.eb-row i { display: block; height: 100%; border-radius: 99px; animation: grow 1s cubic-bezier(.2,.8,.2,1) both; transform-origin: left; }
+.eb-this { background: #d95926; } .eb-base { background: #6f7ca8; }
+.eb-key { font-size: .72rem; color: #8f9ab8; margin-top: 5px; display: flex; align-items: center; gap: 6px; }
+.eb-key span { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.eb-key .k1 { background: #d95926; } .eb-key .k2 { background: #6f7ca8; margin-left: 10px; }
+.mnote { margin: 0; font-size: .9rem; color: #c3cbe0; line-height: 1.55; }
+.mnote b { color: #FF9A4D; margin-right: 6px; }
+@media (max-width: 640px) { .ring { width: 78px; height: 78px; } .ring-in { width: 60px; height: 60px; } }
+
 /* Animated cone-calorimeter diagrams in the prediction tab */
 img.flame-card { width: 100%; height: auto; border-radius: 16px; margin-bottom: 14px;
   box-shadow: 0 10px 30px rgba(0,0,0,.35); transition: transform .25s ease, box-shadow .25s ease; }
@@ -759,6 +781,153 @@ def ranking_cards_html(track_key: str, ranking: list[dict], d0_by_fuel: dict) ->
     return f'<div class="rank-grid">{"".join(html)}</div>'
 
 
+AUDIT_INPUTS = ("Re", "log Ri", "pO₂", "u_b", "Da")  # the 5 physics features in config/scientific_validation.json
+_SVG_HEAD = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220" font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">'
+_SVG_CSS = (
+    "<style>"
+    ".lbl{fill:#c9d2ea;font-size:10px}.mut{fill:#8f9ab8;font-size:9px}"
+    ".edge{stroke:rgba(160,180,230,.18);stroke-width:1}"
+    ".pulse{stroke:#FF9A4D;stroke-width:2;stroke-dasharray:6 60;animation:pulse 1.8s linear infinite}"
+    "@keyframes pulse{from{stroke-dashoffset:66}to{stroke-dashoffset:0}}"
+    ".glow{animation:glow 1.8s ease-in-out infinite}"
+    "@keyframes glow{0%,100%{fill:#2a3560}50%{fill:#FF9A4D}}"
+    ".chip{fill:#151c3a;stroke:#3a4670}"
+    "</style>"
+)
+
+
+def _input_chips(x: float, ys: list, dim: bool = False) -> str:
+    out = []
+    for y, name in zip(ys, AUDIT_INPUTS):
+        op = ' opacity="0.35"' if dim else ""
+        out.append(f'<g{op}><rect class="chip" x="{x}" y="{y - 9}" width="44" height="18" rx="9"/>'
+                   f'<text class="lbl" x="{x + 22}" y="{y + 3.5}" text-anchor="middle">{name}</text></g>')
+        if dim:
+            out.append(f'<line x1="{x + 4}" y1="{y}" x2="{x + 40}" y2="{y}" stroke="#FC3D21" stroke-width="1.2" opacity="0.7"/>')
+    return "".join(out)
+
+
+def baseline_svg() -> str:
+    """Dummy baseline: ignores every input and always predicts the training average."""
+    ys = [40, 70, 100, 130, 160]
+    truth = [(205, 62), (220, 140), (234, 88), (248, 158), (262, 74), (276, 120), (290, 98)]
+    resid = "".join(
+        f'<line x1="{x}" y1="{y}" x2="{x}" y2="110" stroke="#FC3D21" stroke-width="1.6" stroke-dasharray="3 2" '
+        f'opacity="0.8"><animate attributeName="opacity" values="0.2;0.9;0.2" dur="2.4s" begin="{i * 0.25:.2f}s" repeatCount="indefinite"/></line>'
+        for i, (x, y) in enumerate(truth))
+    dots = "".join(f'<circle cx="{x}" cy="{y}" r="4" fill="#7CC4FF"/>' for x, y in truth)
+    return (_SVG_HEAD + _SVG_CSS + _input_chips(8, ys, dim=True)
+            + '<path d="M58 100 H100" stroke="#3a4670" stroke-width="1.5" stroke-dasharray="4 3"/>'
+            + '<rect x="100" y="80" width="70" height="40" rx="10" fill="#151c3a" stroke="#8f9ab8"/>'
+            + f'<text class="lbl" x="135" y="98" text-anchor="middle" font-weight="700">{tr("AVERAGE", "平均值")}</text>'
+            + f'<text class="mut" x="135" y="111" text-anchor="middle">{tr("same answer", "答案不变")}</text>'
+            + '<path d="M170 110 H300" stroke="#FF9A4D" stroke-width="2.2" stroke-dasharray="6 4"/>'
+            + resid + dots
+            + f'<text class="mut" x="8" y="200">{tr("Inputs ignored ✕", "忽略全部输入 ✕")}</text>'
+            + f'<text class="mut" x="196" y="200">{tr("● real   — guess   ┆ error", "● 真实  — 猜测  ┆ 误差")}</text>'
+            + "</svg>")
+
+
+def forest_svg() -> str:
+    """Random forest: many decision trees answer yes/no questions, then their answers are averaged."""
+    ys = [40, 70, 100, 130, 160]
+    parts = [_SVG_HEAD, _SVG_CSS, _input_chips(8, ys)]
+    leaf_pts = []
+    for t, cx in enumerate((110, 178, 246)):
+        root, kids = (cx, 40), [(cx - 16, 74), (cx + 16, 74)]
+        leaves = [(cx - 24, 108), (cx - 8, 108), (cx + 8, 108), (cx + 24, 108)]
+        for k, (kx, ky) in enumerate(kids):
+            parts.append(f'<line class="edge" x1="{root[0]}" y1="{root[1]}" x2="{kx}" y2="{ky}"/>')
+            for lx, ly in leaves[2 * k:2 * k + 2]:
+                parts.append(f'<line class="edge" x1="{kx}" y1="{ky}" x2="{lx}" y2="{ly}"/>')
+        # the decision path this sample takes through tree t (lights up in turn)
+        kid = kids[t % 2]
+        leaf = leaves[(t % 2) * 2 + (1 if t == 1 else 0)]
+        parts.append(f'<polyline points="{root[0]},{root[1]} {kid[0]},{kid[1]} {leaf[0]},{leaf[1]}" fill="none" '
+                     f'stroke="#FF9A4D" stroke-width="2.4" stroke-linecap="round" opacity="0">'
+                     f'<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.2;0.7;1" dur="3s" begin="{t * 0.6:.1f}s" repeatCount="indefinite"/></polyline>')
+        for (nx, ny) in [root, *kids, *leaves]:
+            parts.append(f'<circle cx="{nx}" cy="{ny}" r="4.5" fill="#2a3560" stroke="#6f7ca8"/>')
+        leaf_pts.append(leaf)
+    for lx, ly in leaf_pts:
+        parts.append(f'<line x1="{lx}" y1="{ly}" x2="178" y2="150" stroke="rgba(255,154,77,.45)" stroke-width="1.2"/>')
+    parts.append(f'<text class="mut" x="178" y="20" text-anchor="middle">{tr("3 of the 100 trees shown", "显示 100 棵树中的 3 棵")}</text>')
+    parts.append('<circle class="glow" cx="178" cy="150" r="10" stroke="#FF9A4D"/>')
+    parts.append(f'<text class="lbl" x="194" y="154">{tr("average answers", "汇总答案")}</text>')
+    parts.append('<path d="M178 160 L130 186 M178 160 L226 186" stroke="#FF9A4D" stroke-width="1.5"/>')
+    parts.append(f'<rect class="chip" x="88" y="186" width="84" height="20" rx="10"/><text class="lbl" x="130" y="200" text-anchor="middle">{tr("burn rate", "燃烧速率")}</text>')
+    parts.append(f'<rect class="chip" x="184" y="186" width="84" height="20" rx="10"/><text class="lbl" x="226" y="200" text-anchor="middle">{tr("flame out?", "是否熄火？")}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def network_svg() -> str:
+    """Multitask neural network: 5 inputs -> 32 -> 16 shared neurons -> two output heads."""
+    layers_x = (66, 140, 205, 262)
+    ys_in = [40, 70, 100, 130, 160]
+    ys_h1 = [30 + i * 20 for i in range(8)]   # 8 drawn of 32
+    ys_h2 = [45 + i * 22 for i in range(6)]   # 6 drawn of 16
+    ys_out = [78, 132]
+    parts = [_SVG_HEAD, _SVG_CSS]
+    cols = [(layers_x[0], ys_in), (layers_x[1], ys_h1), (layers_x[2], ys_h2), (layers_x[3], ys_out)]
+    for (xa, ya), (xb, yb) in zip(cols, cols[1:]):
+        for y1 in ya:
+            for y2 in yb:
+                parts.append(f'<line class="edge" x1="{xa}" y1="{y1}" x2="{xb}" y2="{y2}"/>')
+    # a few signals travelling forward through the network
+    pulse_edges = [(0, 0, 2), (0, 2, 5), (0, 4, 7), (1, 1, 1), (1, 4, 3), (1, 6, 5), (2, 0, 0), (2, 3, 1), (2, 5, 1), (2, 2, 0)]
+    for i, (layer, a, b) in enumerate(pulse_edges):
+        (xa, ya), (xb, yb) = cols[layer], cols[layer + 1]
+        parts.append(f'<line class="pulse" x1="{xa}" y1="{ya[a]}" x2="{xb}" y2="{yb[b]}" style="animation-delay:{-0.17 * i:.2f}s"/>')
+    for layer, (x, ys) in enumerate(cols):
+        for y in ys:
+            delay = f' style="animation-delay:{0.45 * layer:.2f}s"' if layer else ""
+            parts.append(f'<circle class="glow" cx="{x}" cy="{y}" r="6" stroke="#6f7ca8"{delay}/>')
+    for y, name in zip(ys_in, AUDIT_INPUTS):
+        parts.append(f'<text class="lbl" x="{layers_x[0] - 10}" y="{y + 3.5}" text-anchor="end">{name}</text>')
+    parts.append(f'<text class="mut" x="{layers_x[1]}" y="200" text-anchor="middle">{tr("32 neurons", "32 个神经元")}</text>')
+    parts.append(f'<text class="mut" x="{layers_x[2]}" y="200" text-anchor="middle">{tr("16 neurons", "16 个神经元")}</text>')
+    parts.append(f'<text class="lbl" x="{layers_x[3]}" y="{ys_out[0] - 12}" text-anchor="middle">{tr("burn rate", "燃烧速率")}</text>')
+    parts.append(f'<text class="lbl" x="{layers_x[3]}" y="{ys_out[1] + 20}" text-anchor="middle">{tr("flame out?", "是否熄火？")}</text>')
+    parts.append(f'<text class="mut" x="{(layers_x[1] + layers_x[2]) / 2}" y="16" text-anchor="middle">{tr("shared layers", "共享层")}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def model_panel_html(stats: dict, base: dict, how: str) -> str:
+    """Right-hand panel: ring gauges, error-vs-baseline bars, and plain-language notes."""
+    def ring(label: str, mean: float, std: float) -> str:
+        pct = max(0.0, min(1.0, mean)) * 100
+        return (f'<div class="ring-wrap"><div class="ring" style="background:conic-gradient(#d95926 {pct:.1f}%, rgba(255,255,255,.08) 0)">'
+                f'<div class="ring-in"><b>{mean:.2f}</b><span>± {std:.2f}</span></div></div><div class="ring-lbl">{label}</div></div>')
+
+    def err_bar(label: str, key: str) -> str:
+        m, b = stats[key]["mean"], base[key]["mean"]
+        scale = max(m, b)
+        return (f'<div class="eb"><div class="eb-top"><span>{label}</span><b>{m:.3f} ± {stats[key]["std"]:.3f} mm/s</b></div>'
+                f'<div class="eb-row"><i class="eb-this" style="width:{100 * m / scale:.0f}%"></i></div>'
+                f'<div class="eb-row"><i class="eb-base" style="width:{100 * b / scale:.0f}%"></i></div>'
+                f'<div class="eb-key"><span class="k1"></span>{tr("this model", "本模型")}<span class="k2"></span>{tr("baseline", "基线")}</div></div>')
+
+    is_base = stats is base
+    mae_drop = (1 - stats["mae_mm_s"]["mean"] / base["mae_mm_s"]["mean"]) * 100
+    did = (tr("This is the yardstick: R² ≈ 0 means no skill beyond guessing the average.",
+              "这是参照标准：R² ≈ 0 表示除了猜平均值外没有任何预测能力。") if is_base else
+           tr(f"Across 25 held-out folds it explains about {stats['r2_score']['mean'] * 100:.0f}% of the variation in burn rate, "
+              f"with {mae_drop:.0f}% lower error than the baseline.",
+              f"在 25 个独立测试折中，它解释了约 {stats['r2_score']['mean'] * 100:.0f}% 的燃烧速率变化，误差比基线低 {mae_drop:.0f}%。"))
+    return (
+        '<div class="mpanel"><div class="rings">'
+        + ring(tr("R² (burn rate)", "R²（燃烧速率）"), stats["r2_score"]["mean"], stats["r2_score"]["std"])
+        + ring(tr("Balanced accuracy", "平衡准确率"), stats["balanced_accuracy"]["mean"], stats["balanced_accuracy"]["std"])
+        + ring(tr("Macro-F1 (flame out?)", "Macro-F1（是否熄火）"), stats["macro_f1"]["mean"], stats["macro_f1"]["std"])
+        + "</div>"
+        + err_bar(tr("Mean absolute error", "平均绝对误差"), "mae_mm_s")
+        + f'<p class="mnote"><b>{tr("How it works", "工作原理")}</b> {how}</p>'
+        + f'<p class="mnote"><b>{tr("How it did", "表现如何")}</b> {did}</p></div>'
+    )
+
+
 tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction = st.tabs([
     tr("🔬 Evidence Explorer", "🔬 航天实验证据库 (Evidence)"),
     tr("📈 STEM Analysis", "📈 科研变量分析与物理叙事 (STEM Analysis)"),
@@ -1200,12 +1369,69 @@ with tab_audit:
         c3.metric(tr("Evaluation folds", "评估折数"), tr(f"{m_df['eval_id'].nunique()} folds", f"{m_df['eval_id'].nunique()} 折"))
         c4.metric(tr("Zero cross-group leakage assertion", "组间零泄漏断言"), "100% PASSED ✅")
 
-        st.markdown(tr("#### Summary of 25 isolated validation folds (Mean ± Std)", "#### 25 轮隔离测试折评测汇总 (Mean ± Std)"))
-        summary = m_df.groupby("model_family").agg({
-            "mae_mm_s": ["mean", "std"], "rmse_mm_s": ["mean", "std"],
-            "r2_score": ["mean", "std"], "balanced_accuracy": ["mean", "std"], "macro_f1": ["mean", "std"]
-        }).round(4)
-        st.dataframe(summary, use_container_width=True)
+        st.markdown(tr("#### Meet the three models", "#### 认识三个模型"))
+        st.caption(tr(
+            "All three get the same 5 physics inputs and are tested on experiment groups they never saw "
+            "(5 seeds × 5 folds = 25 tests). Pick a model to see how it works and how it scored.",
+            "三个模型使用相同的 5 个物理输入，并在从未见过的实验组上测试（5 个随机种子 × 5 折 = 25 次测试）。选择一个模型查看其原理与得分。",
+        ))
+        metric_cols = ["mae_mm_s", "rmse_mm_s", "r2_score", "balanced_accuracy", "macro_f1"]
+        stats_by_model = {
+            fam: {c: {"mean": float(g[c].mean()), "std": float(g[c].std())} for c in metric_cols}
+            for fam, g in m_df.groupby("model_family")
+        }
+        model_specs = [
+            ("Dummy_Baseline", tr("🎯 Baseline", "🎯 基线模型"), baseline_svg,
+             tr("Ignores all five physics inputs. It always predicts the average burn rate seen in training and the most "
+                "common outcome for extinction. Any useful model has to beat it.",
+                "忽略全部 5 个物理输入，始终预测训练集的平均燃烧速率和最常见的熄火结果。任何有用的模型都必须胜过它。")),
+            ("Random_Forest", tr("🌳 Random forest", "🌳 随机森林"), forest_svg,
+             tr("100 decision trees each ask yes/no questions about the inputs (for example, \"is log Ri below −1?\") and give "
+                "an answer; the forest averages them. One forest predicts burn rate, another whether the flame goes out.",
+                "100 棵决策树分别对输入提出是/否问题（例如“log Ri 是否小于 −1？”）并给出答案，森林再取平均。一个森林预测燃烧速率，另一个预测火焰是否熄灭。")),
+            ("TensorFlow_Multitask_NN", tr("🧠 Neural network", "🧠 神经网络"), network_svg,
+             tr("The five inputs flow through two shared layers (32 and 16 neurons). Two output heads then predict both the "
+                "burn rate and the chance the flame goes out: one network, two tasks.",
+                "5 个输入经过两层共享神经元（32 和 16 个），再由两个输出头同时预测燃烧速率与火焰熄灭概率：一个网络，两个任务。")),
+        ]
+        base_stats = stats_by_model.get("Dummy_Baseline")
+        present = [spec for spec in model_specs if spec[0] in stats_by_model]
+        if base_stats and present:
+            model_tabs = st.tabs([spec[1] for spec in present])
+            for mtab, (fam, _label, svg_fn, how) in zip(model_tabs, present):
+                with mtab:
+                    left, right = st.columns([1, 1.15], gap="large")
+                    left.markdown(_svg_img(svg_fn(), "model-art"), unsafe_allow_html=True)
+                    right.markdown(model_panel_html(stats_by_model[fam], base_stats, how), unsafe_allow_html=True)
+
+                    folds = m_df[m_df["model_family"] == fam].sort_values("eval_id")
+                    fig_f = go.Figure(go.Scatter(
+                        x=folds["eval_id"], y=folds["r2_score"], mode="markers",
+                        marker=dict(size=9, color="#3987e5", line=dict(width=2, color="#0f1426")),
+                        customdata=folds[["seed", "fold"]],
+                        hovertemplate=tr("Seed %{customdata[0]}, fold %{customdata[1]}<br>R² = %{y:.3f}<extra></extra>",
+                                         "种子 %{customdata[0]}，第 %{customdata[1]} 折<br>R² = %{y:.3f}<extra></extra>"),
+                    ))
+                    fig_f.add_hline(y=float(folds["r2_score"].mean()), line=dict(color="#d95926", width=2, dash="dot"),
+                                    annotation_text=tr("mean", "均值"), annotation_position="top right",
+                                    annotation_font=dict(color="#c9d2ea", size=11))
+                    fig_f.update_layout(
+                        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        height=210, margin=dict(l=10, r=10, t=36, b=10), showlegend=False,
+                        title=dict(text=tr("R² on each of the 25 held-out tests (one dot = one test)",
+                                           "25 次独立测试的 R²（每个点代表一次测试）"), font=dict(size=13, color="#c9d2ea"), x=0),
+                        xaxis=dict(showgrid=False, showticklabels=False, zeroline=False, title=None),
+                        yaxis=dict(range=[-0.35, 1.05], gridcolor="rgba(255,255,255,0.06)", zeroline=False,
+                                   tickfont=dict(color="#8f9ab8", size=11)),
+                    )
+                    st.plotly_chart(fig_f, use_container_width=True, config={"displayModeBar": False})
+
+        with st.expander(tr("Show the full summary table (mean ± std)", "查看完整汇总表（均值 ± 标准差）")):
+            summary = m_df.groupby("model_family").agg({
+                "mae_mm_s": ["mean", "std"], "rmse_mm_s": ["mean", "std"],
+                "r2_score": ["mean", "std"], "balanced_accuracy": ["mean", "std"], "macro_f1": ["mean", "std"]
+            }).round(4)
+            st.dataframe(summary, use_container_width=True)
 
         st.markdown(tr("#### Audit warnings and scientific honesty declarations", "#### 审计警示与科学诚实声明 (Honesty Declarations)"))
         for warn in a_data.get("warnings", []):
