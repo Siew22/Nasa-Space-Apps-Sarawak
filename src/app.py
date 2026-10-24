@@ -196,6 +196,11 @@ h2, h3 { letter-spacing: -.01em; }
 .updatemenu-button:active .updatemenu-item-rect { fill: #FF7A2B !important; }
 .updatemenu-item-text { fill: #0B1020 !important; font-weight: 700 !important; }
 
+/* Animated cone-calorimeter diagrams in the prediction tab */
+img.flame-card { width: 100%; height: auto; border-radius: 16px; margin-bottom: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35); transition: transform .25s ease, box-shadow .25s ease; }
+img.flame-card:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(255,106,43,.22); }
+
 /* Gravity / airflow chips above the 2D chart */
 .cues { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; }
 .cue { padding: 6px 12px; border-radius: 999px; font-size: .82rem; font-weight: 600; border: 1px solid; }
@@ -373,6 +378,148 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
+
+def _flame_path(cx: float, base: float, w: float, h: float) -> str:
+    return (f"M {cx - w:.1f} {base:.1f} "
+            f"C {cx - w:.1f} {base - 0.45 * h:.1f}, {cx - 0.35 * w:.1f} {base - 0.55 * h:.1f}, {cx:.1f} {base - h:.1f} "
+            f"C {cx + 0.35 * w:.1f} {base - 0.55 * h:.1f}, {cx + w:.1f} {base - 0.45 * h:.1f}, {cx + w:.1f} {base:.1f} "
+            f"Q {cx:.1f} {base + 0.18 * w:.1f}, {cx - w:.1f} {base:.1f} Z")
+
+
+def flame_diagram_svg(flux: float, duration: float, mean_hrr: float, peak: float,
+                      threshold: float, ref_peak: float, title: str) -> str:
+    """Animated, labelled cone-calorimeter schematic for one burn.
+
+    Flame height scales with peak HRR^0.4 (Heskestad-style flame-height scaling), the
+    sustained flame size with mean/peak HRR, and the number of radiant-heat arrows with
+    the applied heat flux. Schematic only; not to scale and not CFD.
+    """
+    cx, base = 210.0, 250.0
+    norm = max(0.0, min(1.0, peak / ref_peak)) if ref_peak > 0 else 0.5
+    h = 45 + 130 * norm ** 0.4
+    w = 26 + 6 * norm
+    plateau = max(0.35, min(0.95, mean_hrr / peak)) if peak > 0 else 0.6
+    end_peak = min(1.0, plateau * 1.15)
+    core = "#FFFFFF" if norm > 0.5 else "#FFF3B0"
+    high = peak >= threshold
+    flux_n = max(0.0, min(1.0, (flux - 25) / 40))
+    n_rays = 2 + int(round(2 * flux_n))
+    font = "Inter, Segoe UI, Microsoft YaHei, PingFang SC, Arial, sans-serif"
+
+    rays = []
+    for side in (-1, 1):
+        for k in range(n_rays):
+            t = (k + 0.5) / n_rays
+            fx, fy = 158 + 18 * t, 172 + 52 * t
+            if side == 1:
+                fx = 2 * cx - fx
+            tx = cx + side * (22 + 24 * t)
+            rays.append(f'<line class="ray" x1="{fx:.1f}" y1="{fy:.1f}" x2="{tx:.1f}" y2="246" '
+                        f'marker-end="url(#arr)" style="animation-delay:{-0.2 * k:.1f}s"/>')
+
+    lbl = {
+        "hood": tr("Exhaust hood", "排烟罩"),
+        "heater": tr("Conical radiant heater", "锥形辐射加热器"),
+        "flux": tr(f"Heat flux {flux:.0f} kW/m²", f"热通量 {flux:.0f} kW/m²"),
+        "ign": tr("Spark igniter", "电火花点火器"),
+        "spec": tr("PMMA specimen", "PMMA 试样"),
+        "hold1": tr("Holder + load cell", "试样座 + 称重传感器"),
+        "hold2": tr("(measures mass loss)", "（测量质量损失）"),
+        "time": tr(f"Burn timeline · {duration:.0f} s (animation sped up)", f"燃烧时间轴 · {duration:.0f} 秒（动画已加速）"),
+        "peak": tr("Predicted peak HRR", "预测峰值热释放率"),
+        "badge": (tr(f"HIGH HAZARD ≥ {threshold:.0f}", f"高危 ≥ {threshold:.0f}") if high
+                  else tr(f"BELOW {threshold:.0f}", f"低于 {threshold:.0f}")),
+    }
+    badge_col = "#FC3D21" if high else "#2EBD6B"
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 410" font-family="{font}">
+<defs>
+  <linearGradient id="outer" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FF3B1F"/><stop offset="1" stop-color="#FF8A2B" stop-opacity="0.15"/></linearGradient>
+  <linearGradient id="mid" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FF7A1A"/><stop offset="1" stop-color="#FFC24D" stop-opacity="0.35"/></linearGradient>
+  <linearGradient id="core" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="{core}"/><stop offset="1" stop-color="#FFE38A" stop-opacity="0.6"/></linearGradient>
+  <radialGradient id="glow"><stop offset="0" stop-color="#FF8A2B" stop-opacity="0.55"/><stop offset="1" stop-color="#FF8A2B" stop-opacity="0"/></radialGradient>
+  <linearGradient id="heat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2a35"/><stop offset="1" stop-color="#7a2e1d"/></linearGradient>
+  <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#FFB347"/></marker>
+</defs>
+<style>
+  .burn {{ transform-box: view-box; transform-origin: {cx}px {base}px; animation: burn 8s ease-in-out infinite; }}
+  .f1 {{ transform-box: view-box; transform-origin: {cx}px {base}px; animation: flick 0.42s ease-in-out infinite alternate; }}
+  .f2 {{ transform-box: view-box; transform-origin: {cx}px {base}px; animation: flick 0.31s ease-in-out infinite alternate-reverse; }}
+  .ray {{ stroke: #FFB347; stroke-width: 1.8; stroke-dasharray: 5 4; opacity: {0.45 + 0.5 * flux_n:.2f}; animation: flow 0.7s linear infinite; }}
+  .coil {{ stroke: #FF6A2B; stroke-width: 2; opacity: .8; animation: pulse 1.6s ease-in-out infinite alternate; }}
+  .spark {{ animation: blink 8s steps(1) infinite; }}
+  .dot {{ animation: track 8s linear infinite; }}
+  .lbl {{ fill: #c9d2ea; font-size: 12px; }}
+  .lead {{ stroke: #6c7899; stroke-width: 1; }}
+  @keyframes burn {{ 0% {{ transform: scale(0.04); opacity: .2 }} 5% {{ transform: scale(0.5); opacity: 1 }}
+    14% {{ transform: scale(1) }} 30% {{ transform: scale({plateau:.2f}) }} 75% {{ transform: scale({plateau:.2f}) }}
+    86% {{ transform: scale({end_peak:.2f}) }} 96% {{ transform: scale(0.1); opacity: .6 }} 100% {{ transform: scale(0.04); opacity: .2 }} }}
+  @keyframes flick {{ from {{ transform: scaleY(0.94) skewX(-2deg) }} to {{ transform: scaleY(1.06) skewX(2deg) }} }}
+  @keyframes flow {{ to {{ stroke-dashoffset: -18 }} }}
+  @keyframes pulse {{ from {{ opacity: .45 }} to {{ opacity: 1 }} }}
+  @keyframes blink {{ 0% {{ opacity: 1 }} 6% {{ opacity: 0 }} }}
+  @keyframes track {{ from {{ transform: translateX(0) }} to {{ transform: translateX(470px) }} }}
+</style>
+<rect x="1" y="1" width="558" height="408" rx="16" fill="#0F1530" stroke="#2a3355"/>
+<text x="16" y="24" fill="#FF9A4D" font-size="12" font-weight="700" letter-spacing="1.5">{title}</text>
+<polygon points="110,34 310,34 282,70 138,70" fill="#2b3350" stroke="#56628a"/>
+<line class="lead" x1="300" y1="50" x2="368" y2="50"/><text class="lbl" x="372" y="54">{lbl['hood']}</text>
+<ellipse class="burn" cx="{cx}" cy="{base - h * 0.45:.1f}" rx="{w * 2.6:.1f}" ry="{h * 0.6:.1f}" fill="url(#glow)"/>
+{''.join(rays)}
+<polygon points="60,168 158,168 176,228 128,228" fill="url(#heat)" stroke="#8a4a35"/>
+<polygon points="360,168 262,168 244,228 292,228" fill="url(#heat)" stroke="#8a4a35"/>
+<path class="coil" d="M80 182 L150 182 M94 198 L160 198 M108 214 L168 214 M340 182 L270 182 M326 198 L260 198 M312 214 L252 214" fill="none"/>
+<line class="lead" x1="350" y1="196" x2="368" y2="196"/><text class="lbl" x="372" y="192">{lbl['heater']}</text>
+<text x="372" y="210" fill="#FFB347" font-size="12" font-weight="700">{lbl['flux']}</text>
+<g class="burn">
+  <g class="f1"><path d="{_flame_path(cx, base, w, h)}" fill="url(#outer)"/></g>
+  <g class="f2"><path d="{_flame_path(cx, base, w * 0.7, h * 0.78)}" fill="url(#mid)"/></g>
+  <g class="f1"><path d="{_flame_path(cx, base, w * 0.38, h * 0.5)}" fill="url(#core)"/></g>
+</g>
+<line x1="350" y1="112" x2="246" y2="146" stroke="#9aa6c4" stroke-width="3" stroke-linecap="round"/>
+<circle class="spark" cx="243" cy="147" r="5" fill="#BFE6FF"/>
+<line class="lead" x1="350" y1="112" x2="368" y2="112"/><text class="lbl" x="372" y="116">{lbl['ign']}</text>
+<rect x="160" y="250" width="100" height="18" rx="2" fill="#8cc8ff" fill-opacity="0.55" stroke="#bfe0ff"/>
+<line class="lead" x1="262" y1="259" x2="368" y2="259"/><text class="lbl" x="372" y="263">{lbl['spec']}</text>
+<rect x="150" y="268" width="120" height="22" rx="3" fill="#3a4466"/>
+<rect x="185" y="290" width="50" height="20" rx="3" fill="#56607f"/>
+<line x1="120" y1="314" x2="300" y2="314" stroke="#56628a" stroke-width="2"/>
+<line class="lead" x1="272" y1="290" x2="368" y2="290"/><text class="lbl" x="372" y="290">{lbl['hold1']}</text>
+<text class="lbl" x="372" y="305" font-size="11">{lbl['hold2']}</text>
+<line x1="45" y1="338" x2="515" y2="338" stroke="#2f3a60" stroke-width="6" stroke-linecap="round"/>
+<circle class="dot" cx="45" cy="338" r="7" fill="#FF6A2B" stroke="#fff" stroke-width="1.5"/>
+<text x="45" y="356" fill="#8f9ab8" font-size="10">0 s</text>
+<text x="515" y="356" fill="#8f9ab8" font-size="10" text-anchor="end">{duration:.0f} s</text>
+<text x="280" y="356" fill="#8f9ab8" font-size="10" text-anchor="middle">{lbl['time']}</text>
+<rect x="14" y="366" width="532" height="34" rx="10" fill="#151c3a" stroke="#2a3355"/>
+<text x="28" y="388" fill="#aab3cc" font-size="12">{lbl['peak']}</text>
+<text x="{170 if lang == 'en' else 150}" y="389" fill="#FFFFFF" font-size="17" font-weight="800">{peak:,.0f} kW/m²</text>
+<rect x="370" y="372" width="168" height="22" rx="11" fill="{badge_col}" fill-opacity="0.18" stroke="{badge_col}"/>
+<text x="454" y="387" fill="{badge_col}" font-size="11" font-weight="800" text-anchor="middle">{lbl['badge']}</text>
+</svg>"""
+
+
+def render_flame_gallery(rows: list[dict], ref_peak: float, threshold: float, max_cards: int = 6) -> None:
+    """Show up to max_cards animated diagrams, two per row (one per row on phones)."""
+    shown = rows[:max_cards]
+    for start_i in range(0, len(shown), 2):
+        cols = st.columns(2)
+        for col, (i, row) in zip(cols, enumerate(shown[start_i:start_i + 2], start=start_i)):
+            svg = flame_diagram_svg(
+                flux=float(row["radiant_heat_flux_kw_m2"]),
+                duration=float(row["real_burn_duration_s"]),
+                mean_hrr=float(row["real_mean_hrr_kw_m2"]),
+                peak=float(row["predicted_peak_hrr_kw_m2"]),
+                threshold=threshold, ref_peak=ref_peak,
+                title=row.get("_title") or tr(f"BURN {i + 1}", f"燃烧试验 {i + 1}"),
+            )
+            b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+            col.markdown(f'<img class="flame-card" alt="" src="data:image/svg+xml;base64,{b64}">',
+                         unsafe_allow_html=True)
+    if len(rows) > max_cards:
+        st.caption(tr(f"Showing the first {max_cards} of {len(rows)} burns. All results are in the table below.",
+                      f"显示前 {max_cards} 条（共 {len(rows)} 条）。完整结果见下表。"))
+
 
 tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction = st.tabs([
     tr("🔬 Evidence Explorer", "🔬 航天实验证据库 (Evidence)"),
@@ -810,6 +957,22 @@ with tab_prediction:
     uploaded_csv = st.file_uploader(tr("Upload after-test CSV", "上传试验后 CSV"), type="csv", key="fire_prediction_csv")
     if uploaded_csv is None:
         st.session_state.pop("fire_prediction_result", None)
+        # Preview so the tab shows what a prediction looks like before any upload.
+        # Fixed illustrative numbers (no model call), so TensorFlow is not loaded just to view the tab.
+        st.markdown(tr("#### 🔥 Preview: what a prediction looks like", "#### 🔥 预览：预测结果的样子"))
+        render_flame_gallery(
+            [
+                {"radiant_heat_flux_kw_m2": 25, "real_burn_duration_s": 900, "real_mean_hrr_kw_m2": 300,
+                 "predicted_peak_hrr_kw_m2": 650, "_title": tr("EXAMPLE · LOW HEAT FLUX", "示例 · 低热通量")},
+                {"radiant_heat_flux_kw_m2": 65, "real_burn_duration_s": 200, "real_mean_hrr_kw_m2": 1500,
+                 "predicted_peak_hrr_kw_m2": 2400, "_title": tr("EXAMPLE · HIGH HEAT FLUX", "示例 · 高热通量")},
+            ],
+            ref_peak=2909.0, threshold=350.0,
+        )
+        st.caption(tr(
+            "Example values for illustration only. Upload a CSV (or the sample above) to see your own burns.",
+            "示例数值仅作演示。上传 CSV（或上方的示例文件）即可查看你自己的燃烧数据。",
+        ))
     if uploaded_csv is not None:
         try:
             upload_hash = sha256(uploaded_csv.getvalue()).hexdigest()
@@ -843,6 +1006,21 @@ with tab_prediction:
                     f"Model source: {model_info['source']}. Scope: {model_info['scope']}",
                     f"模型来源：{model_info['source']}。适用范围：{model_info['scope']}",
                 ))
+                st.markdown(tr("#### 🔥 What each burn looks like", "#### 🔥 每次燃烧的可视化"))
+                st.caption(tr(
+                    "Animated schematic of the cone-calorimeter test. Flame height scales with predicted peak HRR "
+                    "(∝ HRR^0.4), the sustained flame with mean/peak HRR, and the orange arrows with heat flux. "
+                    "Illustrative, not to scale.",
+                    "锥形量热仪试验的动画示意图。火焰高度随预测峰值 HRR 变化（∝ HRR^0.4），持续火焰大小对应平均/峰值 HRR，"
+                    "橙色箭头数量对应热通量。仅为示意，非按比例。",
+                ))
+                training = model_info.get("training_data") or {}
+                render_flame_gallery(
+                    output_df.to_dict(orient="records"),
+                    ref_peak=float(training.get("peak_hrr_max_kw_m2") or 3000.0),
+                    threshold=float(model_info.get("hazard_threshold_kw_m2") or 350.0),
+                )
+                st.markdown(tr("#### Results table", "#### 结果表"))
                 st.dataframe(output_df, use_container_width=True)
                 st.download_button(
                     tr("Download results CSV", "下载结果 CSV"),
