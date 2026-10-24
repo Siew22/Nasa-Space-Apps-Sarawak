@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
 from app.schemas import SimulationRequest
@@ -857,34 +858,78 @@ def render_sweep():
     with col_sweep_plot:
         st.markdown(tr("##### 2. Physical response curves and flow-regime evolution", "##### 2. 物理响应曲线与流体机制演化"))
 
-        fig_curve = go.Figure()
-        fig_curve.add_trace(go.Scatter(
-            x=points_df["sweep_value"],
-            y=points_df["predicted_flame_intensity_proxy"],
-            mode="lines+markers",
-            name=tr("Flame spread intensity proxy", "火焰蔓延强度代理指标"),
-            line=dict(color="#FF4B4B", width=3)
-        ))
-        fig_curve.add_trace(go.Scatter(
-            x=points_df["sweep_value"],
-            y=points_df["log_richardson_number"],
-            mode="lines",
-            name=tr("log10(Richardson number Ri)", "log10(Richardson 数 Ri)"),
-            line=dict(color="#00D4B2", width=2, dash="dash"),
-            yaxis="y2"
-        ))
-
-        fig_curve.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            legend=dict(orientation="h", y=-0.2),
-            title=tr(f"Sensitivity sweep response (swept parameter: {p_name})", f"自变量敏感性扫描响应曲线 (扫描参数: {p_name})"),
-            xaxis_title=tr(f"Swept input value ({p_name})", f"自变量输入值 ({p_name})"),
-            yaxis=dict(title=tr("Flame spread intensity index", "火焰蔓延强度指标"), titlefont=dict(color="#FF4B4B")),
-            yaxis2=dict(title=tr("log10(Ri) flow-regime criterion", "log10(Ri) 流动模式判据"), titlefont=dict(color="#00D4B2"), overlaying="y", side="right"),
-            template="plotly_dark",
-            height=420
+        # Two aligned panels instead of one dual-axis chart: each measure keeps its own honest scale.
+        # Colours validated for the dark surface (dataviz validator: lightness, chroma, CVD, contrast all pass).
+        ORANGE, BLUE, INK, MUTED = "#d95926", "#3987e5", "#c9d2ea", "#8f9ab8"
+        xs = points_df["sweep_value"].tolist()
+        fig_curve = make_subplots(
+            rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.12, row_heights=[0.62, 0.38],
+            subplot_titles=(tr("Flame spread intensity (proxy index)", "火焰蔓延强度（代理指标）"),
+                            tr("Flow regime · log₁₀ Richardson number", "流动模式 · log₁₀ Richardson 数")),
         )
-        st.plotly_chart(fig_curve, use_container_width=True)
+        for ann in fig_curve.layout.annotations:  # left-align the two panel titles
+            ann.update(x=0, xanchor="left", font=dict(size=13, color=INK))
+
+        # Shaded bands for each contiguous flow regime, labelled directly (no colour-only meaning).
+        def regime_key(text: str) -> str:
+            t = str(text)
+            return "quench" if ("Quench" in t or "窒息" in t) else ("forced" if ("Forced" in t or "强迫" in t) else "buoyant")
+
+        regime_style = {
+            "quench": (tr("Smothered (quenching)", "窒息熄灭"), "rgba(255,255,255,0.09)"),
+            "forced": (tr("Forced-flow dominated", "强迫对流主导"), "rgba(255,255,255,0.03)"),
+            "buoyant": (tr("Buoyancy dominated", "浮力主导"), "rgba(255,255,255,0.06)"),
+        }
+        keys = [regime_key(r) for r in points_df["flow_regime"]]
+        edges = [xs[0]] + [(a + b) / 2 for a, b in zip(xs, xs[1:])] + [xs[-1]]
+        run_start = 0
+        for i in range(1, len(keys) + 1):
+            if i == len(keys) or keys[i] != keys[run_start]:
+                label, fill = regime_style[keys[run_start]]
+                x0, x1 = edges[run_start], edges[i]
+                fig_curve.add_vrect(x0=x0, x1=x1, fillcolor=fill, line_width=0, layer="below", row="all", col=1)
+                if x1 - x0 > (xs[-1] - xs[0]) * 0.12:  # wide band: label inside it
+                    fig_curve.add_annotation(x=(x0 + x1) / 2, y=0.97, xref="x", yref="y domain", text=label,
+                                             showarrow=False, font=dict(size=11, color=MUTED))
+                else:  # narrow band: label beside it with a pointer so it is not lost
+                    fig_curve.add_annotation(x=(x0 + x1) / 2, y=0.78, xref="x", yref="y domain", text=label,
+                                             showarrow=True, arrowhead=2, arrowsize=0.8, arrowcolor=MUTED,
+                                             ax=46, ay=-22, font=dict(size=11, color=INK))
+                run_start = i
+
+        fig_curve.add_trace(go.Scatter(
+            x=xs, y=points_df["predicted_flame_intensity_proxy"], mode="lines",
+            line=dict(color=ORANGE, width=2),
+            fill="tozeroy", fillcolor="rgba(217,89,38,0.18)",
+            name=tr("Flame spread", "火焰蔓延"), hovertemplate="%{y:.3f}<extra></extra>",
+        ), row=1, col=1)
+        fig_curve.add_trace(go.Scatter(
+            x=xs, y=points_df["log_richardson_number"], mode="lines",
+            line=dict(color=BLUE, width=2), name="log₁₀ Ri", hovertemplate="%{y:.2f}<extra></extra>",
+        ), row=2, col=1)
+        fig_curve.add_hline(y=0, line=dict(color=MUTED, width=1, dash="dot"), row=2, col=1)
+        fig_curve.add_annotation(x=1, xref="x domain", y=0, yref="y2", xanchor="right", yanchor="bottom",
+                                 text=tr("Ri = 1: buoyancy ≈ airflow", "Ri = 1：浮力 ≈ 气流"),
+                                 showarrow=False, font=dict(size=10, color=MUTED))
+        if points_df["log_richardson_number"].max() <= -3.99:  # g = 0: Ri is 0, drawn at the solver's floor
+            fig_curve.add_annotation(x=0.5, xref="x domain", y=-4, yref="y2", yanchor="bottom",
+                                     text=tr("No gravity → no buoyancy (Ri ≈ 0, drawn at the chart floor)",
+                                             "无重力 → 无浮力（Ri ≈ 0，绘于图表下限）"),
+                                     showarrow=False, font=dict(size=11, color=INK))
+
+        axis_style = dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)", zeroline=False, showline=False,
+                          tickfont=dict(color=MUTED, size=11), showspikes=True, spikemode="across",
+                          spikecolor="rgba(255,255,255,0.35)", spikethickness=1, spikedash="solid")
+        fig_curve.update_xaxes(**axis_style)
+        fig_curve.update_yaxes(**axis_style)
+        fig_curve.update_yaxes(rangemode="tozero", row=1, col=1)
+        fig_curve.update_xaxes(title=dict(text=sweep_target, font=dict(color=INK, size=12)), row=2, col=1)
+        fig_curve.update_layout(
+            template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color=INK), showlegend=False, height=500, margin=dict(l=10, r=10, t=40, b=10),
+            hovermode="x unified", hoverlabel=dict(bgcolor="#151B30", bordercolor="#2a3355", font=dict(color="#E8ECF4")),
+        )
+        st.plotly_chart(fig_curve, use_container_width=True, config={"displayModeBar": False, "responsive": True})
 
     st.markdown(tr("##### 3. Scientific narration for STEM students", "##### 3. 物理因果叙述 (Scientific Narration for STEM Students)"))
     for text in sweep_results["scientific_narration"]:
