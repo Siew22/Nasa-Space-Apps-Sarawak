@@ -46,48 +46,69 @@ tab_evidence, tab_sweep, tab_simulation, tab_audit = st.tabs([
 ])
 
 # =========================================================================
-# TAB 1: 航天实验证据库 (真实数据分轨)
+# TAB 1: 真正由本地大模型驱动的 —— 🧠 SI 航天火灾超级智能 (SI Research Intelligence)
 # =========================================================================
-with tab_evidence:
-    st.subheader("物理分轨实验证据浏览")
-    if not RECORDS_PATH.exists():
-        st.error("未找到处理后的实验数据 CSV，请先运行数据构建流水线。")
-    else:
-        records_df = pd.read_csv(RECORDS_PATH, low_memory=False)
-        col_track, col_search = st.columns([1, 2])
-        with col_track:
-            track_mode = st.radio("选择物理研究轨道:", ["固体表面燃烧 (BASS-II)", "空间悬浮液滴燃烧 (FLEX)"], index=0)
-        with col_search:
-            search_query = st.text_input("🔍 全文检索试样材料、实验编号或工况:", "").strip().lower()
+with tab_si_intelligence:
+    st.subheader("🧠 SI 航天火灾超级智能研究系统 (Local Research Intelligence)")
+    st.markdown(
+        "基于 **100% 本地训练与离线部署** 的航天燃烧科研模型。由本地 FAISS 向量库检索 NASA 官方飞行文献（Saffire, BASS-II, FLEX, SoFIE），"
+        "并由本地微调大模型生成带真实 DOI 引证的决策洞察。**绝不调用任何外部商业 API。**"
+    )
 
-        if "BASS-II" in track_mode:
-            track_df = records_df[records_df["dataset_key"] == "BASS_II"].copy()
-            track_key = "solid_fuel"
-            doi = "10.60555/4qc4-de67"
-            source_url = "https://psi.nasa.gov/physci/repo/data/investigations/PSI-25"
-            default_x, default_y = "calibrated_initial_o2_pct_by_vol", "final_co_ppm"
+    # 1. 实时读取真实后端 AI 硬件与模型状态面板 (Zero Fake Data)
+    from app.services.local_llm_service import get_ai_status, ask_local_research_ai
+    ai_status = get_ai_status()
+
+    with st.expander("🖥️ 查看本地 AI 运行状态与硬件监控 (Local Engine Status)", expanded=False):
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("计算设备 (Device)", ai_status["gpu_name"])
+        s2.metric("离线模式 (Offline Mode)", "STRICT OFFLINE ✅" if ai_status["offline_mode_enforced"] else "Online")
+        s3.metric("微调权重 (LoRA)", "已加载 (Adapter Active)" if ai_status["lora_adapter_available"] else "未训练 (Base Fallback)")
+        s4.metric("开源协议", ai_status["base_model_license"])
+        st.caption(f"当前运行模式: **{ai_status['active_model_mode']}** | 基座: `{ai_status['base_model']}`")
+
+    # 2. 交互式科学提问与预设科学问题
+    st.markdown("##### 提出您的航天火灾科学问题")
+    sample_q = st.selectbox(
+        "快速选择典型研究探索问题 (Sample NASA Research Questions):",
+        [
+            "自定义科学提问...",
+            "In microgravity, what happens to solid fuel flame spread when ventilation airflow is cut to zero?",
+            "How does the Artemis Lunar exploration atmosphere (34% O2, 56 kPa) change solid material flammability compared to Earth air?",
+            "Can burning rate data from BASS-II solid fuels and FLEX liquid droplets be directly combined into one prediction model?",
+            "What did the Saffire experiments observe about flame length and radiation on large-scale fabric samples?"
+        ]
+    )
+
+    user_query = st.text_input(
+        "输入英文科学问题 (模型基于 NASA 英文技术文献微调):",
+        value="" if sample_q == "自定义科学提问..." else sample_q
+    )
+
+    if st.button("🚀 启动本地超级智能推理 (Run Local SI Inference)", type="primary"):
+        if not user_query.strip():
+            st.warning("请输入有效的科学问题。")
         else:
-            track_df = records_df[records_df["dataset_key"] == "FLEX"].copy()
-            track_key = "liquid_droplet"
-            doi = "10.60555/mbq8-0451"
-            source_url = "https://psi.nasa.gov/physci/repo/data/investigations/PSI-69"
-            default_x, default_y = "droplet_initial_diameter_mm", "burning_rate_mm"
+            with st.spinner("🔍 正在检索本地 NASA 证据库并执行本地神经网络前向推理..."):
+                response = ask_local_research_ai(user_query)
 
-        if search_query:
-            mask = track_df.astype(str).apply(lambda col: col.str.lower().str.contains(search_query, regex=False, na=False)).any(axis=1)
-            track_df = track_df.loc[mask]
+            st.markdown("#### 🤖 本地 SI 科学解译与回答 (Generated Research Finding)")
+            if response["evidence_sufficient"]:
+                st.success(response["answer"])
+            else:
+                st.error(response["answer"])
 
-        st.info(f"📌 **当前实验轨道**: {track_mode} | **DOI**: `{doi}` | [访问 NASA 官方实验库]({source_url})")
-
-        st.markdown("#### 真实实验数据聚合统计排行 (Zero Hardcoding)")
-        ranking_data = get_empirical_material_ranking(track_key)
-        if ranking_data:
-            st.dataframe(pd.DataFrame(ranking_data), use_container_width=True, hide_index=True)
-
-        st.markdown("#### 原始观测数据表 (可审计明细)")
-        st.dataframe(track_df, use_container_width=True, hide_index=True)
-
-
+            st.markdown("#### 📚 检索到的 NASA 官方文献证据与 DOI (Retrieved Evidence Passages)")
+            if response["evidence_passages"]:
+                for i, p in enumerate(response["evidence_passages"], 1):
+                    with st.expander(f"证据 {i}: [{p['investigation']}] {p['citation']} (相似度得分: {p['similarity_score']})", expanded=True):
+                        st.write(f"**文献出处**: {p['citation']}")
+                        st.markdown(f"**官方 DOI 校验**: `https://doi.org/{p['doi']}`")
+                        st.write(f"**物理介质**: `{p['physical_system']}` | **实测环境**: `{p['conditions']}`")
+                        st.info(f"**原文段落**: {p['text']}")
+            else:
+                st.caption("未检索到相关学术分块。")
+                
 # =========================================================================
 # TAB 2: STEM 科研变量敏感性分析与物理因果叙述
 # =========================================================================
