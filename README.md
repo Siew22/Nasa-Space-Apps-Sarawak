@@ -133,13 +133,17 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
 
    The temperature map is an illustrative Gaussian, not a CFD solution. The tab lists every equation, assumption and limitation (`config/simulation_model.json`).
 4. **Scientific Audit.** Every task's status, the leakage re-check, model diagrams and scores, fold-by-fold results, measured-vs-predicted plots, and download links for all reports.
-5. **AI Predictions** (`MODEL_PREDICTION`), two sub-tabs.
+5. **AI Predictions & Research**, three sub-tabs: two trained models (`MODEL_PREDICTION`) and the local research AI.
    **Microgravity droplet flame (FLEX · ISS):** pick a fuel (n-heptane or methanol), pressure, O₂/CO₂/He mix and droplet size,
    or load one of six atmospheres NASA actually tested.
    - **Predictions:** burning-rate constant K (Ridge) and whether the flame goes out before the fuel is used up (logistic
      regression), plus the d²-law burn-out time d₀²/K.
    - **Why:** both models are linear, so each prediction is split exactly into one push per input, measured from the average
      NASA test.
+   - **Pictures, not just numbers:** an animated droplet burns at the predicted rate and ends the way the model says;
+     three meters place the burning rate on NASA's measured range, the flame-out score on its 0–1 scale, and show what
+     happened in the closest real tests. A card per input gives its push in this test and the physics behind it
+     (a test checks each card's stated direction against the fitted weights). Longer notes sit in folded boxes.
    - **Real NASA tests close to this:** same fuel, pressure within 10 %, each gas within 2–5 points; if there are none, the
      tab says the model is combining other conditions.
    - **Accuracy and limits:** the nested-CV scores are shown next to the prediction. Inputs outside the tested ranges are
@@ -149,15 +153,15 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
    - **Inputs:** two of the inputs come from the same HRR curve, so this is an after-test estimate, not a forecast.
    - **Scope:** ground-based PMMA only. It is not validated for microgravity, spacecraft or fire-safety decisions.
    - **Hazard flag:** the 350 kW/m² rule cannot be validated, because every measured peak is above it.
-6. **🧠 SI Research Intelligence** (local GPU only). Ask a space-fire question in English: a local FAISS index retrieves
-   passages from `data/knowledge/nasa_combustion_corpus.json` and a locally fine-tuned `Qwen2.5-1.5B-Instruct` (LoRA)
-   answers with their citations, with no remote API (`app/services/local_llm_service.py`).
-   - **Where it runs:** it needs an NVIDIA GPU and the packages in `requirement.txt`. On Streamlit Cloud the tab says the
-     engine is not installed and shows the last local benchmark instead.
+   **🧠 Ask the research AI (SI Research Intelligence, local GPU only):** ask a space-fire question in English: a local
+   FAISS index retrieves passages from `data/knowledge/nasa_combustion_corpus.json` and a locally fine-tuned
+   `Qwen2.5-1.5B-Instruct` (LoRA) answers with their citations, with no remote API (`app/services/local_llm_service.py`).
+   - **Where it runs:** it needs an NVIDIA GPU and the packages in `requirement.txt`. On Streamlit Cloud the sub-tab says
+     the engine is not installed and shows the last local benchmark instead.
    - **Results so far:** fine-tuned on 12 examples (6.8 s on an RTX 3060), it scored the same as the base model on 4 test
      questions (`reports/local_ai_comparative_benchmark.json`).
    - **Knowledge passages:** team-written summaries, not verbatim NASA text; their report numbers are still being checked
-     (`docs/SCIENTIFIC_AUDIT.md`, section 12), so the tab marks them `UNVERIFIED_SOURCE`.
+     (`docs/SCIENTIFIC_AUDIT.md`, section 12), so the sub-tab marks them `UNVERIFIED_SOURCE`.
 
 ## Tests
 

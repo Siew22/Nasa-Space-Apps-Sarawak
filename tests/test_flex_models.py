@@ -94,3 +94,21 @@ def test_nearest_tests_are_real_rows_with_the_same_fuel_and_close_conditions():
 def test_missing_model_file_gives_a_clear_error(tmp_path):
     with pytest.raises(flex.FlexModelUnavailable, match="train_flex_models"):
         flex.load_model(ROOT / "models" / "does_not_exist.json")
+
+
+# Directions stated by the factor explanations in src/app.py (FLEX_FACTOR_WHY): (burning rate, flame-out).
+# +1 = more of this input raises K / pushes toward going out; for is_heptane, "more" means heptane instead of methanol.
+EXPLAINED_DIRECTIONS = {"is_heptane": (+1, -1), "pressure_mmhg": (+1, +1), "x_o2": (+1, -1),
+                        "x_co2": (-1, +1), "x_he": (+1, +1), "d0_mm": (-1, +1)}
+
+
+def test_factor_explanations_match_the_fitted_weights():
+    k = flex.load_model(flex.BURNING_RATE_PATH)
+    e = flex.load_model(flex.EXTINCTION_PATH)
+    for col, kc, ec in zip(k["feature_columns"], k["coef"], e["coef"]):
+        want_k, want_e = EXPLAINED_DIRECTIONS[col]
+        assert np.sign(kc) == want_k, f"burning-rate weight of {col} changed sign: update FLEX_FACTOR_WHY"
+        assert np.sign(ec) == want_e, f"flame-out weight of {col} changed sign: update FLEX_FACTOR_WHY"
+    # "Oxygen has the biggest effect in both models" (standardised weights)
+    assert np.argmax(np.abs(k["coef"])) == k["feature_columns"].index("x_o2")
+    assert np.argmax(np.abs(e["coef"])) == e["feature_columns"].index("x_o2")

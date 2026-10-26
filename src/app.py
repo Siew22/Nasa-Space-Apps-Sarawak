@@ -297,6 +297,20 @@ img.flame-card:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba
 .cue.g { color: #7CC4FF; border-color: rgba(124,196,255,.45); background: rgba(124,196,255,.1); }
 .cue.a { color: #9DFFB0; border-color: rgba(157,255,176,.45); background: rgba(157,255,176,.1); }
 
+/* AI Predictions tab: one card per input factor */
+.factors { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin: 6px 0 14px; }
+.fcard { padding: 14px 16px; border-radius: 14px; background: linear-gradient(160deg, #1a2140, #121830);
+  border: 1px solid rgba(255,255,255,.09); }
+.fhead { display: flex; align-items: center; gap: 10px; color: #fff; }
+.ficon { font-size: 1.4rem; }
+.fval { color: #8f9ab8; font-size: .78rem; margin-top: 2px; }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+.fchip { padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; border: 1px solid; }
+.fchip.fire { color: #FF9A6B; border-color: rgba(217,89,38,.55); background: rgba(217,89,38,.12); }
+.fchip.calm { color: #7CB6FF; border-color: rgba(57,135,229,.55); background: rgba(57,135,229,.12); }
+.fchip.none { color: #8f9ab8; border-color: rgba(143,154,184,.35); background: rgba(143,154,184,.08); }
+.fwhy { margin: 0; font-size: .84rem; color: #c3cbe0; line-height: 1.5; }
+
 /* Front page: crew fire-safety takeaways */
 .insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 4px 0 26px; }
 .icard { display: flex; flex-direction: column; padding: 16px 18px; border-radius: 16px;
@@ -873,14 +887,15 @@ def _svg_img(svg: str, cls: str) -> str:
     return f'<img class="{cls}" alt="" src="data:image/svg+xml;base64,{base64.b64encode(svg.encode("utf-8")).decode("ascii")}">'
 
 
-def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float, cycle: float) -> str:
+def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float, cycle: float,
+                end_text: str | None = None) -> str:
     """Free-floating fuel droplet inside its spherical microgravity flame (FLEX).
 
     Proportions follow NASA's FLEX description: a 2-4 mm droplet inside a flame ball
     "about the size of a large olive", so the flame is drawn ~6x the droplet diameter.
     Alkanes show a luminous yellow-orange soot shell with a blue rim; methanol burns
     with a faint, soot-free blue flame. The droplet shrinks from its measured start
-    diameter to the measured extinction diameter, where the flame goes out.
+    diameter to the measured extinction diameter, where the flame goes out. `end_text` replaces the end label.
     Relative speeds only; time is compressed. Illustration, not footage.
     """
     is_methanol = "methanol" in fuel.lower()
@@ -905,7 +920,7 @@ def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float
         soot = (f'<circle cx="110" cy="100" r="{flame_r * 0.5:.1f}" fill="none" stroke="#7a3b12" '
                 f'stroke-width="3" opacity="0.35" filter="url(#soft)"/>')
         liquid_hi, liquid_lo = "#FFF6DD", "#E2B86A"
-    ext_txt = tr(f"EXTINCTION · {d_ext:.2f} mm", f"熄火 · {d_ext:.2f} mm")
+    ext_txt = end_text if end_text is not None else tr(f"EXTINCTION · {d_ext:.2f} mm", f"熄火 · {d_ext:.2f} mm")
     size_txt = tr(f"droplet {d0:.1f} mm · flame ~ olive-sized", f"液滴 {d0:.1f} mm · 火焰约橄榄大小")
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 210" font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">
 <defs>
@@ -1450,8 +1465,7 @@ TAB_LABELS = {
     "stem": ("📈 STEM Analysis", "📈 科研变量分析与物理叙事 (STEM Analysis)"),
     "sandbox": ("🧪 2D Physics Sandbox", "🧪 2D 物理时空模拟沙盒 (Physics Sandbox)"),
     "audit": ("📊 Scientific Audit", "📊 科学审计与 25 折验证 (Scientific Audit)"),
-    "ai": ("🤖 AI Predictions", "🤖 AI 预测"),
-    "si": ("🧠 SI Research Intelligence", "🧠 SI 航天火灾超级智能"),
+    "ai": ("🤖 AI Predictions & Research", "🤖 AI 预测与研究"),
 }
 
 
@@ -1481,8 +1495,8 @@ st.caption(tr("Six takeaways. Every number is computed live from NASA's data, th
               "六条要点。每个数字都由 NASA 数据、AI 模型或物理模型实时计算；标签说明证据类型，页面名称说明在哪里核查。"))
 st.markdown(insights_html(cached_insights(lang)), unsafe_allow_html=True)
 
-tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction, tab_si_intelligence = st.tabs(
-    [tr(*TAB_LABELS[k]) for k in ("evidence", "stem", "sandbox", "audit", "ai", "si")])
+tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction = st.tabs(
+    [tr(*TAB_LABELS[k]) for k in ("evidence", "stem", "sandbox", "audit", "ai")])
 
 # =========================================================================
 # TAB 1: 航天实验证据库 (真实数据分轨)
@@ -2177,7 +2191,8 @@ def task_overview_html(tasks: list[dict], reg_by_id: dict) -> str:
         reasons = "<br>".join(_md_code(code_text(r)) for r in t.get("reasons", []))
         if t["task_id"] in deployed:
             reasons = (reasons + "<br>" if reasons else "") + html.escape(
-                tr("▶ Runs in 🤖 AI Predictions: ", "▶ 用于 🤖 AI 预测：") + tr(*MODEL_LABELS.get(deployed[t["task_id"]], ("", ""))))
+                tr("▶ Runs in ", "▶ 用于 ") + tr(*TAB_LABELS["ai"]) + tr(": ", "：")
+                + tr(*MODEL_LABELS.get(deployed[t["task_id"]], ("", ""))))
         rows.append(
             f'<tr><td><div class="t">{html.escape(cfg_text(reg, "title", t["task_id"]))}</div><div class="sub">{kind}</div></td>'
             f'<td><div class="t">{html.escape(tr(*name))}</div><span class="pill env {tone}">{html.escape(tr(*env))}</span>'
@@ -2417,14 +2432,159 @@ def _apply_flex_preset(lang_key: str) -> None:
         st.session_state.pop(f"flex_{name}_{lang_key}", None)
 
 
+# Why each input pushes the result: textbook droplet-combustion physics, written for non-specialists.
+# The direction of every statement matches the sign of that input's coefficient in both deployed models.
+FLEX_FACTOR_WHY = {
+    "is_heptane": ("🧪", ("Fuel", "燃料"), (
+        "Methanol needs over 3× more heat to evaporate than heptane and soaks up the water its own flame makes, so it "
+        "burns a little slower and goes out more easily. Heptane burns faster and keeps going longer.",
+        "甲醇蒸发所需热量是正庚烷的 3 倍以上，还会吸收自身火焰产生的水，因此燃烧稍慢、更容易熄灭；正庚烷燃烧更快、更持久。")),
+    "pressure_mmhg": ("⏲️", ("Pressure", "压力"), (
+        "Higher pressure packs more gas around the droplet, so it burns a little faster. In NASA's tests it also pushed "
+        "toward going out, likely because the flame loses more heat as radiation. Many high-pressure tests also had a "
+        "lot of CO₂, so part of this effect may come from the gas mix.",
+        "压力越高，液滴周围的气体越密，燃烧略快。在 NASA 试验中，高压也推向熄灭，可能是火焰以辐射方式损失了更多热量；"
+        "不过许多高压试验同时含有大量 CO₂，因此部分影响可能来自气体组成。")),
+    "x_o2": ("🫁", ("Oxygen", "氧气"), (
+        "More oxygen makes a hotter flame that sits closer to the droplet, so it burns faster and is much harder to put "
+        "out. Oxygen has the biggest effect in both models.",
+        "氧气越多，火焰越热、离液滴越近，因此燃烧更快，也更难熄灭。氧气在两个模型中影响都最大。")),
+    "x_co2": ("🧯", ("CO₂", "CO₂"), (
+        "CO₂ takes the place of oxygen and soaks up and radiates heat, so the flame runs cooler: slower burning and "
+        "easier to put out. That is why CO₂ is used to fight fires.",
+        "CO₂ 取代了氧气，并吸收、辐射热量，使火焰温度降低：燃烧更慢、更容易熄灭。这正是 CO₂ 被用来灭火的原因。")),
+    "x_he": ("🎈", ("Helium", "氦气"), (
+        "Helium carries heat about 6× better than air. It brings heat to the droplet faster, so it burns faster, but "
+        "it also pulls heat out of the flame, so the flame goes out more easily.",
+        "氦气的导热能力约为空气的 6 倍。它把热量更快地传给液滴，使燃烧更快；但同时也把热量从火焰中带走，使火焰更容易熄灭。")),
+    "d0_mm": ("💧", ("Droplet size", "液滴大小"), (
+        "A bigger droplet makes a bigger flame that loses more heat as glowing radiation. Large droplets burn slower "
+        "on average and are more likely to go out early: FLEX's discovery of radiative extinction.",
+        "液滴越大，火焰越大，以辐射发光形式损失的热量越多。大液滴平均燃烧更慢，也更容易提前熄灭，这正是 FLEX 发现的辐射熄火现象。")),
+}
+
+
+def _flex_shown(column: str, value: float) -> str:
+    """One input value in display units: '1.00 atm', '21%', '3.0 mm', 'heptane'."""
+    if column == "is_heptane":
+        return tr("heptane", "正庚烷") if value == 1 else tr("methanol", "甲醇")
+    if column == "pressure_mmhg":
+        return f"{value / 760:.2f} atm"
+    if column == "d0_mm":
+        return f"{value:.1f} mm"
+    return f"{100 * value:.0f}%"
+
+
 def _flex_input_label(column: str, value: float, average: float) -> str:
     """'O₂ 21% (avg 19%)': the bar is this test's value measured against the average training test."""
     if column == "is_heptane":
         return tr("Fuel: heptane", "燃料：正庚烷") if value == 1 else tr("Fuel: methanol", "燃料：甲醇")
-    shown = {"pressure_mmhg": lambda v: f"{v / 760:.2f} atm", "d0_mm": lambda v: f"{v:.1f} mm"}.get(
-        column, lambda v: f"{100 * v:.0f}%")
-    return tr(f"{FLEX_INPUT_LABELS[column][0]} {shown(value)} (avg {shown(average)})",
-              f"{FLEX_INPUT_LABELS[column][1]} {shown(value)}（平均 {shown(average)}）")
+    return tr(f"{FLEX_INPUT_LABELS[column][0]} {_flex_shown(column, value)} (avg {_flex_shown(column, average)})",
+              f"{FLEX_INPUT_LABELS[column][1]} {_flex_shown(column, value)}（平均 {_flex_shown(column, average)}）")
+
+
+@st.cache_data(show_spinner=False)
+def flex_extinction_ratio(heptane: bool) -> float:
+    """Median extinction / start diameter of NASA FLEX tests whose flame went out (only used to draw the animation)."""
+    df = load_records(str(RECORDS_PATH))
+    f = df[(df["dataset_key"] == "FLEX") & (df["test_end"].astype(str).str.strip() == "Extinction")]
+    f = f[f["fuel"].astype(str).str.lower().str.contains("heptane") == heptane]
+    ratio = (pd.to_numeric(f["visible_flame_extinction_diameter_mm"], errors="coerce")
+             / pd.to_numeric(f["droplet_initial_diameter_mm"], errors="coerce"))
+    ratio = ratio[(ratio > 0) & (ratio < 1)]
+    return float(ratio.median()) if len(ratio) else 0.6
+
+
+def _flex_result_figure(pred: dict, near: dict, k_meta: dict) -> go.Figure:
+    """Three rulers: burning rate against NASA's measured range, the flame-out score on its 0-1 scale, and what
+    actually happened in the real NASA tests run under similar conditions."""
+    ORANGE, BLUE, GREY, MUTED = "#d95926", "#3987e5", "#5b6584", "#8f9ab8"
+    td = k_meta["training_data"]
+    mae = k_meta["cross_validation"]["model"]["mae"]["mean"]
+    k, score, thr = pred["burning_rate_mm2_s"], pred["extinction_score"], pred["extinction_threshold"]
+    fig = make_subplots(rows=3, cols=1, vertical_spacing=0.24, subplot_titles=(
+        tr("Burning rate K (mm²/s), on NASA's measured range", "燃烧速率 K (mm²/s)，在 NASA 实测范围中的位置"),
+        tr("Flame-out score", "熄火得分"),
+        tr("What happened in the real NASA tests close to this", "与此相近的真实 NASA 试验结果")))
+    for ann in fig.layout.annotations:
+        ann.update(x=0, xanchor="left", font=dict(size=12, color="#c9d2ea"))
+
+    fig.add_vrect(x0=td["target_min"], x1=td["target_max"], fillcolor="rgba(255,255,255,0.07)", line_width=0, layer="below", exclude_empty_subplots=False, row=1, col=1)
+    if near["k_readings"]:
+        fig.add_vrect(x0=near["k_min"], x1=near["k_max"], fillcolor="rgba(57,135,229,0.28)", line_width=0, layer="below", exclude_empty_subplots=False, row=1, col=1)
+        fig.add_annotation(x=(near["k_min"] + near["k_max"]) / 2, y=0.42, xref="x", yref="y", showarrow=False,
+                           text=tr("close NASA tests", "相近的 NASA 试验"), font=dict(size=10, color="#9cc4f0"))
+    fig.add_vline(x=pred["burning_rate_at_average_test"], line=dict(color=MUTED, dash="dot", width=1), exclude_empty_subplots=False, row=1, col=1)
+    fig.add_annotation(x=pred["burning_rate_at_average_test"], y=-0.42, xref="x", yref="y", showarrow=False, xanchor="left",
+                       text=tr(" average test", " 平均试验"), font=dict(size=10, color=MUTED))
+    fig.add_trace(go.Scatter(
+        x=[k], y=[0], mode="markers", marker=dict(symbol="diamond", size=15, color=ORANGE, line=dict(color="white", width=1)),
+        error_x=dict(type="constant", value=mae, color=ORANGE, thickness=2, width=7),
+        hovertemplate=tr(f"AI: {k:.3f} ± {mae:.3f} mm²/s<extra></extra>", f"AI：{k:.3f} ± {mae:.3f} mm²/s<extra></extra>")),
+        row=1, col=1)
+    fig.update_xaxes(range=[0, max(td["target_max"], k + mae) * 1.05], row=1, col=1)
+
+    fig.add_vrect(x0=0, x1=thr, fillcolor="rgba(217,89,38,0.18)", line_width=0, layer="below", exclude_empty_subplots=False, row=2, col=1)
+    fig.add_vrect(x0=thr, x1=1, fillcolor="rgba(57,135,229,0.18)", line_width=0, layer="below", exclude_empty_subplots=False, row=2, col=1)
+    fig.add_vline(x=thr, line=dict(color=MUTED, width=1), exclude_empty_subplots=False, row=2, col=1)
+    for x, text in ((thr / 2, tr("burns to the end", "燃烧至耗尽")), ((1 + thr) / 2, tr("goes out early", "提前熄灭"))):
+        fig.add_annotation(x=x, y=0.42, xref="x2", yref="y2", text=text, showarrow=False, font=dict(size=11, color=MUTED))
+    fig.add_trace(go.Scatter(
+        x=[score], y=[-0.08], mode="markers",
+        marker=dict(symbol="diamond", size=15, color=BLUE if score >= thr else ORANGE, line=dict(color="white", width=1)),
+        hovertemplate=tr(f"score {score:.2f} (line {thr:.2f})<extra></extra>", f"得分 {score:.2f}（判断线 {thr:.2f}）<extra></extra>")),
+        row=2, col=1)
+    fig.update_xaxes(range=[0, 1], row=2, col=1)
+
+    if near["tests"]:
+        for n, label, color in ((near["went_out"], tr("went out", "熄灭"), BLUE),
+                                (near["burned_out"], tr("burned out", "燃尽"), ORANGE),
+                                (near["disrupted"], tr("disrupted", "中断"), GREY)):
+            fig.add_trace(go.Bar(x=[n], y=[0], orientation="h", marker_color=color, width=0.7,
+                                 text=[f"{n} {label}" if n else ""], textposition="inside", insidetextanchor="middle",
+                                 textfont=dict(color="white", size=11), hovertemplate=f"{label}: {n}<extra></extra>"),
+                          row=3, col=1)
+        fig.update_xaxes(range=[0, near["tests"]], row=3, col=1)
+    else:
+        fig.add_annotation(x=0.5, y=0, xref="x3 domain", yref="y3", showarrow=False, font=dict(size=12, color="#F5C451"),
+                           bgcolor="rgba(245,196,81,0.12)", bordercolor="rgba(245,196,81,0.5)", borderpad=6,
+                           text=tr("⚠ No close NASA test: use this prediction with caution",
+                                   "⚠ 无相近的 NASA 试验：请谨慎参考该预测"))
+        fig.update_xaxes(visible=False, row=3, col=1)
+
+    fig.update_yaxes(visible=False, range=[-0.6, 0.6])
+    fig.update_xaxes(gridcolor="rgba(255,255,255,0.06)", zeroline=False, tickfont=dict(color=MUTED, size=10))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                      barmode="stack", uniformtext=dict(minsize=10, mode="show"), showlegend=False, height=330, margin=dict(l=8, r=8, t=30, b=10),
+                      font=dict(color="#c9d2ea"))
+    return fig
+
+
+def _factor_cards_html(pred: dict, inputs: dict, means: list) -> str:
+    """One card per input: its value, its push on each model's result in this test, and the physics behind it."""
+    k_c, e_c = pred["burning_rate_contributions"], pred["extinction_contributions"]
+    cards = []
+    for (col, avg) in zip(k_c, means):
+        icon, name, why = FLEX_FACTOR_WHY[col]
+        value = (tr(f"This test: {_flex_shown(col, inputs[col])}", f"本次试验：{_flex_shown(col, inputs[col])}")
+                 if col == "is_heptane" else
+                 tr(f"This test: {_flex_shown(col, inputs[col])} · average NASA test: {_flex_shown(col, avg)}",
+                    f"本次试验：{_flex_shown(col, inputs[col])} · NASA 平均试验：{_flex_shown(col, avg)}"))
+        k, e = k_c[col], e_c[col]
+        chips = [
+            ("none", tr("≈ no effect on speed", "对速度几乎无影响")) if abs(k) < 0.005 else
+            ("fire", tr(f"▲ burns faster {k:+.3f}", f"▲ 燃烧更快 {k:+.3f}")) if k > 0 else
+            ("calm", tr(f"▼ burns slower {k:+.3f}", f"▼ 燃烧更慢 {k:+.3f}")),
+            ("none", tr("≈ no effect on flame-out", "对熄火几乎无影响")) if abs(e) < 0.05 else
+            ("calm", tr(f"pushes toward going out {e:+.2f}", f"推向熄灭 {e:+.2f}")) if e > 0 else
+            ("fire", tr(f"helps it keep burning {e:+.2f}", f"帮助持续燃烧 {e:+.2f}")),
+        ]
+        cards.append(
+            f'<div class="fcard"><div class="fhead"><span class="ficon">{icon}</span><div><b>{html.escape(tr(*name))}</b>'
+            f'<div class="fval">{html.escape(value)}</div></div></div><div class="fchips">'
+            + "".join(f'<span class="fchip {cls}">{html.escape(t)}</span>' for cls, t in chips)
+            + f'</div><p class="fwhy">{html.escape(tr(*why))}</p></div>')
+    return f'<div class="factors">{"".join(cards)}</div>'
 
 
 def _contribution_chart(contrib: dict, inputs: dict, means: list, title: str, unit: str,
@@ -2509,9 +2669,10 @@ def render_flex_predictor() -> None:
         return
 
     cv_k, cv_e = k_meta["cross_validation"], e_meta["cross_validation"]
+    goes_out = pred["flame_goes_out"]
+    fuel_name = tr("n-heptane", "正庚烷") if heptane else tr("methanol", "甲醇")
     with c_out:
         st.markdown(tr("##### 2. What the AI predicts", "##### 2. AI 的预测"))
-        goes_out = pred["flame_goes_out"]
         cards = [
             (f"{pred['burning_rate_mm2_s']:.3f} mm²/s", tr("Burning rate K", "燃烧速率 K")),
             (tr("Goes out early", "提前熄灭") if goes_out else tr("Burns to the end", "燃烧至耗尽"),
@@ -2521,80 +2682,114 @@ def render_flex_predictor() -> None:
         st.markdown('<div class="telemetry compact">' + "".join(
             f'<div class="tele"><div class="tele-v">{html.escape(v)}</div><div class="tele-l">{html.escape(l)}</div></div>'
             for v, l in cards) + "</div>", unsafe_allow_html=True)
-        st.caption(tr(
-            "K is how fast the droplet's surface area shrinks (bigger = burns faster). The flame-out call says whether the "
-            f"flame goes out while fuel is left (score ≥ {pred['extinction_threshold']:.2f}) or burns until the droplet is "
-            f"used up. Burn-out time uses the d²-law: d₀² / K for this {d0:.1f} mm droplet.",
-            "K 表示液滴表面积缩小的速度（越大燃烧越快）。熄火判断表示火焰是在仍有燃料时熄灭"
-            f"（得分 ≥ {pred['extinction_threshold']:.2f}），还是一直燃烧到液滴耗尽。烧尽时间按 d² 定律计算：d₀² / K，"
-            f"液滴直径 {d0:.1f} mm。"))
 
-        fuel_name = tr("n-heptane", "正庚烷") if heptane else tr("methanol", "甲醇")
-        if near["tests"]:
-            k_txt = (tr(f"measured K **{near['k_mean']:.3f}** mm²/s (range {near['k_min']:.2f}–{near['k_max']:.2f})",
-                        f"实测 K **{near['k_mean']:.3f}** mm²/s（范围 {near['k_min']:.2f}–{near['k_max']:.2f}）")
-                     if near["k_readings"] else tr("no K readings", "无 K 读数"))
-            st.info("🛰 " + tr(
-                f"**Real NASA tests close to this:** {near['tests']} {fuel_name} tests at a similar pressure and gas mix "
-                f"(droplets {near['d0_min']:.1f}–{near['d0_max']:.1f} mm): {k_txt}. Flame went out in **{near['went_out']}**, "
-                f"burned to the end in **{near['burned_out']}**, disrupted in {near['disrupted']}.",
-                f"**与此相近的真实 NASA 试验：** {near['tests']} 次{fuel_name}试验，压力与气体组成相近"
-                f"（液滴 {near['d0_min']:.1f}–{near['d0_max']:.1f} mm）：{k_txt}。火焰熄灭 **{near['went_out']}** 次，"
-                f"燃烧至耗尽 **{near['burned_out']}** 次，中断 {near['disrupted']} 次。"))
-        else:
-            st.warning(tr(
-                "**No NASA test was run close to this combination.** The AI is combining what it learned from other "
-                "conditions, so treat this prediction with extra caution.",
-                "**NASA 没有在接近此组合的条件下做过试验。** AI 是在综合其他条件下学到的规律，请对该预测格外谨慎。"))
-        st.caption(tr(
-            f"**How good is it?** Scored on test days it never saw ({cv_k['model']['r2']['n']} grouped folds): the "
-            f"burning-rate model explains about **{cv_k['model']['r2']['mean']:.0%}** of the variation, typical error "
-            f"±{cv_k['model']['mae']['mean']:.3f} mm²/s (guessing the average: ±{cv_k['baseline']['mae']['mean']:.3f}). "
-            f"The flame-out model's balanced accuracy is **{cv_e['model']['balanced_accuracy']['mean']:.2f}** "
-            f"(coin flip: 0.50), ROC-AUC {cv_e['model']['roc_auc']['mean']:.2f}. Details: Scientific Audit tab.",
-            f"**准确度如何？** 在模型从未见过的试验日上评分（{cv_k['model']['r2']['n']} 个分组折）：燃烧速率模型约解释 "
-            f"**{cv_k['model']['r2']['mean']:.0%}** 的变化，典型误差 ±{cv_k['model']['mae']['mean']:.3f} mm²/s"
-            f"（只猜平均值：±{cv_k['baseline']['mae']['mean']:.3f}）。熄火模型的平衡准确率为 "
-            f"**{cv_e['model']['balanced_accuracy']['mean']:.2f}**（抛硬币：0.50），ROC-AUC {cv_e['model']['roc_auc']['mean']:.2f}。"
-            "详见科学审计页。"))
+        anim, rulers = st.columns([1, 1.6])
+        k_max = float(k_meta["training_data"]["target_max"])
+        end_frac = flex_extinction_ratio(heptane) if goes_out else 0.2
+        anim.markdown(_svg_img(droplet_svg(
+            "Heptane" if heptane else "Methanol", pred["burning_rate_mm2_s"], k_max, float(d0), float(d0) * end_frac,
+            4.0 + 4.0 * (1 - min(1.0, pred["burning_rate_mm2_s"] / k_max)),
+            end_text=tr("FLAME GOES OUT EARLY", "火焰提前熄灭") if goes_out else tr("BURNED TO THE END", "燃烧至耗尽")),
+            "rank-obj"), unsafe_allow_html=True)
+        anim.caption(tr("Illustration, sped up. A bigger, brighter flame means faster burning.",
+                        "示意动画（已加速）。火焰越大越亮，表示燃烧越快。"))
+        rulers.plotly_chart(_flex_result_figure(pred, near, k_meta), use_container_width=True,
+                            config={"displayModeBar": False})
+
+        with st.expander(tr("ℹ️ How to read these results, and how good the AI is", "ℹ️ 如何阅读结果，以及 AI 的准确度")):
+            st.markdown(tr(
+                f"- **Burning rate K:** how fast the droplet's surface area shrinks (bigger = burns faster). On the ruler, the "
+                f"grey band is every NASA measurement, the blue band the NASA tests close to this, the dotted line the "
+                f"average test, and ◆ the AI's prediction with its typical error (±{cv_k['model']['mae']['mean']:.3f}).\n"
+                f"- **Flame-out call:** whether the flame goes out while fuel is left (score ≥ {pred['extinction_threshold']:.2f}) "
+                f"or burns until the droplet is used up.\n"
+                f"- **Burn-out time:** the d²-law, d₀² / K, for this {d0:.1f} mm droplet if it stays lit.",
+                f"- **燃烧速率 K：** 液滴表面积缩小的速度（越大燃烧越快）。标尺中，灰色带为 NASA 全部实测范围，蓝色带为与此相近的 NASA 试验，"
+                f"虚线为平均试验，◆ 为 AI 的预测及其典型误差（±{cv_k['model']['mae']['mean']:.3f}）。\n"
+                f"- **熄火判断：** 火焰是在仍有燃料时熄灭（得分 ≥ {pred['extinction_threshold']:.2f}），还是燃烧到液滴耗尽。\n"
+                f"- **烧尽时间：** 按 d² 定律 d₀² / K 计算，液滴直径 {d0:.1f} mm，假设火焰不熄灭。"))
+            if near["tests"]:
+                k_txt = (tr(f"measured K {near['k_mean']:.3f} mm²/s (range {near['k_min']:.2f}–{near['k_max']:.2f})",
+                            f"实测 K {near['k_mean']:.3f} mm²/s（范围 {near['k_min']:.2f}–{near['k_max']:.2f}）")
+                         if near["k_readings"] else tr("no K readings", "无 K 读数"))
+                st.markdown(tr(
+                    f"- **Real NASA tests close to this:** {near['tests']} {fuel_name} tests at a similar pressure and gas mix "
+                    f"(droplets {near['d0_min']:.1f}–{near['d0_max']:.1f} mm): {k_txt}.",
+                    f"- **与此相近的真实 NASA 试验：** {near['tests']} 次{fuel_name}试验，压力与气体组成相近"
+                    f"（液滴 {near['d0_min']:.1f}–{near['d0_max']:.1f} mm）：{k_txt}。"))
+            st.markdown(tr(
+                f"- **How good is it?** Scored on test days it never saw ({cv_k['model']['r2']['n']} grouped folds): the "
+                f"burning-rate model explains about {cv_k['model']['r2']['mean']:.0%} of the variation (guessing the average: "
+                f"±{cv_k['baseline']['mae']['mean']:.3f} error). The flame-out model's balanced accuracy is "
+                f"{cv_e['model']['balanced_accuracy']['mean']:.2f} (coin flip: 0.50), ROC-AUC {cv_e['model']['roc_auc']['mean']:.2f}. "
+                "Details: Scientific Audit tab.",
+                f"- **准确度如何？** 在模型从未见过的试验日上评分（{cv_k['model']['r2']['n']} 个分组折）：燃烧速率模型约解释 "
+                f"{cv_k['model']['r2']['mean']:.0%} 的变化（只猜平均值的误差：±{cv_k['baseline']['mae']['mean']:.3f}）。"
+                f"熄火模型的平衡准确率为 {cv_e['model']['balanced_accuracy']['mean']:.2f}（抛硬币：0.50），"
+                f"ROC-AUC {cv_e['model']['roc_auc']['mean']:.2f}。详见科学审计页。"))
 
     st.markdown(tr("##### 3. Why the AI says this", "##### 3. AI 为什么这样判断"))
-    st.caption(tr("Both models are linear, so each prediction splits exactly into one push per input, measured from a test "
-                  "with average conditions. Orange = more fire (faster burning, or keeps burning); blue = less fire.",
-                  "两个模型都是线性的，因此每个预测都能精确分解为各输入的推动量（以平均条件的试验为起点）。"
-                  "橙色 = 火更强（燃烧更快或持续燃烧）；蓝色 = 火更弱。"))
+    k_c, e_c = pred["burning_rate_contributions"], pred["extinction_contributions"]
+    k_top, e_top = max(k_c, key=lambda c: abs(k_c[c])), max(e_c, key=lambda c: abs(e_c[c]))
+
+    def factor(col: str) -> str:
+        return (tr(f"{_flex_shown(col, inputs[col])} fuel", f"{_flex_shown(col, inputs[col])}燃料") if col == "is_heptane"
+                else f"{tr(*FLEX_FACTOR_WHY[col][1])} {_flex_shown(col, inputs[col])}")
+
+    st.markdown(tr(
+        f"**Biggest pushes in this test:** {factor(k_top)} "
+        + ("speeds the burning up" if k_c[k_top] > 0 else "slows the burning down") + f" ({k_c[k_top]:+.3f} mm²/s), and "
+        + f"{factor(e_top)} " + ("pushes the flame toward going out" if e_c[e_top] > 0 else "helps the flame keep burning")
+        + f" ({e_c[e_top]:+.2f}).",
+        f"**本次试验中影响最大的因素：** {factor(k_top)}"
+        + ("使燃烧加快" if k_c[k_top] > 0 else "使燃烧减慢") + f"（{k_c[k_top]:+.3f} mm²/s）；"
+        + f"{factor(e_top)}" + ("把火焰推向熄灭" if e_c[e_top] > 0 else "帮助火焰持续燃烧") + f"（{e_c[e_top]:+.2f}）。"))
+    st.caption(tr("Orange = more fire (faster burning, or keeps burning) · blue = less fire. Each bar is measured from an "
+                  "average NASA test.",
+                  "橙色 = 火更强（燃烧更快或持续燃烧）· 蓝色 = 火更弱。每根柱子都以 NASA 平均试验为起点。"))
     ch1, ch2 = st.columns(2)
     ch1.plotly_chart(_contribution_chart(
-        pred["burning_rate_contributions"], inputs, k_meta["scaler_mean"],
+        k_c, inputs, k_meta["scaler_mean"],
         tr(f"Burning rate: change from the average test ({pred['burning_rate_at_average_test']:.3f} mm²/s)",
            f"燃烧速率：相对平均试验（{pred['burning_rate_at_average_test']:.3f} mm²/s）的变化"),
         "mm²/s", more_fire_positive=True), use_container_width=True, config={"displayModeBar": False})
     ch2.plotly_chart(_contribution_chart(
-        pred["extinction_contributions"], inputs, e_meta["scaler_mean"],
+        e_c, inputs, e_meta["scaler_mean"],
         tr("Flame-out: push toward going out (+) or burning to the end (−)", "熄火：推向熄灭 (+) 或燃烧至耗尽 (−)"),
         tr("log-odds", "对数几率"), more_fire_positive=False), use_container_width=True, config={"displayModeBar": False})
 
-    td = e_meta["training_data"]["class_counts"]
-    st.caption(tr(
-        f"The flame-out score comes from a class-balanced model (NASA's tests are {td['1']} flame-outs to {td['0']} burn-outs), "
-        "so it ranks the risk and 0.5 is the tested decision line, but it is not a probability. "
-        + str(k_meta["scope"]) + " Not for other fuels, solid materials or whole-cabin fires. "
-        f"Models: `{flex.BURNING_RATE_PATH.name}` (Ridge, alpha = {k_meta['hyperparameters']['alpha']:g}) and "
-        f"`{flex.EXTINCTION_PATH.name}` (logistic regression, C = {e_meta['hyperparameters']['C']:g}), "
-        "built by `src/train_flex_models.py` with the same recipe the cross-validation tested.",
-        f"熄火得分来自类别平衡模型（NASA 试验中熄灭 {td['1']} 次、燃尽 {td['0']} 次），因此它用于排序风险，0.5 是经过测试的判断线，"
-        "但并不是概率。" + str(k_meta["scope_zh"]) + "不适用于其他燃料、固体材料或整个舱室的火灾。"
-        f"模型：`{flex.BURNING_RATE_PATH.name}`（岭回归，alpha = {k_meta['hyperparameters']['alpha']:g}）与 "
-        f"`{flex.EXTINCTION_PATH.name}`（逻辑回归，C = {e_meta['hyperparameters']['C']:g}），"
-        "由 `src/train_flex_models.py` 按交叉验证测试过的同一方案构建。"))
+    st.markdown(tr("**What each factor does, and why**", "**每个因素的作用及原因**"))
+    st.markdown(_factor_cards_html(pred, inputs, k_meta["scaler_mean"]), unsafe_allow_html=True)
 
+    td = e_meta["training_data"]["class_counts"]
+    with st.expander(tr("📐 How the AI works, and its limits", "📐 AI 的工作方式与局限")):
+        st.markdown(tr(
+            "- **Linear models:** each prediction splits exactly into one push per input, measured from a test with average "
+            "conditions, which is what the bars and the cards show.\n"
+            f"- **The flame-out score** comes from a class-balanced model (NASA's tests are {td['1']} flame-outs to "
+            f"{td['0']} burn-outs), so it ranks the risk and 0.5 is the tested decision line, but it is not a probability.\n"
+            f"- **Scope:** {k_meta['scope']} Not for other fuels, solid materials or whole-cabin fires.\n"
+            f"- **Models:** `{flex.BURNING_RATE_PATH.name}` (Ridge, alpha = {k_meta['hyperparameters']['alpha']:g}) and "
+            f"`{flex.EXTINCTION_PATH.name}` (logistic regression, C = {e_meta['hyperparameters']['C']:g}), built by "
+            "`src/train_flex_models.py` with the same recipe the cross-validation tested.\n"
+            "- **The physics notes** in the cards are textbook droplet-combustion explanations; their directions match the "
+            "models' fitted weights.",
+            "- **线性模型：** 每个预测都能精确分解为各输入的推动量（以平均条件的试验为起点），即柱状图与卡片所示内容。\n"
+            f"- **熄火得分**来自类别平衡模型（NASA 试验中熄灭 {td['1']} 次、燃尽 {td['0']} 次），因此它用于排序风险，"
+            "0.5 是经过测试的判断线，但并不是概率。\n"
+            f"- **适用范围：** {k_meta['scope_zh']}不适用于其他燃料、固体材料或整个舱室的火灾。\n"
+            f"- **模型：** `{flex.BURNING_RATE_PATH.name}`（岭回归，alpha = {k_meta['hyperparameters']['alpha']:g}）与 "
+            f"`{flex.EXTINCTION_PATH.name}`（逻辑回归，C = {e_meta['hyperparameters']['C']:g}），由 `src/train_flex_models.py` "
+            "按交叉验证测试过的同一方案构建。\n"
+            "- **卡片中的物理说明**为液滴燃烧的教科书解释，其方向与模型拟合的权重一致。"))
 
 # =========================================================================
 # TAB 5, part 2: After-test estimates from a separately trained experimental model
 # =========================================================================
 with tab_prediction:
-    sub_flex, sub_pmma = st.tabs([tr("🛰 Microgravity droplet flame (FLEX · ISS)", "🛰 微重力液滴火焰（FLEX · 国际空间站）"),
-                                  tr("🔥 Ground PMMA burn (CSV upload)", "🔥 地面 PMMA 燃烧（上传 CSV）")])
+    sub_flex, sub_pmma, sub_si = st.tabs([tr("🛰 Microgravity droplet flame (FLEX · ISS)", "🛰 微重力液滴火焰（FLEX · 国际空间站）"),
+                                          tr("🔥 Ground PMMA burn (CSV upload)", "🔥 地面 PMMA 燃烧（上传 CSV）"),
+                                          tr("🧠 Ask the research AI (local GPU)", "🧠 询问研究 AI（本地 GPU）")])
     with sub_flex:
         render_flex_predictor()
     with sub_pmma:
@@ -2736,7 +2931,7 @@ with tab_prediction:
 
 
 # =========================================================================
-# TAB 6: 🧠 SI 航天火灾超级智能 (local LLM + FAISS retrieval, app/services/local_llm_service.py)
+# TAB 5, part 3: 🧠 SI 航天火灾超级智能 (local LLM + FAISS retrieval, app/services/local_llm_service.py)
 # =========================================================================
 SI_SAMPLE_QUESTIONS = [
     "In microgravity, what happens to solid fuel flame spread when ventilation airflow is cut to zero?",
@@ -2860,7 +3055,7 @@ def render_si_intelligence() -> None:
             st.caption(tr("No matching passages found.", "未检索到相关学术分块。"))
 
 
-with tab_si_intelligence:
+with sub_si:  # third sub-tab of tab_prediction, filled here once render_si_intelligence is defined
     render_si_intelligence()
 
 
