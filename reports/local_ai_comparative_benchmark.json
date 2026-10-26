@@ -1,0 +1,41 @@
+{
+  "evaluation_timestamp": "2026-10-26 08:20:53",
+  "test_dataset_file": "/home/patrick0307/Nasa Space Apps/data/ai_training/test.jsonl",
+  "test_examples_count": 4,
+  "comparative_metrics": [
+    {
+      "model_name": "Unmodified Base Model (Zero-Shot RAG)",
+      "evaluated_examples_count": 4,
+      "cold_start_latency_s": 9.05,
+      "mean_steady_state_latency_s": 4.96,
+      "exact_citation_string_match_rate": 0.6667,
+      "refusal_precision": 0.0,
+      "refusal_recall": 0.0,
+      "refusal_f1_score": 0.0,
+      "confusion_matrix": {
+        "TP": 0,
+        "FP": 0,
+        "TN": 3,
+        "FN": 1
+      },
+      "scientific_disclaimer": "exact_citation_string_match_rate measures attribution format compliance, not exhaustive physical truthfulness."
+    },
+    {
+      "model_name": "Fine-Tuned Space LoRA Model",
+      "evaluated_examples_count": 4,
+      "cold_start_latency_s": 2.37,
+      "mean_steady_state_latency_s": 6.52,
+      "exact_citation_string_match_rate": 0.6667,
+      "refusal_precision": 0.0,
+      "refusal_recall": 0.0,
+      "refusal_f1_score": 0.0,
+      "confusion_matrix": {
+        "TP": 0,
+        "FP": 0,
+        "TN": 3,
+        "FN": 1
+      },
+      "scientific_disclaimer": "exact_citation_string_match_rate measures attribution format compliance, not exhaustive physical truthfulness."
+    }
+  ]
+}

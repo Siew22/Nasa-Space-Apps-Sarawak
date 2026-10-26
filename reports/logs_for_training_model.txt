@@ -1,0 +1,26 @@
+patrick0307@DESKTOP-NV4APNR ~/Nasa Space Apps
+ % python -m scripts.train_local_llm
+🚀 [Native BF16 LoRA] 显卡: NVIDIA GeForce RTX 3060
+📦 载入基座模型 (精度模式: torch.bfloat16): /home/patrick0307/Nasa Space Apps/models/base_models/Qwen2.5-1.5B-Instruct
+trainable params: 18,464,768 || all params: 1,562,179,072 || trainable%: 1.1820
+{'loss': 1.7508, 'grad_norm': 1.453125, 'learning_rate': 0.0002, 'epoch': 0.67}
+ 33%|█████████▋                   | 1/3 [00:02<00:04,  2.44s/it]We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
+{'eval_loss': 3.489760160446167, 'eval_runtime': 0.0732, 'eval_samples_per_second': 13.659, 'eval_steps_per_second': 13.659, 'epoch': 0.67}
+ 33%|█████████▋                   | 1/3 [00:03<00:04,  2.44s/it]/home/patrick0307/Nasa Space Apps/.venv/lib/python3.11/site-packages/peft/utils/save_and_load.py:195: UserWarning: Could not find a config file in /home/patrick0307/Nasa Space Apps/models/base_models/Qwen2.5-1.5B-Instruct - will assume that the vocabulary was not modified.
+  warnings.warn(
+{'loss': 1.6681, 'grad_norm': 1.34375, 'learning_rate': 0.0001, 'epoch': 1.33}
+{'loss': 1.6954, 'grad_norm': 0.95703125, 'learning_rate': 0.0, 'epoch': 2.0}
+100%|█████████████████████████████| 3/3 [00:06<00:00,  1.95s/it]/home/patrick0307/Nasa Space Apps/.venv/lib/python3.11/site-packages/peft/utils/save_and_load.py:195: UserWarning: Could not find a config file in /home/patrick0307/Nasa Space Apps/models/base_models/Qwen2.5-1.5B-Instruct - will assume that the vocabulary was not modified.
+  warnings.warn(
+{'eval_loss': 3.3031489849090576, 'eval_runtime': 0.067, 'eval_samples_per_second': 14.917, 'eval_steps_per_second': 14.917, 'epoch': 2.0}
+100%|█████████████████████████████| 3/3 [00:06<00:00,  1.95s/it]/home/patrick0307/Nasa Space Apps/.venv/lib/python3.11/site-packages/peft/utils/save_and_load.py:195: UserWarning: Could not find a config file in /home/patrick0307/Nasa Space Apps/models/base_models/Qwen2.5-1.5B-Instruct - will assume that the vocabulary was not modified.
+  warnings.warn(
+{'train_runtime': 6.6066, 'train_samples_per_second': 5.449, 'train_steps_per_second': 0.454, 'train_loss': 1.7047701676686604, 'epoch': 2.0}
+100%|█████████████████████████████| 3/3 [00:06<00:00,  2.20s/it]
+/home/patrick0307/Nasa Space Apps/.venv/lib/python3.11/site-packages/peft/utils/save_and_load.py:195: UserWarning: Could not find a config file in /home/patrick0307/Nasa Space Apps/models/base_models/Qwen2.5-1.5B-Instruct - will assume that the vocabulary was not modified.
+  warnings.warn(
+
+🎉 训练成功！LoRA 适配器权重已落盘至: /home/patrick0307/Nasa Space Apps/models/local_research_llm/adapter_v1
+
+patrick0307@DESKTOP-NV4APNR ~/Nasa Space Apps
+ % 

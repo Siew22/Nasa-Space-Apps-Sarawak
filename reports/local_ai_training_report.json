@@ -1,0 +1,16 @@
+{
+  "training_timestamp": "2026-10-26 08:19:01",
+  "precision": "bfloat16",
+  "cuda_device": "NVIDIA GeForce RTX 3060",
+  "vram_peak_allocated_gb": 7.68,
+  "training_duration_s": 6.83,
+  "final_train_loss": 1.7047701676686604,
+  "truncation_audit": {
+    "max_sequence_length_budget": 768,
+    "train_samples_total": 12,
+    "train_samples_truncated": 0,
+    "val_samples_total": 1,
+    "val_samples_truncated": 0
+  },
+  "adapter_path": "/home/patrick0307/Nasa Space Apps/models/local_research_llm/adapter_v1"
+}

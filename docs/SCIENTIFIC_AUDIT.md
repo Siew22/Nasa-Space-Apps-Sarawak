@@ -227,3 +227,49 @@ microgravity data (the only runnable model was the ground-based MaCFP network).
   the data.
 
 **Tests:** `tests/test_insights.py` (12 tests).
+
+## 12. Merged: local LLM research assistant from the team repository (2026-10-26)
+
+**What:** ten commits uploaded to the team repository (Siew22/Nasa-Space-Apps-Sarawak, 2026-10-26) were merged. Code the
+dashboard already had was kept; code it lacked was taken from those commits:
+- **AI module:** `app/services/local_llm_service.py`, `config/ai_config.json`, `scripts/` and `tests/test_local_ai_pipeline.py`.
+- **Data:** the corpus, training splits and FAISS index, moved to the `data/knowledge/`, `data/ai_training/` and
+  `data/vector_index/` paths the scripts use.
+- **Run records:** the training and benchmark reports.
+- **Settings:** `find_project_root()` and `read_ai_config()`.
+- **Dashboard:** the SI question-answering tab, added as tab 6.
+
+**Changes made while merging, so the dashboard keeps running:**
+- **The tab now exists:** it is created in `st.tabs` (`tab_si_intelligence` was used but never created, a NameError on start).
+- **Settings keep the API working:** `allowed_origins()` stays in `app/settings.py`; `app/main.py` imports it.
+- **Status keys added:** `offline_mode_enforced`, `base_model` and `base_model_license`, which the tab and its tests read.
+- **No crash without the engine:** without torch, transformers and faiss (`requirement.txt`, not installed on Streamlit
+  Cloud), the tab explains how to run it locally and shows the last benchmark. Engine errors are shown in the tab.
+- **Tests skip instead of failing:** the local AI tests skip when torch or the downloaded weights are missing.
+- **`tf-keras` version:** pinned to 2.16.0, because `tf-keras==2.21.0` cannot be installed with `tensorflow==2.16.2`
+  (pip: ResolutionImpossible), which would break the cloud install.
+- **Housekeeping:** committed `scripts/__pycache__` files removed; downloaded weights (`models/base_models/`,
+  `models/embeddings/`) git-ignored.
+- **Labels:** "official DOI verification" and "original text" relabelled as "DOI" and "passage", and the corpus badged
+  `UNVERIFIED_SOURCE`, because of the checks below.
+
+**Checks on the knowledge corpus (2026-10-26, against the NTRS API and DOI resolvers):**
+
+| Corpus citation | NTRS ID used | Result |
+|---|---|---|
+| Saffire, NASA/TM-20205008182 | 20205008182 | not found; report number not on NTRS. The DOI 10.60555/0t15-1z43 is real: NASA PSI-98, Spacecraft Fire Safety Experiment-I (a dataset) |
+| BASS-II, NASA/TM-2016-219083 | 20160005786 | the ID belongs to an unrelated presentation on photon counting; report number not on NTRS |
+| FLEX, NASA/CR-2017-219502 | 20170008529 | not found; report number not on NTRS |
+| SoFIE | 20200000361 | real (SoFIE project presentation). Its abstract describes ISS (microgravity) tests, not the Lunar/Martian-gravity testing the passage states |
+
+- **FLEX passage contradicts the data:** the passage places radiative extinction at 0.8–1.5 mm. In the verified FLEX
+  table the median extinction diameter is 2.77 mm for heptane (7 % of extinctions in 0.8–1.5 mm) and 1.67 mm for methanol.
+- **Training data:** the question-answer examples reuse one target answer whatever the passage says. For the FLEX test
+  item it states that flames "cannot sustain steady combustion" in quiescent microgravity, which droplet burning (the
+  d²-law) contradicts.
+- **Benchmark:** fine-tuning on 12 examples (3 steps) changed neither citation match (0.67) nor refusal F1 (0.00) on the
+  4 test questions, and the dataset manifest's total (20) does not match its splits (12 + 1 + 4).
+
+**Status:** the SI tab is an optional, local-only module and is not part of the evaluated results. The corpus needs
+verbatim NASA text with checked citations, and the training answers need to come from their passages, before the
+module's answers can be treated as evidence.

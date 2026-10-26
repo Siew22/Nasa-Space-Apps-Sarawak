@@ -1,0 +1,35 @@
+{
+  "dataset_name": "NASA Microgravity Combustion Research Intelligence Dataset",
+  "total_examples": 20,
+  "splits": {
+    "train_count": 12,
+    "validation_count": 1,
+    "test_count": 4
+  },
+  "group_leakage_assertion": {
+    "train_docs": [
+      "NASA_TM_2016219083_BASS_II",
+      "NASA_TM_20205008182_SAFFIRE"
+    ],
+    "validation_docs": [
+      "CROSS_INVESTIGATION",
+      "NASA_SOFIE_2023_ARTEMIS"
+    ],
+    "test_docs": [
+      "NASA_CR_2017219502_FLEX",
+      "SAFETY_CONTROL"
+    ],
+    "zero_leakage_verified": true
+  },
+  "task_breakdown": {
+    "grounded_qa": 6,
+    "structured_summary": 6,
+    "stem_explanation": 6,
+    "evidence_comparison": 1,
+    "insufficient_evidence_refusal": 1
+  },
+  "provenance_stats": {
+    "genuine_source_grounded_count": 19,
+    "synthetic_instruction_format_count": 1
+  }
+}

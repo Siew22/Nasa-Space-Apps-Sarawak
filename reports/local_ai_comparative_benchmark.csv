@@ -1,0 +1,9 @@
+﻿model_tested,example_id,task_type,expected_refusal,model_refused,exact_citation_string_hit,steady_state_latency_s
+Unmodified Base Model (Zero-Shot RAG),QA_FLEX_01,grounded_qa,False,False,True,3.69
+Unmodified Base Model (Zero-Shot RAG),SUM_FLEX_01,structured_summary,False,False,True,7.3
+Unmodified Base Model (Zero-Shot RAG),STEM_FLEX_01,stem_explanation,False,False,False,7.34
+Unmodified Base Model (Zero-Shot RAG),REFUSAL_01,insufficient_evidence_refusal,True,False,False,1.53
+Fine-Tuned Space LoRA Model,QA_FLEX_01,grounded_qa,False,False,True,3.33
+Fine-Tuned Space LoRA Model,SUM_FLEX_01,structured_summary,False,False,True,11.39
+Fine-Tuned Space LoRA Model,STEM_FLEX_01,stem_explanation,False,False,False,6.05
+Fine-Tuned Space LoRA Model,REFUSAL_01,insufficient_evidence_refusal,True,False,False,5.31

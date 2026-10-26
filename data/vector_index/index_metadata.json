@@ -1,0 +1,8 @@
+{
+  "index_type": "IndexFlatIP",
+  "metric": "cosine_similarity_via_inner_product",
+  "is_l2_normalized": true,
+  "embedding_dimension": 384,
+  "total_passages": 6,
+  "similarity_score_range": "[-1.0, 1.0]; values > 0.35 indicate semantic relevance"
+}

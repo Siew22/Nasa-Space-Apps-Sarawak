@@ -1,0 +1,26 @@
+patrick0307@DESKTOP-NV4APNR ~/Nasa Space Apps
+ % python -m scripts.evaluate_local_llm
+
+🔬 正在启动模型独立基准测试: 【Unmodified Base Model (Zero-Shot RAG)】...
+/home/patrick0307/Nasa Space Apps/.venv/lib/python3.11/site-packages/transformers/generation/configuration_utils.py:567: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.7` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
+  warnings.warn(
+/home/patrick0307/Nasa Space Apps/.venv/lib/python3.11/site-packages/transformers/generation/configuration_utils.py:572: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.8` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
+  warnings.warn(
+/home/patrick0307/Nasa Space Apps/.venv/lib/python3.11/site-packages/transformers/generation/configuration_utils.py:589: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `20` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
+  warnings.warn(
+   -> 冷启动初始化耗时: 9.05 s (不计入稳态评测均值)
+
+🔬 正在启动模型独立基准测试: 【Fine-Tuned Space LoRA Model】...
+   -> 冷启动初始化耗时: 2.37 s (不计入稳态评测均值)
+
+===========================================================================
+🏆 【基座模型 vs 微调模型】独立盲测对比基准报告 (Side-by-Side Comparison):
+                           model_name  exact_citation_string_match_rate  refusal_f1_score  mean_steady_state_latency_s
+Unmodified Base Model (Zero-Shot RAG)                            0.6667               0.0                         4.96
+          Fine-Tuned Space LoRA Model                            0.6667               0.0                         6.52
+===========================================================================
+📁 详细评测报告已落盘至: /home/patrick0307/Nasa Space Apps/reports/local_ai_comparative_benchmark.json
+📁 逐样本命中结果已落盘至: /home/patrick0307/Nasa Space Apps/reports/local_ai_comparative_benchmark.csv
+
+patrick0307@DESKTOP-NV4APNR ~/Nasa Space Apps
+ % 

@@ -1451,6 +1451,7 @@ TAB_LABELS = {
     "sandbox": ("🧪 2D Physics Sandbox", "🧪 2D 物理时空模拟沙盒 (Physics Sandbox)"),
     "audit": ("📊 Scientific Audit", "📊 科学审计与 25 折验证 (Scientific Audit)"),
     "ai": ("🤖 AI Predictions", "🤖 AI 预测"),
+    "si": ("🧠 SI Research Intelligence", "🧠 SI 航天火灾超级智能"),
 }
 
 
@@ -1480,8 +1481,8 @@ st.caption(tr("Six takeaways. Every number is computed live from NASA's data, th
               "六条要点。每个数字都由 NASA 数据、AI 模型或物理模型实时计算；标签说明证据类型，页面名称说明在哪里核查。"))
 st.markdown(insights_html(cached_insights(lang)), unsafe_allow_html=True)
 
-tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction = st.tabs(
-    [tr(*TAB_LABELS[k]) for k in ("evidence", "stem", "sandbox", "audit", "ai")])
+tab_evidence, tab_sweep, tab_simulation, tab_audit, tab_prediction, tab_si_intelligence = st.tabs(
+    [tr(*TAB_LABELS[k]) for k in ("evidence", "stem", "sandbox", "audit", "ai", "si")])
 
 # =========================================================================
 # TAB 1: 航天实验证据库 (真实数据分轨)
@@ -2732,6 +2733,135 @@ with tab_prediction:
                 st.error(tr(f"Cannot use this CSV: {exc}", f"无法使用该 CSV：{exc}"))
             except ModelUnavailableError as exc:
                 st.error(str(exc))
+
+
+# =========================================================================
+# TAB 6: 🧠 SI 航天火灾超级智能 (local LLM + FAISS retrieval, app/services/local_llm_service.py)
+# =========================================================================
+SI_SAMPLE_QUESTIONS = [
+    "In microgravity, what happens to solid fuel flame spread when ventilation airflow is cut to zero?",
+    "How does the Artemis Lunar exploration atmosphere (34% O2, 56 kPa) change solid material flammability compared to Earth air?",
+    "Can burning rate data from BASS-II solid fuels and FLEX liquid droplets be directly combined into one prediction model?",
+    "What did the Saffire experiments observe about flame length and radiation on large-scale fabric samples?",
+]
+
+
+def _local_ai_benchmark_note() -> None:
+    """The last local run's own reports (written by scripts/train_local_llm.py and scripts/evaluate_local_llm.py)."""
+    train = load_json_file(str(REPORTS_DIR / "local_ai_training_report.json"))
+    bench = load_json_file(str(REPORTS_DIR / "local_ai_comparative_benchmark.json"))
+    if train:
+        n_train = (train.get("truncation_audit") or {}).get("train_samples_total")
+        st.caption(tr(
+            f"Last local fine-tuning: {n_train} training examples, {train.get('training_duration_s', 0):.1f} s on an "
+            f"{train.get('cuda_device')} (`reports/local_ai_training_report.json`).",
+            f"最近一次本地微调：{n_train} 条训练样本，在 {train.get('cuda_device')} 上耗时 {train.get('training_duration_s', 0):.1f} 秒"
+            "（`reports/local_ai_training_report.json`）。"))
+    rows = (bench or {}).get("comparative_metrics") or []
+    if rows:
+        st.dataframe(pd.DataFrame([{
+            tr("model", "模型"): r["model_name"],
+            tr("test questions", "测试问题数"): r["evaluated_examples_count"],
+            tr("citation match", "引用匹配率"): r["exact_citation_string_match_rate"],
+            tr("refusal F1", "拒答 F1"): r["refusal_f1_score"],
+            tr("seconds per answer", "每次回答秒数"): r["mean_steady_state_latency_s"],
+        } for r in rows]), use_container_width=True, hide_index=True)
+        same = len({(r["exact_citation_string_match_rate"], r["refusal_f1_score"]) for r in rows}) == 1
+        st.caption(tr(
+            "Local benchmark (`reports/local_ai_comparative_benchmark.json`)"
+            + (": the fine-tuned and the base model scored the same on these test questions." if same else "."),
+            "本地基准测试（`reports/local_ai_comparative_benchmark.json`）"
+            + ("：在这些测试问题上，微调模型与基座模型得分相同。" if same else "。")))
+
+
+def render_si_intelligence() -> None:
+    st.subheader(tr("🧠 SI Research Intelligence: ask the local space-fire research AI",
+                    "🧠 SI 航天火灾超级智能研究系统 (Local Research Intelligence)"))
+    st.markdown(tr(
+        "A space-combustion research model **trained and run 100% locally**. A local FAISS vector index retrieves "
+        "NASA flight-research passages (Saffire, BASS-II, FLEX, SoFIE) and a locally fine-tuned language model writes "
+        "an answer citing them. **No external commercial API is ever called.**",
+        "基于 **100% 本地训练与离线部署** 的航天燃烧科研模型。由本地 FAISS 向量库检索 NASA 飞行研究文献（Saffire, BASS-II, FLEX, SoFIE），"
+        "并由本地微调大模型生成带引证的回答。**绝不调用任何外部商业 API。**"))
+    st.caption(status_badge("UNVERIFIED_SOURCE") + tr(
+        " · the knowledge passages (`data/knowledge/nasa_combustion_corpus.json`) are team-written summaries, not "
+        "verbatim NASA text, and their report numbers are still being checked (docs/SCIENTIFIC_AUDIT.md, section 12).",
+        " · 知识段落（`data/knowledge/nasa_combustion_corpus.json`）为团队撰写的摘要，并非 NASA 原文，其报告编号仍在核对中"
+        "（docs/SCIENTIFIC_AUDIT.md 第 12 节）。"))
+
+    try:  # torch, transformers and faiss come from requirement.txt, installed only on the GPU training machine
+        from app.services.local_llm_service import ask_local_research_ai, get_ai_status
+        ai_status = get_ai_status()
+    except (ImportError, OSError) as exc:
+        st.info(tr(
+            f"**The local AI engine is not installed on this server** (`{getattr(exc, 'name', None) or exc}`). It needs "
+            "an NVIDIA GPU and the packages in `requirement.txt`, so it runs on a teammate's machine, not on Streamlit "
+            "Cloud. To run it: `pip install -r requirement.txt`, `python -m scripts.download_model_assets`, "
+            "`python -m scripts.build_local_retrieval_index`, `python -m scripts.train_local_llm`, then start the app.",
+            f"**本服务器未安装本地 AI 引擎**（`{getattr(exc, 'name', None) or exc}`）。它需要 NVIDIA GPU 与 `requirement.txt` 中的依赖，"
+            "因此在队友的电脑上运行，而不是在 Streamlit Cloud 上。运行方法：`pip install -r requirement.txt`、"
+            "`python -m scripts.download_model_assets`、`python -m scripts.build_local_retrieval_index`、"
+            "`python -m scripts.train_local_llm`，然后启动应用。"))
+        _local_ai_benchmark_note()
+        return
+
+    # 1. 实时读取真实后端 AI 硬件与模型状态面板
+    with st.expander(tr("🖥️ Local engine status", "🖥️ 查看本地 AI 运行状态与硬件监控 (Local Engine Status)"), expanded=False):
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric(tr("Device", "计算设备 (Device)"), ai_status["gpu_name"])
+        s2.metric(tr("Offline mode", "离线模式 (Offline Mode)"), "STRICT OFFLINE ✅" if ai_status["offline_mode_enforced"] else "Online")
+        s3.metric(tr("Fine-tuned LoRA", "微调权重 (LoRA)"),
+                  tr("Adapter active", "已加载 (Adapter Active)") if ai_status["lora_adapter_available"]
+                  else tr("Not trained (base fallback)", "未训练 (Base Fallback)"))
+        s4.metric(tr("Licence", "开源协议"), ai_status["base_model_license"])
+        st.caption(tr(f"Current mode: **{ai_status['active_model_mode']}** | base model: `{ai_status['base_model']}`",
+                      f"当前运行模式: **{ai_status['active_model_mode']}** | 基座: `{ai_status['base_model']}`"))
+        _local_ai_benchmark_note()
+
+    # 2. 交互式科学提问与预设科学问题
+    st.markdown(tr("##### Ask a space-fire science question", "##### 提出您的航天火灾科学问题"))
+    custom = tr("Custom question...", "自定义科学提问...")
+    sample_q = st.selectbox(tr("Pick a sample NASA research question:", "快速选择典型研究探索问题 (Sample NASA Research Questions):"),
+                            [custom] + SI_SAMPLE_QUESTIONS)
+    user_query = st.text_input(tr("Your question in English (the model was tuned on English NASA documents):",
+                                  "输入英文科学问题 (模型基于 NASA 英文技术文献微调):"),
+                               value="" if sample_q == custom else sample_q)
+
+    if st.button(tr("🚀 Run local SI inference", "🚀 启动本地超级智能推理 (Run Local SI Inference)"), type="primary"):
+        if not user_query.strip():
+            st.warning(tr("Please enter a question.", "请输入有效的科学问题。"))
+            return
+        with st.spinner(tr("Searching the local NASA passages and running the local model...",
+                           "🔍 正在检索本地 NASA 证据库并执行本地神经网络前向推理...")):
+            try:
+                response = ask_local_research_ai(user_query)
+            except Exception as exc:  # noqa: BLE001 - a local engine failure must not take down the dashboard
+                st.error(tr(f"The local AI engine could not answer: {exc}", f"本地 AI 引擎无法回答：{exc}"))
+                return
+
+        st.markdown(tr("#### 🤖 Generated answer", "#### 🤖 本地 SI 科学解译与回答 (Generated Research Finding)"))
+        if response["evidence_sufficient"]:
+            st.success(response["answer"])
+        else:
+            st.error(response["answer"])
+
+        st.markdown(tr("#### 📚 Retrieved passages and their citations", "#### 📚 检索到的文献段落与引证 (Retrieved Evidence Passages)"))
+        if response["evidence_passages"]:
+            for i, p in enumerate(response["evidence_passages"], 1):
+                with st.expander(tr(f"Passage {i}: [{p['investigation']}] {p['citation']} (similarity {p['similarity_score']})",
+                                    f"证据 {i}: [{p['investigation']}] {p['citation']} (相似度得分: {p['similarity_score']})"),
+                                 expanded=True):
+                    st.write(tr(f"**Cited as**: {p['citation']}", f"**文献出处**: {p['citation']}"))
+                    st.markdown(f"**DOI**: `https://doi.org/{p['doi']}`" if p.get("doi") else "**DOI**: —")
+                    st.write(tr(f"**System**: `{p['physical_system']}` | **Conditions**: `{p['conditions']}`",
+                                f"**物理介质**: `{p['physical_system']}` | **条件**: `{p['conditions']}`"))
+                    st.info(tr(f"**Passage**: {p['text']}", f"**段落**: {p['text']}"))
+        else:
+            st.caption(tr("No matching passages found.", "未检索到相关学术分块。"))
+
+
+with tab_si_intelligence:
+    render_si_intelligence()
 
 
 st.markdown(

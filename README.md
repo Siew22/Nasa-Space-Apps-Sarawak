@@ -73,6 +73,16 @@ python -m src.train_spacecraft_fire_model    # retrains the deployed MaCFP netwo
 python -m src.train_flex_models              # exports the deployed FLEX Ridge + logistic models -> models/flex_*_v1.json
 ```
 
+Optional local AI pipeline for the SI tab (NVIDIA GPU, e.g. RTX 3060 12 GB; `pip install -r requirement.txt` first):
+
+```bash
+python -m scripts.download_model_assets        # base weights once (3.09 GB open weights; offline afterwards)
+python -m scripts.build_local_retrieval_index  # FAISS cosine index from data/knowledge/ -> data/vector_index/
+python -m scripts.prepare_ai_dataset           # training splits -> data/ai_training/
+python -m scripts.train_local_llm              # BF16 LoRA fine-tune -> models/local_research_llm/adapter_v1
+python -m scripts.evaluate_local_llm           # base vs LoRA benchmark -> reports/local_ai_comparative_benchmark.*
+```
+
 ## Prediction tasks and evaluation
 
 `config/target_registry.json` defines each task's target, unit and its evidence, its label mapping, its allowed inputs
@@ -139,6 +149,15 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
    - **Inputs:** two of the inputs come from the same HRR curve, so this is an after-test estimate, not a forecast.
    - **Scope:** ground-based PMMA only. It is not validated for microgravity, spacecraft or fire-safety decisions.
    - **Hazard flag:** the 350 kW/m² rule cannot be validated, because every measured peak is above it.
+6. **🧠 SI Research Intelligence** (local GPU only). Ask a space-fire question in English: a local FAISS index retrieves
+   passages from `data/knowledge/nasa_combustion_corpus.json` and a locally fine-tuned `Qwen2.5-1.5B-Instruct` (LoRA)
+   answers with their citations, with no remote API (`app/services/local_llm_service.py`).
+   - **Where it runs:** it needs an NVIDIA GPU and the packages in `requirement.txt`. On Streamlit Cloud the tab says the
+     engine is not installed and shows the last local benchmark instead.
+   - **Results so far:** fine-tuned on 12 examples (6.8 s on an RTX 3060), it scored the same as the base model on 4 test
+     questions (`reports/local_ai_comparative_benchmark.json`).
+   - **Knowledge passages:** team-written summaries, not verbatim NASA text; their report numbers are still being checked
+     (`docs/SCIENTIFIC_AUDIT.md`, section 12), so the tab marks them `UNVERIFIED_SOURCE`.
 
 ## Tests
 
@@ -155,6 +174,7 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
   file, the file matches its data hash and the CV report, contributions add up, and out-of-range inputs are refused.
 - **Interpretation texts:** every number in the STEM and ranking explanations matches the computed values.
 - **Crew takeaways:** each front-page number is recomputed from the data or models and checked against the text.
+- **Local AI (SI tab):** `tests/test_local_ai_pipeline.py`, skipped unless torch and the local model weights are installed.
 - **Dashboard:** an explicit error when the provenance report is missing.
 
 ## Repository structure
@@ -167,7 +187,10 @@ src/fetch_nasa_psi_tables.py, build_dashboard_data.py, build_task_datasets.py, b
 src/provenance_audit.py, group_cv.py, run_cv_evaluation.py, train_spacecraft_fire_model.py
 src/generate_synthetic_demo_tables.py   synthetic demo tables (never ingested by default)
 src/legacy/             retired scripts (import is blocked; see README inside)
-config/                 data_sources.json, target_registry.json, simulation_model.json, dataset_catalog.csv
+scripts/                local AI pipeline for the SI tab (download, index, dataset, LoRA training, evaluation)
+config/                 data_sources.json, target_registry.json, simulation_model.json, dataset_catalog.csv,
+                        ai_config.json (local AI)
+data/knowledge/, data/ai_training/, data/vector_index/   local AI corpus, training splits, FAISS index
 data/raw/nasa_psi/      official NASA PSI tables, byte-for-byte
 data/processed/         processed records and task tables
 data/legacy/            retired data files

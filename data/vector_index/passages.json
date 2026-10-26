@@ -1,0 +1,98 @@
+[
+  {
+    "passage_id": "SAFFIRE_01",
+    "doc_id": "NASA_TM_20205008182_SAFFIRE",
+    "investigation": "SAFFIRE",
+    "citation": "NASA/TM-20205008182",
+    "doi": "10.60555/0t15-1z43",
+    "ntrs_id": "20205008182",
+    "physical_system": "solid_fuel",
+    "text": "Saffire-I on Cygnus demonstrated that large-scale Cotton-Fiberglass SIBAL fabric (0.4 m wide by 1.0 m long) burned continuously under microgravity with a forced flow of 0.2 m/s. Flame spread rate reached ~2.1 mm/s in concurrent flow. Radiation from the large flame zone to the unburned fuel preheats the fuel bed more significantly than in bench-scale ISS glovebox tests.",
+    "conditions": {
+      "gravity_m_s2": 0.0,
+      "o2_vol_pct": 21.0,
+      "pressure_kpa": 101.3,
+      "flow_speed_m_s": 0.2
+    }
+  },
+  {
+    "passage_id": "SAFFIRE_02",
+    "doc_id": "NASA_TM_20205008182_SAFFIRE",
+    "investigation": "SAFFIRE",
+    "citation": "NASA/TM-20205008182",
+    "doi": "10.60555/0t15-1z43",
+    "ntrs_id": "20205008182",
+    "physical_system": "solid_fuel",
+    "text": "Saffire-II tested exploration atmospheres: under 34% elevated oxygen and 56.5 kPa (8.2 psia) reduced pressure matching Artemis Lunar exploration baselines, solid materials ignition delay shortened by 40%, and flame spread rate increased by 2.4-fold compared to standard Earth-sea-level air. Low pressure reduces total heat capacity of gas, while elevated oxygen fraction broadens flammability limits.",
+    "conditions": {
+      "gravity_m_s2": 0.0,
+      "o2_vol_pct": 34.0,
+      "pressure_kpa": 56.5,
+      "flow_speed_m_s": 0.15
+    }
+  },
+  {
+    "passage_id": "BASS_01",
+    "doc_id": "NASA_TM_2016219083_BASS_II",
+    "investigation": "BASS_II",
+    "citation": "NASA/TM-2016-219083",
+    "doi": "10.60555/4qc4-de67",
+    "ntrs_id": "20160005786",
+    "physical_system": "solid_fuel",
+    "text": "In the Microgravity Science Glovebox on ISS, BASS-II investigated thick PMMA slabs and thin films. In quiescent microgravity (forced flow < 0.02 m/s), flames consistently self-extinguished even in 25% oxygen due to spherical accumulation of combustion products (CO2 and H2O) causing oxygen starvation. A critical low-speed extinction boundary exists below which steady combustion cannot be sustained.",
+    "conditions": {
+      "gravity_m_s2": 0.0,
+      "o2_vol_pct": 21.0,
+      "pressure_kpa": 101.3,
+      "flow_speed_m_s": 0.01
+    }
+  },
+  {
+    "passage_id": "BASS_02",
+    "doc_id": "NASA_TM_2016219083_BASS_II",
+    "investigation": "BASS_II",
+    "citation": "NASA/TM-2016-219083",
+    "doi": "10.60555/4qc4-de67",
+    "ntrs_id": "20160005786",
+    "physical_system": "solid_fuel",
+    "text": "BASS-II PMMA combustion tests generated significant carbon monoxide (CO) concentrations reaching up to 360 ppm in localized chamber volumes when burning thick fuel. Delrin (polyoxymethylene) tests yielded formaldehyde decomposition hazards. For human spacecraft fire safety, toxic gas accumulation during smoldering or low-flow burning presents an immediate crew life-support risk before large thermal release occurs.",
+    "conditions": {
+      "gravity_m_s2": 0.0,
+      "o2_vol_pct": 21.0,
+      "pressure_kpa": 101.3,
+      "flow_speed_m_s": 0.05
+    }
+  },
+  {
+    "passage_id": "FLEX_01",
+    "doc_id": "NASA_CR_2017219502_FLEX",
+    "investigation": "FLEX",
+    "citation": "NASA/CR-2017-219502",
+    "doi": "10.60555/mbq8-0451",
+    "ntrs_id": "20170008529",
+    "physical_system": "liquid_droplet",
+    "text": "FLEX on the ISS Combustion Integrated Rack observed spherical droplet combustion of liquid alkanes (heptane, octane) and alcohols (methanol). Liquid droplets burn via the d-square law. At droplet diameters between 0.8 mm and 1.5 mm, visible hot flames extinguished due to radiative heat loss, followed by low-temperature quasi-steady 'cool flame' burning undetectable in visual wavelengths. Disruption occurs when bubbles nucleate inside multi-component droplets.",
+    "conditions": {
+      "gravity_m_s2": 0.0,
+      "o2_vol_pct": 21.0,
+      "pressure_kpa": 101.3,
+      "flow_speed_m_s": 0.0
+    }
+  },
+  {
+    "passage_id": "SOFIE_01",
+    "doc_id": "NASA_SOFIE_PROJECT_20200000361",
+    "investigation": "SoFIE",
+    "citation": "NASA NTRS 20200000361",
+    "doi": null,
+    "ntrs_id": "20200000361",
+    "physical_system": "solid_fuel",
+    "text": "SoFIE evaluates materials under partial gravity (Lunar 0.16g and Martian 0.38g). Reduced gravity provides weak buoyancy: weak convective flow supplies fresh oxidizer to the flame base while convective cooling remains far weaker than Earth 1g. Consequently, materials such as Nomex and electrical cable insulations exhibit a broader flammability envelope in Lunar gravity than in pure microgravity.",
+    "conditions": {
+      "gravity_m_s2": 1.62,
+      "o2_vol_pct": 34.0,
+      "pressure_kpa": 56.5,
+      "flow_speed_m_s": 0.05
+    }
+  }
+]
