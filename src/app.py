@@ -16,6 +16,7 @@ import base64
 import html
 import json
 import math
+import time
 from hashlib import sha256
 from io import BytesIO
 import numpy as np
@@ -314,6 +315,57 @@ img.flame-card:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba
   font-size: .78rem; color: #dfe5f5; }
 .fwhatif span { color: #8f9ab8; }
 img.flex-scene { display: block; width: 100%; height: auto; margin: 10px 0 2px; }
+
+/* Research AI sub-tab: status pills, answer card, source cards */
+.si-sub { color: #aab3cc; font-size: .95rem; margin: -4px 0 10px; }
+.si-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.si-pills .pill { font-size: .74rem; letter-spacing: .02em; font-weight: 600; padding: 4px 11px; }
+.si-answer { padding: 18px 20px; border-radius: 16px; margin: 6px 0 12px; background: linear-gradient(160deg, #1a2140, #121830);
+  border: 1px solid rgba(255,255,255,.09); border-left: 4px solid #FF9A4D; animation: rankIn .35s ease both; }
+.si-answer.refused { border-left-color: #7CB6FF; }
+.si-h { font-size: .74rem; letter-spacing: .14em; text-transform: uppercase; color: #FF9A4D; font-weight: 800; }
+.si-answer.refused .si-h { color: #7CB6FF; }
+.si-q { margin: 6px 0 10px; color: #8f9ab8; font-size: .86rem; font-style: italic; }
+.si-answer p { margin: 0; font-size: 1rem; line-height: 1.65; color: #e8ecf7; }
+.si-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,.08); font-size: .78rem; color: #8f9ab8; }
+.si-src { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-weight: 600;
+  background: rgba(124,196,255,.08); border: 1px solid rgba(124,196,255,.3); color: #cfe4ff; }
+.si-src i { font-style: normal; font-weight: 500; color: #8f9ab8; }
+.si-time { margin-left: auto; }
+.si-card { padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+  margin-bottom: 10px; }
+.si-card-h { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.si-tag { font-size: .72rem; font-weight: 800; letter-spacing: .06em; padding: 2px 9px; border-radius: 6px;
+  background: rgba(255,106,43,.14); color: #FF9A4D; }
+.si-cite { color: #fff; font-weight: 600; font-size: .88rem; }
+.si-match { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: .75rem; color: #8f9ab8; }
+.si-match b { display: inline-block; width: 70px; height: 6px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
+.si-match b i { display: block; height: 100%; border-radius: 99px; background: #7CC4FF; }
+.si-card p { margin: 8px 0 6px; font-size: .88rem; line-height: 1.55; color: #c3cbe0; }
+.si-meta { font-size: .76rem; color: #8f9ab8; }
+.si-meta a { color: #7CC4FF; text-decoration: none; }
+/* Research AI loader: --sip (0-100) drives the bar width and the % counter; each update animates it in the browser */
+@property --sip { syntax: '<integer>'; inherits: true; initial-value: 0; }
+img.si-loading { display: block; width: 100%; max-width: 250px; height: auto; margin: 0 auto; }
+.si-load { --sip: 0; padding: 16px 18px; border-radius: 16px; background: linear-gradient(160deg, #1a2140, #121830);
+  border: 1px solid rgba(255,255,255,.09); }
+.si-load-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #e8ecf7;
+  font-weight: 600; font-size: .95rem; }
+.si-pct { font-family: 'Orbitron', 'Inter', sans-serif; font-size: 1.7rem; font-weight: 800; color: #FF9A4D; }
+.si-pct::after { counter-reset: sip var(--sip); content: counter(sip) "%"; }
+.si-bar { position: relative; height: 12px; margin: 12px 22px 16px 0; border-radius: 99px; background: rgba(255,255,255,.07); }
+.si-bar i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--sip) * 1%); border-radius: 99px;
+  background: linear-gradient(90deg, #FC3D21, #FF9A4D, #FFD27A); box-shadow: 0 0 14px rgba(255,138,61,.55); }
+.si-bar em { position: absolute; right: -16px; top: 50%; transform: translateY(-50%) rotate(45deg); font-style: normal;
+  font-size: 1.25rem; filter: drop-shadow(0 0 6px rgba(255,154,77,.8)); }
+.si-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: .84rem; color: #6f7a99; }
+.si-steps li::before { content: "○"; display: inline-block; width: 1.5em; }
+.si-steps li.done { color: #7dffa8; }
+.si-steps li.done::before { content: "✓"; }
+.si-steps li.now { color: #fff; font-weight: 600; }
+.si-steps li.now::before { content: "◉"; color: #FF9A4D; animation: si-blink 1s ease-in-out infinite; }
+@keyframes si-blink { 50% { opacity: .25; } }
 
 /* Front page: crew fire-safety takeaways */
 .insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 4px 0 26px; }
@@ -3199,90 +3251,242 @@ def _local_ai_benchmark_note() -> None:
             + ("：在这些测试问题上，微调模型与基座模型得分相同。" if same else "。")))
 
 
+SI_INVESTIGATIONS = {"BASS_II": "BASS-II", "SAFFIRE": "Saffire", "FLEX": "FLEX", "SoFIE": "SoFIE"}
+SI_SYSTEMS = {"solid_fuel": ("solid fuel", "固体燃料"), "liquid_droplet": ("liquid droplet", "液滴")}
+
+
+def _si_conditions(p: dict) -> str:
+    """'solid fuel · microgravity · 21% O₂ · 101.3 kPa · airflow 0.2 m/s' from a passage's metadata."""
+    c = p.get("conditions") or {}
+    system = p.get("physical_system", "")
+    parts = [tr(*SI_SYSTEMS.get(system, (system.replace("_", " "), system.replace("_", " "))))] if system else []
+    if c.get("gravity_m_s2") is not None:
+        parts.append(tr("microgravity", "微重力") if c["gravity_m_s2"] == 0 else f"{c['gravity_m_s2']:g} m/s²")
+    if c.get("o2_vol_pct") is not None:
+        parts.append(f"{c['o2_vol_pct']:g}% O₂")
+    if c.get("pressure_kpa") is not None:
+        parts.append(f"{c['pressure_kpa']:g} kPa")
+    if c.get("flow_speed_m_s") is not None:
+        parts.append(tr(f"airflow {c['flow_speed_m_s']:g} m/s", f"气流 {c['flow_speed_m_s']:g} m/s"))
+    return " · ".join(parts)
+
+
+def _si_about(setup: bool) -> None:
+    """Folded box: how the research AI works, its last training and benchmark, and (setup=True) how to run it."""
+    with st.expander(tr("ℹ️ About this AI", "ℹ️ 关于这个 AI")):
+        st.markdown(tr(
+            "1. **Search:** your question is matched against the knowledge passages in a local FAISS index.\n"
+            "2. **Answer:** `Qwen2.5-1.5B-Instruct` (Apache-2.0), fine-tuned with LoRA on our own GPU, writes an answer "
+            "from those passages only. No external API is called.\n"
+            "3. **Refuse:** if no passage is a strong match, it says so instead of guessing.",
+            "1. **检索：** 在本地 FAISS 索引中查找与问题最相近的知识段落。\n"
+            "2. **回答：** `Qwen2.5-1.5B-Instruct`（Apache-2.0）在我们自己的 GPU 上经 LoRA 微调，只根据这些段落作答，不调用任何外部 API。\n"
+            "3. **拒答：** 若没有足够相近的段落，它会说明证据不足，而不是猜测。"))
+        st.caption(status_badge("UNVERIFIED_SOURCE") + tr(
+            " · the passages (`data/knowledge/nasa_combustion_corpus.json`) are team-written summaries of NASA "
+            "reports, not verbatim NASA text; their report numbers are still being checked (docs/SCIENTIFIC_AUDIT.md, "
+            "section 12).",
+            " · 段落（`data/knowledge/nasa_combustion_corpus.json`）为团队撰写的 NASA 报告摘要，并非 NASA 原文；"
+            "其报告编号仍在核对中（docs/SCIENTIFIC_AUDIT.md 第 12 节）。"))
+        if setup:
+            st.markdown(tr("**To run it on a computer with an NVIDIA GPU:**", "**在配有 NVIDIA GPU 的电脑上运行：**"))
+            st.code("pip install -r requirement.txt\npython -m scripts.download_model_assets\n"
+                    "python -m scripts.build_local_retrieval_index\npython -m scripts.train_local_llm\n"
+                    "streamlit run src/app.py", language="bash")
+        _local_ai_benchmark_note()
+
+
+def si_loading_svg() -> str:
+    """Loading picture for the research AI: the ISS orbiting a turning Earth. The station passes in front of Earth on
+    the lower half of its orbit and behind it on the upper half (two copies, each shown for its half). Illustration."""
+    orbit = "M42,75 a78,26 0 1,0 156,0 a78,26 0 1,0 -156,0"  # starts on the left, lower (front) half first
+    iss = ('<rect x="-9" y="-0.6" width="18" height="1.2" fill="#cfd6e6"/>'
+           '<rect x="-9" y="-4.5" width="3.2" height="9" fill="#3d7bd6" stroke="#9cc0ff" stroke-width="0.4"/>'
+           '<rect x="5.8" y="-4.5" width="3.2" height="9" fill="#3d7bd6" stroke="#9cc0ff" stroke-width="0.4"/>'
+           '<rect x="-2" y="-2" width="4" height="4" rx="0.8" fill="#e8ecf7"/>')
+
+    def station(values: str) -> str:
+        return (f'<g><animateMotion dur="6s" repeatCount="indefinite" rotate="auto" path="{orbit}"/>'
+                f'<animate attributeName="opacity" values="{values}" keyTimes="0;0.5" dur="6s" calcMode="discrete" '
+                f'repeatCount="indefinite"/>{iss}</g>')
+
+    land = ('<path d="M92,58 q9,-9 19,-3 q7,7 -2,13 q-9,5 -17,-10z"/><path d="M104,82 q10,-4 15,4 q2,9 -9,9 q-9,-2 -6,-13z"/>'
+            '<path d="M128,64 q8,-6 14,1 q3,8 -6,10 q-8,0 -8,-11z"/>')
+    stars = "".join(f'<circle class="tw" cx="{x}" cy="{y}" r="{r}" fill="#fff" style="animation-delay:{d}s"/>'
+                    for x, y, r, d in ((18, 22, 1.1, 0), (60, 12, 0.8, -0.8), (200, 18, 1, -1.5), (226, 52, 0.8, -0.4),
+                                       (14, 118, 0.9, -1.1), (214, 128, 1.2, -2), (176, 140, 0.7, -0.6), (44, 140, 0.8, -1.8)))
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150">
+<defs>
+  <radialGradient id="e" cx="38%" cy="35%" r="70%"><stop offset="0" stop-color="#5bb6ff"/><stop offset="0.55" stop-color="#1e5fc4"/><stop offset="1" stop-color="#0a1f52"/></radialGradient>
+  <radialGradient id="atm"><stop offset="0.76" stop-color="#5bb6ff" stop-opacity="0"/><stop offset="0.88" stop-color="#5bb6ff" stop-opacity="0.35"/><stop offset="1" stop-color="#5bb6ff" stop-opacity="0"/></radialGradient>
+  <clipPath id="ec"><circle cx="120" cy="75" r="36"/></clipPath>
+</defs>
+<style>
+  .tw {{ animation: tw 2.4s ease-in-out infinite alternate; }}
+  .land {{ transform-box: view-box; animation: turn 14s linear infinite; }}
+  @keyframes tw {{ from {{ opacity: .15 }} to {{ opacity: .9 }} }}
+  @keyframes turn {{ from {{ transform: translateX(0) }} to {{ transform: translateX(-72px) }} }}
+</style>
+{stars}
+<g transform="rotate(-18 120 75)"><path d="M42,75 a78,26 0 0,1 156,0" fill="none" stroke="rgba(255,255,255,0.2)" stroke-dasharray="2 4"/>{station("0;1")}</g>
+<circle cx="120" cy="75" r="47" fill="url(#atm)"/>
+<circle cx="120" cy="75" r="36" fill="url(#e)"/>
+<g clip-path="url(#ec)"><g class="land" fill="#3fa36b" opacity="0.55">{land}<g transform="translate(72 0)">{land}</g></g></g>
+<g transform="rotate(-18 120 75)"><path d="M42,75 a78,26 0 0,0 156,0" fill="none" stroke="rgba(255,255,255,0.28)" stroke-dasharray="2 4"/>{station("1;0")}</g>
+</svg>"""
+
+
+SI_STAGES = ("load", "search", "write")
+
+
+def _si_progress_html(stage: str, start: int, end: int, seconds: float, ease: str, note: str = "") -> str:
+    """Checklist and progress bar for the research AI. Python is busy with the model between real checkpoints, so the
+    browser animates the bar and its % from `start` to `end` over `seconds` (CSS @property --sip, see APP_CSS)."""
+    labels = {
+        "load": (tr("Loading the AI onto the GPU", "将 AI 载入 GPU"), tr("AI ready on the GPU", "AI 已在 GPU 上就绪")),
+        "search": (tr("Searching NASA passages (Saffire, BASS-II, FLEX, SoFIE)", "检索 NASA 段落（Saffire、BASS-II、FLEX、SoFIE）"),
+                   tr("NASA passages found", "已找到 NASA 段落")),
+        "write": (tr("Writing the answer from the passages", "根据段落撰写回答"), tr("Answer written", "回答已完成")),
+    }
+    now = SI_STAGES.index(stage) if stage in SI_STAGES else len(SI_STAGES)
+    steps = "".join(
+        f'<li class="{"done" if i < now else "now" if i == now else ""}">'
+        f'{html.escape(labels[s][1] if i < now else labels[s][0])}{html.escape(note) if i == now else ""}</li>'
+        for i, s in enumerate(SI_STAGES))
+    title = tr("Done", "完成") if now == len(SI_STAGES) else labels[stage][0] + "…"
+    name = f"sip{time.perf_counter_ns()}"  # a new animation per update, so it restarts from `start`
+    return (f"<style>@keyframes {name} {{ from {{ --sip: {start} }} to {{ --sip: {end} }} }}</style>"
+            f'<div class="si-load" style="animation: {name} {seconds:.2f}s {ease} forwards">'
+            f'<div class="si-load-top"><span>{html.escape(title)}</span><b class="si-pct"></b></div>'
+            f'<div class="si-bar"><i><em>🚀</em></i></div><ol class="si-steps">{steps}</ol></div>')
+
+
+def _si_answer_html(question: str, response: dict, seconds: float) -> str:
+    """The answer card: question, answer, and one chip per NASA source it was based on."""
+    ok = response["evidence_sufficient"]
+    head = tr("🤖 AI answer", "🤖 AI 回答") if ok else tr("🤔 Not enough NASA evidence", "🤔 NASA 证据不足")
+    body = response["answer"] if ok else tr(
+        "None of the NASA passages is a close enough match, so the AI does not guess. Try a question about the "
+        "Saffire, BASS-II, FLEX or SoFIE experiments.",
+        "没有足够相近的 NASA 段落，因此 AI 不作猜测。请尝试询问 Saffire、BASS-II、FLEX 或 SoFIE 实验。")
+    chips = "".join(
+        f'<span class="si-src">{html.escape(SI_INVESTIGATIONS.get(p["investigation"], p["investigation"]))}'
+        f'<i>{p["similarity_score"]:.2f}</i></span>' for p in response["evidence_passages"])
+    foot = (tr("Based on", "依据") + f" {chips}" if chips else "") + (
+        f'<span class="si-time">{seconds:.1f} s · '
+        + html.escape(tr("AI-written: check it against the sources", "AI 生成：请对照来源核实")) + "</span>")
+    return (f'<div class="si-answer{"" if ok else " refused"}"><div class="si-h">{html.escape(head)}</div>'
+            f'<div class="si-q">“{html.escape(question)}”</div><p>{html.escape(body)}</p>'
+            f'<div class="si-foot">{foot}</div></div>')
+
+
+def _si_sources_html(passages: list) -> str:
+    cards = []
+    for p in passages:
+        name = SI_INVESTIGATIONS.get(p["investigation"], p["investigation"])
+        doi = (f' · <a href="https://doi.org/{html.escape(p["doi"])}" target="_blank">DOI {html.escape(p["doi"])}</a>'
+               if p.get("doi") else "")
+        cards.append(
+            f'<div class="si-card"><div class="si-card-h"><span class="si-tag">{html.escape(name)}</span>'
+            f'<span class="si-cite">{html.escape(p["citation"])}</span>'
+            f'<span class="si-match">{html.escape(tr("similarity", "相似度"))} {p["similarity_score"]:.2f}'
+            f'<b><i style="width:{max(0.0, min(1.0, p["similarity_score"])) * 100:.0f}%"></i></b></span></div>'
+            f'<p>{html.escape(p["text"])}</p><div class="si-meta">{html.escape(_si_conditions(p))}{doi}</div></div>')
+    return "".join(cards)
+
+
 def render_si_intelligence() -> None:
-    st.subheader(tr("🧠 SI Research Intelligence: ask the local space-fire research AI",
-                    "🧠 SI 航天火灾超级智能研究系统 (Local Research Intelligence)"))
-    st.markdown(tr(
-        "A space-combustion research model **trained and run 100% locally**. A local FAISS vector index retrieves "
-        "NASA flight-research passages (Saffire, BASS-II, FLEX, SoFIE) and a locally fine-tuned language model writes "
-        "an answer citing them. **No external commercial API is ever called.**",
-        "基于 **100% 本地训练与离线部署** 的航天燃烧科研模型。由本地 FAISS 向量库检索 NASA 飞行研究文献（Saffire, BASS-II, FLEX, SoFIE），"
-        "并由本地微调大模型生成带引证的回答。**绝不调用任何外部商业 API。**"))
-    st.caption(status_badge("UNVERIFIED_SOURCE") + tr(
-        " · the knowledge passages (`data/knowledge/nasa_combustion_corpus.json`) are team-written summaries, not "
-        "verbatim NASA text, and their report numbers are still being checked (docs/SCIENTIFIC_AUDIT.md, section 12).",
-        " · 知识段落（`data/knowledge/nasa_combustion_corpus.json`）为团队撰写的摘要，并非 NASA 原文，其报告编号仍在核对中"
-        "（docs/SCIENTIFIC_AUDIT.md 第 12 节）。"))
+    st.subheader(tr("🧠 Ask the space-fire research AI", "🧠 询问航天火灾研究 AI"))
+    sub = tr("Ask a question in English: it finds the closest NASA research passages, and our fine-tuned AI answers "
+             "from them.", "用英文提问：系统先查找最相近的 NASA 研究段落，再由我们微调的 AI 根据这些段落作答。")
+    st.markdown(f'<div class="si-sub">{html.escape(sub)}</div>', unsafe_allow_html=True)
 
     try:  # torch, transformers and faiss come from requirement.txt, installed only on the GPU training machine
         from app.services.local_llm_service import ask_local_research_ai, get_ai_status
         ai_status = get_ai_status()
     except (ImportError, OSError) as exc:
-        st.info(tr(
-            f"**The local AI engine is not installed on this server** (`{getattr(exc, 'name', None) or exc}`). It needs "
-            "an NVIDIA GPU and the packages in `requirement.txt`, so it runs on a teammate's machine, not on Streamlit "
-            "Cloud. To run it: `pip install -r requirement.txt`, `python -m scripts.download_model_assets`, "
-            "`python -m scripts.build_local_retrieval_index`, `python -m scripts.train_local_llm`, then start the app.",
-            f"**本服务器未安装本地 AI 引擎**（`{getattr(exc, 'name', None) or exc}`）。它需要 NVIDIA GPU 与 `requirement.txt` 中的依赖，"
-            "因此在队友的电脑上运行，而不是在 Streamlit Cloud 上。运行方法：`pip install -r requirement.txt`、"
-            "`python -m scripts.download_model_assets`、`python -m scripts.build_local_retrieval_index`、"
-            "`python -m scripts.train_local_llm`，然后启动应用。"))
-        _local_ai_benchmark_note()
+        head = tr("🖥️ Runs on our team’s GPU laptop", "🖥️ 在我们团队的 GPU 笔记本上运行")
+        body = tr("This AI needs an NVIDIA GPU and a multi-GB language model, more than this free web server has, so it "
+                  "is switched off here. Everything else on this site works.",
+                  "该 AI 需要 NVIDIA GPU 和数 GB 的语言模型，超出了本免费服务器的能力，因此在此处关闭。本网站其他功能均可正常使用。")
+        missing = tr("missing here: ", "此处缺少：") + str(getattr(exc, "name", None) or exc)
+        st.markdown(f'<div class="si-answer refused"><div class="si-h">{html.escape(head)}</div><p>{html.escape(body)}</p>'
+                    f'<div class="si-foot"><span class="si-time">{html.escape(missing)}</span></div></div>',
+                    unsafe_allow_html=True)
+        _si_about(setup=True)
         return
 
-    # 1. 实时读取真实后端 AI 硬件与模型状态面板
-    with st.expander(tr("🖥️ Local engine status", "🖥️ 查看本地 AI 运行状态与硬件监控 (Local Engine Status)"), expanded=False):
-        s1, s2, s3, s4 = st.columns(4)
-        s1.metric(tr("Device", "计算设备 (Device)"), ai_status["gpu_name"])
-        s2.metric(tr("Offline mode", "离线模式 (Offline Mode)"), "STRICT OFFLINE ✅" if ai_status["offline_mode_enforced"] else "Online")
-        s3.metric(tr("Fine-tuned LoRA", "微调权重 (LoRA)"),
-                  tr("Adapter active", "已加载 (Adapter Active)") if ai_status["lora_adapter_available"]
-                  else tr("Not trained (base fallback)", "未训练 (Base Fallback)"))
-        s4.metric(tr("Licence", "开源协议"), ai_status["base_model_license"])
-        st.caption(tr(f"Current mode: **{ai_status['active_model_mode']}** | base model: `{ai_status['base_model']}`",
-                      f"当前运行模式: **{ai_status['active_model_mode']}** | 基座: `{ai_status['base_model']}`"))
-        _local_ai_benchmark_note()
+    gpu = ai_status["device"] == "cuda"
+    pills = [
+        ("ok" if gpu else "warn", ("🟢 " if gpu else "🟠 ") + (ai_status["gpu_name"] if gpu else tr("CPU (slow)", "CPU（较慢）")), ""),
+        ("info", tr("🧠 Fine-tuned model", "🧠 微调模型") if ai_status["lora_adapter_available"] else tr("Base model", "基座模型"), ai_status["base_model"]),
+        ("ok", tr("🔒 Offline · no external API", "🔒 离线 · 不调用外部 API"), ""),
+        ("warn", tr("Sources: unverified summaries", "来源：未核实的摘要"),
+         tr("Team-written summaries of NASA reports, still being checked", "团队撰写的 NASA 报告摘要，仍在核对中")),
+    ]
+    st.markdown('<div class="si-pills">' + "".join(
+        f'<span class="pill {tone}" title="{html.escape(tip)}">{html.escape(text)}</span>' for tone, text, tip in pills)
+        + "</div>", unsafe_allow_html=True)
 
-    # 2. 交互式科学提问与预设科学问题
-    st.markdown(tr("##### Ask a space-fire science question", "##### 提出您的航天火灾科学问题"))
-    custom = tr("Custom question...", "自定义科学提问...")
-    sample_q = st.selectbox(tr("Pick a sample NASA research question:", "快速选择典型研究探索问题 (Sample NASA Research Questions):"),
-                            [custom] + SI_SAMPLE_QUESTIONS)
-    user_query = st.text_input(tr("Your question in English (the model was tuned on English NASA documents):",
-                                  "输入英文科学问题 (模型基于 NASA 英文技术文献微调):"),
-                               value="" if sample_q == custom else sample_q)
+    custom = tr("✍️ Write my own question", "✍️ 自己输入问题")
+    sample_q = st.selectbox(tr("Try an example", "试试示例问题"), [custom] + SI_SAMPLE_QUESTIONS, key=f"si_sample_{lang}")
+    with st.form("si_ask", border=False):
+        q_col, b_col = st.columns([6, 1], vertical_alignment="bottom")
+        user_query = q_col.text_input(tr("Your question", "你的问题"), value="" if sample_q == custom else sample_q,
+                                      placeholder=tr("Type a question in English…", "请用英文输入问题…"),
+                                      label_visibility="collapsed")
+        asked = b_col.form_submit_button(tr("🚀 Ask", "🚀 提问"), type="primary", use_container_width=True)
 
-    if st.button(tr("🚀 Run local SI inference", "🚀 启动本地超级智能推理 (Run Local SI Inference)"), type="primary"):
+    if asked:
         if not user_query.strip():
-            st.warning(tr("Please enter a question.", "请输入有效的科学问题。"))
-            return
-        with st.spinner(tr("Searching the local NASA passages and running the local model...",
-                           "🔍 正在检索本地 NASA 证据库并执行本地神经网络前向推理...")):
+            st.warning(tr("Please type a question first.", "请先输入问题。"))
+        else:
+            loader = st.empty()
+            with loader.container():
+                pic, panel = st.columns([1, 2.2], vertical_alignment="center")
+                pic.markdown(_svg_img(si_loading_svg(), "si-loading"), unsafe_allow_html=True)
+                bar = panel.empty()
+            shown = {"pct": 0}
+
+            def draw(stage: str, end: int, seconds: float, ease: str, note: str = "") -> None:
+                bar.markdown(_si_progress_html(stage, shown["pct"], end, seconds, ease, note), unsafe_allow_html=True)
+                shown["pct"] = end
+
+            def progress(stage: str, done: int, total: int) -> None:
+                """0-30 %: model onto the GPU (first question only), 30-40 %: search, 40-100 %: answer tokens."""
+                if stage == "load" and done == 0:  # unknown length: creep toward 30 %, slowing down
+                    draw("load", 30, 20.0, "cubic-bezier(.15,.7,.3,1)")
+                elif stage == "search" and done == 0:
+                    draw("search", 40, 1.5, "ease-out")
+                elif stage == "search":
+                    draw("write", 42, 0.5, "ease-out")
+                elif stage == "write":
+                    pct = 40 + int(60 * done / total)
+                    if pct - shown["pct"] >= 2 or done == 1:  # fewer redraws, same picture
+                        draw("write", pct, 0.4, "linear", tr(f" · {done} tokens", f" · {done} 个词元"))
+
+            start = time.perf_counter()
             try:
-                response = ask_local_research_ai(user_query)
+                response = ask_local_research_ai(user_query, on_progress=progress)
+                seconds = time.perf_counter() - start
+                draw("done", 100, 0.3, "ease-out")
+                time.sleep(0.5)  # let the bar reach 100 % before the answer replaces it
             except Exception as exc:  # noqa: BLE001 - a local engine failure must not take down the dashboard
                 st.error(tr(f"The local AI engine could not answer: {exc}", f"本地 AI 引擎无法回答：{exc}"))
-                return
+                response = None
+            loader.empty()
+            if response is not None:  # kept, so the answer stays on screen when other widgets rerun the page
+                st.session_state["si_last"] = (user_query, response, seconds)
 
-        st.markdown(tr("#### 🤖 Generated answer", "#### 🤖 本地 SI 科学解译与回答 (Generated Research Finding)"))
-        if response["evidence_sufficient"]:
-            st.success(response["answer"])
-        else:
-            st.error(response["answer"])
-
-        st.markdown(tr("#### 📚 Retrieved passages and their citations", "#### 📚 检索到的文献段落与引证 (Retrieved Evidence Passages)"))
+    last = st.session_state.get("si_last")
+    if last:
+        question, response, seconds = last
+        st.markdown(_si_answer_html(question, response, seconds), unsafe_allow_html=True)
         if response["evidence_passages"]:
-            for i, p in enumerate(response["evidence_passages"], 1):
-                with st.expander(tr(f"Passage {i}: [{p['investigation']}] {p['citation']} (similarity {p['similarity_score']})",
-                                    f"证据 {i}: [{p['investigation']}] {p['citation']} (相似度得分: {p['similarity_score']})"),
-                                 expanded=True):
-                    st.write(tr(f"**Cited as**: {p['citation']}", f"**文献出处**: {p['citation']}"))
-                    st.markdown(f"**DOI**: `https://doi.org/{p['doi']}`" if p.get("doi") else "**DOI**: —")
-                    st.write(tr(f"**System**: `{p['physical_system']}` | **Conditions**: `{p['conditions']}`",
-                                f"**物理介质**: `{p['physical_system']}` | **条件**: `{p['conditions']}`"))
-                    st.info(tr(f"**Passage**: {p['text']}", f"**段落**: {p['text']}"))
-        else:
-            st.caption(tr("No matching passages found.", "未检索到相关学术分块。"))
+            n = len(response["evidence_passages"])
+            with st.expander(tr(f"📚 NASA sources ({n})", f"📚 NASA 来源（{n}）")):
+                st.markdown(_si_sources_html(response["evidence_passages"]), unsafe_allow_html=True)
+    _si_about(setup=False)
 
 
 with sub_si:  # third sub-tab of tab_prediction, filled here once render_si_intelligence is defined
