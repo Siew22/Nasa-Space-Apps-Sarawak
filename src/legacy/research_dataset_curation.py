@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from src.physics_engine import modulate_physical_features
+from src.legacy.physics_engine import modulate_physical_features
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT_RECORDS = ROOT / "data" / "processed" / "dashboard_records.csv"

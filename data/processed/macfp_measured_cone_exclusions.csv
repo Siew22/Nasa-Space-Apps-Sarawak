@@ -1,0 +1,20 @@
+source_path,reason
+PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_6.csv,combustion is already above threshold at first observation
+PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_4.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_5.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_6.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_4.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_5.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_6.csv,"HRR unit is '[kW]', expected kW/m2"
+PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_25kW_1.CSV,combustion remains above threshold at last observation
+PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_65kW_2.CSV,combustion remains above threshold at last observation
+PMMA/Calibration_Data/LCPP/LCPP_Cone_25kW_4.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/TIFP/TIFP_Cone_25kW_1.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/UClan/UClan_Cone_25kW.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/UClan/UClan_Cone_65kW.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/UDRI/UDRI_Cone_65kW_1.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/ULSTER/ULSTER_Cone_25kW_1.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/UQ/UQ_Cone_25kW_1.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/UQ/UQ_Cone_25kW_2.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/UQ/UQ_Cone_65kW_1.csv,combustion remains above threshold at last observation
+PMMA/Calibration_Data/UQ/UQ_Cone_65kW_2.csv,combustion remains above threshold at last observation

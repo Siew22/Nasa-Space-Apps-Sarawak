@@ -1,0 +1,175 @@
+{
+  "report": "data_provenance_audit",
+  "generated_at_utc": "2026-10-24T13:56:41+00:00",
+  "generated_by": "src/provenance_audit.py",
+  "repository_commit": "13ab59a256f485d94332be3a8eeb265d73c5895d",
+  "status_rules": {
+    "SYNTHETIC_DEMO": "Every row is reproduced exactly by a generator script in this repository.",
+    "VERIFIED_SOURCE": "Rebuilt byte-for-byte from source files at a pinned revision, or raw file SHA-256 matches a registered official checksum.",
+    "UNVERIFIED_SOURCE": "Neither condition holds; the data cannot be traced to an authoritative source."
+  },
+  "datasets": {
+    "BASS_II": {
+      "status": "VERIFIED_SOURCE",
+      "result_type": "REAL_MEASUREMENT",
+      "rows": 129,
+      "unique_original_identifiers": 129,
+      "duplicate_identifiers": 0,
+      "independent_experiments_verified": 129,
+      "source_files": [
+        "data/raw/nasa_psi/PSI-25_Experimental table_BASS-II.csv"
+      ],
+      "evidence": [
+        {
+          "code": "OFFICIAL_CHECKSUM_MATCH",
+          "detail": {
+            "path": "data/raw/nasa_psi/PSI-25_Experimental table_BASS-II.csv"
+          }
+        }
+      ],
+      "required_to_verify": [],
+      "required_to_verify_zh": []
+    },
+    "FLEX": {
+      "status": "VERIFIED_SOURCE",
+      "result_type": "REAL_MEASUREMENT",
+      "rows": 274,
+      "unique_original_identifiers": 273,
+      "duplicate_identifiers": 1,
+      "independent_experiments_verified": 274,
+      "source_files": [
+        "data/raw/nasa_psi/PSI-69_Experimental table_FLEX.csv"
+      ],
+      "evidence": [
+        {
+          "code": "OFFICIAL_CHECKSUM_MATCH",
+          "detail": {
+            "path": "data/raw/nasa_psi/PSI-69_Experimental table_FLEX.csv"
+          }
+        }
+      ],
+      "required_to_verify": [],
+      "required_to_verify_zh": []
+    },
+    "MACFP_PMMA_CONE": {
+      "status": "VERIFIED_SOURCE",
+      "result_type": "REAL_MEASUREMENT",
+      "rows": 54,
+      "unique_original_identifiers": 54,
+      "independent_groups": 10,
+      "group_definition": "laboratory",
+      "duplicate_identifiers": 0,
+      "independent_experiments_verified": 54,
+      "source_commit": "b72eb237cb78be2ab022b32fc93916c584ca6a16",
+      "evidence": [
+        {
+          "code": "CLONE_AT_PINNED_COMMIT",
+          "detail": {
+            "commit": "b72eb237cb78be2ab022b32fc93916c584ca6a16",
+            "pinned": "b72eb237cb78be2ab022b32fc93916c584ca6a16"
+          }
+        },
+        {
+          "code": "CLONE_CLEAN",
+          "detail": {}
+        },
+        {
+          "code": "REBUILD_BYTE_IDENTICAL",
+          "detail": {
+            "rebuilt_sha256": "de10787fd00d75a7aeeb9c07bcb182ab905bb55492f382abf92a55eb4341fe12",
+            "committed_sha256": "de10787fd00d75a7aeeb9c07bcb182ab905bb55492f382abf92a55eb4341fe12"
+          }
+        },
+        {
+          "code": "MODEL_TRAINED_ON_THIS_FILE",
+          "detail": {
+            "model_csv_sha256": "de10787fd00d75a7aeeb9c07bcb182ab905bb55492f382abf92a55eb4341fe12"
+          }
+        }
+      ],
+      "required_to_verify": [],
+      "required_to_verify_zh": []
+    }
+  },
+  "legacy_files": {
+    "data/legacy/research_curated_dataset.csv": {
+      "status": "SYNTHETIC_DEMO",
+      "evidence": [
+        {
+          "code": "DERIVED_FROM_SYNTHETIC_TABLES",
+          "detail": {
+            "rows": 80
+          }
+        },
+        {
+          "code": "TARGET_COMPUTED_FROM_INPUT",
+          "detail": {
+            "rows": 40,
+            "of": 40,
+            "formula": "fan_display x 0.0016 (min 0.005) x 1.5, or 0 when labelled extinguished"
+          }
+        },
+        {
+          "code": "INCOMPATIBLE_TARGETS_MERGED",
+          "detail": {
+            "detail": "BASS-II proxy spread value and FLEX burning rate share column target_rate_mm_s"
+          }
+        }
+      ]
+    },
+    "data/legacy/macfp_empirical_fire_properties.csv": {
+      "status": "SYNTHETIC_DEMO",
+      "evidence": [
+        {
+          "code": "CONSTANT_FALLBACK_VALUES",
+          "detail": {
+            "rows": 20,
+            "distinct_values": {
+              "radiant_heat_flux_kw_m2": 1,
+              "real_peak_hrr_kw_m2": 1
+            }
+          }
+        }
+      ]
+    },
+    "data/legacy/spacecraft_fire_benchmark.csv": {
+      "status": "SYNTHETIC_DEMO",
+      "evidence": [
+        {
+          "code": "CONSTANT_FALLBACK_VALUES",
+          "detail": {
+            "rows": 20,
+            "distinct_values": {
+              "radiant_heat_flux_kw_m2": 1,
+              "target_peak_hrr_kw_m2": 1
+            }
+          }
+        }
+      ]
+    },
+    "data/legacy/research_curated_dataset.metadata.json": {
+      "status": "UNFILLED_TEMPLATE",
+      "evidence": [
+        {
+          "code": "IDENTICAL_TO_TEMPLATE",
+          "detail": {
+            "identical": true,
+            "placeholders": 34
+          }
+        }
+      ]
+    },
+    "data/legacy/logs of fire model.txt": {
+      "status": "UNVERIFIABLE",
+      "evidence": [
+        {
+          "code": "REFERENCED_MODEL_MISSING",
+          "detail": {
+            "model": "models/spacecraft_fire_multitask_v1.keras",
+            "missing": true
+          }
+        }
+      ]
+    }
+  }
+}

@@ -8,7 +8,7 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 import torch
 
 from app.settings import find_project_root, read_ai_config
@@ -36,6 +36,10 @@ def get_ai_status() -> dict[str, Any]:
     return {
         "service_status": "online_local",
         "offline_mode_configured": cfg.get("strict_offline_mode", True),
+        # Keys read by the SI tab in src/app.py and by tests/test_local_ai_pipeline.py
+        "offline_mode_enforced": bool(cfg.get("strict_offline_mode", True)) and os.environ.get("HF_HUB_OFFLINE") == "1",
+        "base_model": cfg["base_model"]["model_name"],
+        "base_model_license": cfg["base_model"].get("license"),
         "device": "cuda" if torch.cuda.is_available() else "cpu",
         "gpu_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "None",
         "base_model_path": str(local_base),
@@ -112,7 +116,32 @@ def retrieve_relevant_passages(query: str, top_k: int | None = None, threshold: 
     return results
 
 
-def ask_local_research_ai(question: str, use_fine_tuned: bool = True) -> dict[str, Any]:
+MAX_NEW_TOKENS = 250
+
+
+class _TokenCounter:
+    """Streamer for model.generate() that reports how many answer tokens have been written so far.
+    generate() first passes the prompt, then one call per new token (batch size 1)."""
+
+    def __init__(self, report: Callable[[int], None]):
+        self.report, self.tokens, self.seen_prompt = report, 0, False
+
+    def put(self, value) -> None:
+        if not self.seen_prompt:
+            self.seen_prompt = True
+            return
+        self.tokens += 1
+        self.report(self.tokens)
+
+    def end(self) -> None:
+        pass
+
+
+def ask_local_research_ai(question: str, use_fine_tuned: bool = True,
+                          on_progress: Callable[[str, int, int], None] | None = None) -> dict[str, Any]:
+    """Answer from the retrieved passages. on_progress(stage, done, total), if given, is called as the work advances:
+    'load' (model onto the device, first call only), 'search' (retrieval), 'write' (answer tokens of MAX_NEW_TOKENS)."""
+    report = on_progress or (lambda stage, done, total: None)
     status = get_ai_status()
     if not status["local_base_model_available"]:
         return {
@@ -128,10 +157,18 @@ def ask_local_research_ai(question: str, use_fine_tuned: bool = True) -> dict[st
             "无法执行微调模型推理：LoRA 适配器权重文件不存在。请先运行 'python -m scripts.train_local_llm'。"
         )
 
-    _lazy_init()
+    if _TOKENIZER is None:
+        report("load", 0, 1)
+        _lazy_init()
+    report("load", 1, 1)
+    report("search", 0, 1)
     passages = retrieve_relevant_passages(question)
+    report("search", 1, 1)
+    # Supporting passages only need similarity_threshold, but answering at all needs one strong match: an off-topic
+    # question sharing a word like "flame" scores ~0.35, the sample and benchmark questions 0.42 or more.
+    min_top = read_ai_config()["retrieval"].get("min_top_similarity_to_answer", 0.0)
 
-    if not passages:
+    if not passages or max(p["similarity_score"] for p in passages) < min_top:
         return {
             "question": question,
             "answer": "INSUFFICIENT EVIDENCE: The local NASA research database does not contain sufficient verified experimental passages matching this query.",
@@ -160,9 +197,10 @@ def ask_local_research_ai(question: str, use_fine_tuned: bool = True) -> dict[st
         with torch.no_grad():
             outputs = model_to_use.generate(
                 **inputs,
-                max_new_tokens=250,
+                max_new_tokens=MAX_NEW_TOKENS,
                 do_sample=False,
-                pad_token_id=_TOKENIZER.eos_token_id
+                pad_token_id=_TOKENIZER.eos_token_id,
+                streamer=_TokenCounter(lambda n: report("write", n, MAX_NEW_TOKENS)) if on_progress else None,
             )
         return _TOKENIZER.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
 

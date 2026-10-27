@@ -1,0 +1,37 @@
+# Render Blueprint — deploys both runnable pieces of the platform.
+#
+# Connect this repo at https://render.com and Render reads this file to create:
+#   1. flame-freefall        -> Streamlit dashboard (the main app)
+#   2. flame-freefall-api    -> FastAPI backend (optional HTTP API)
+#
+# Service names become https://<name>.onrender.com and must be globally unique.
+# If Render says a name is taken, rename it here and update FRONTEND_ORIGINS to match.
+
+services:
+  # --- Main interactive dashboard (self-contained; runs the ML model in-process) ---
+  - type: web
+    name: flame-freefall
+    runtime: python
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: streamlit run src/app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FRONTEND_ORIGINS
+        value: https://flame-freefall.onrender.com,https://flame-freefall-api.onrender.com
+    healthCheckPath: /_stcore/health
+
+  # --- Optional FastAPI backend for external/browser frontends ---
+  - type: web
+    name: flame-freefall-api
+    runtime: python
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FRONTEND_ORIGINS
+        value: https://flame-freefall.onrender.com,https://flame-freefall-api.onrender.com
+    healthCheckPath: /docs

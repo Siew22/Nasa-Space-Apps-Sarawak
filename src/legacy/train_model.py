@@ -33,7 +33,7 @@ def load_training_data() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """从下载的数据集整合特征"""
     bass_file = RAW_DIR / "PSI-25_BASS_II_experimental_table.csv"
     if not bass_file.exists():
-        raise FileNotFoundError(f"找不到 BASS 文件，请先运行 python -m src.download_nasa_tables")
+        raise FileNotFoundError(f"找不到 BASS 文件，请先运行 python -m src.generate_synthetic_demo_tables（注意：生成的是合成演示数据，并非 NASA 实测）")
 
     df_bass = pd.read_csv(bass_file)
     rows_x = []

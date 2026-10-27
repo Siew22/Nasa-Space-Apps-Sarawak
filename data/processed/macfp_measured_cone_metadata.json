@@ -1,0 +1,26 @@
+{
+  "source_repo": "https://github.com/MaCFP/matl-db",
+  "source_commit": "b72eb237cb78be2ab022b32fc93916c584ca6a16",
+  "source_scope": "PMMA/Calibration_Data/*/*Cone*.csv measured cone calorimeter runs only",
+  "material": "PMMA",
+  "test_type": "cone calorimetry",
+  "burn_threshold_kw_m2": 10.0,
+  "real_burn_duration_s_definition": "Time from first to last recorded HRR >= 10 kW/m2; runs with HRR >= 10 at the first or final sample are excluded.",
+  "real_mean_hrr_kw_m2_definition": "Trapezoidal time-weighted mean of nonnegative measured HRR between burn start and end.",
+  "target_peak_hrr_kw_m2_definition": "Maximum recorded numeric HRR over the complete experiment, in kW/m2.",
+  "group_id_definition": "Laboratory; keeps all runs from the same institution in one cross-validation fold.",
+  "excluded_incomplete_runs": "Runs above the 10 kW/m2 threshold at first or final observation are excluded because full burn duration is not observed.",
+  "note": "These are terrestrial PMMA cone tests; they do not directly validate spacecraft or microgravity predictions.",
+  "candidate_files": 73,
+  "included_experiments": 54,
+  "excluded_experiments": 19,
+  "laboratories": 10,
+  "peak_hrr_range_kw_m2": [
+    379.1,
+    2908.98
+  ],
+  "hazard_labels_at_350_kw_m2": {
+    "below_350": 0,
+    "at_or_above_350": 54
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "format_version": 1,
+  "model_file": "spacecraft_fire_peak_hrr_v1.keras",
+  "feature_columns": [
+    "radiant_heat_flux_kw_m2",
+    "real_burn_duration_s",
+    "real_mean_hrr_kw_m2"
+  ],
+  "feature_units": [
+    "kW/m2",
+    "s",
+    "kW/m2"
+  ],
+  "output": "target_peak_hrr_kw_m2",
+  "output_units": "kW/m2",
+  "input_stage": "after_burn_test",
+  "scaler": {
+    "mean": [
+      45.0,
+      437.6764837194372,
+      528.4600765086986
+    ],
+    "scale": [
+      18.55921454276674,
+      228.87192050060733,
+      264.00719675905447
+    ]
+  },
+  "hazard_threshold_kw_m2": 350.0,
+  "source": "data/processed/macfp_measured_cone_experiments.csv; dataset_source=MaCFP/matl-db PMMA Calibration_Data; source_commit=b72eb237cb78be2ab022b32fc93916c584ca6a16",
+  "scope": "Post-test PMMA cone-calorimeter measurements; spaceflight performance unverified.",
+  "source_preprocessing": {
+    "source_repo": "https://github.com/MaCFP/matl-db",
+    "source_commit": "b72eb237cb78be2ab022b32fc93916c584ca6a16",
+    "source_scope": "PMMA/Calibration_Data/*/*Cone*.csv measured cone calorimeter runs only",
+    "material": "PMMA",
+    "test_type": "cone calorimetry",
+    "burn_threshold_kw_m2": 10.0,
+    "real_burn_duration_s_definition": "Time from first to last recorded HRR >= 10 kW/m2; runs with HRR >= 10 at the first or final sample are excluded.",
+    "real_mean_hrr_kw_m2_definition": "Trapezoidal time-weighted mean of nonnegative measured HRR between burn start and end.",
+    "target_peak_hrr_kw_m2_definition": "Maximum recorded numeric HRR over the complete experiment, in kW/m2.",
+    "group_id_definition": "Laboratory; keeps all runs from the same institution in one cross-validation fold.",
+    "excluded_incomplete_runs": "Runs above the 10 kW/m2 threshold at first or final observation are excluded because full burn duration is not observed.",
+    "note": "These are terrestrial PMMA cone tests; they do not directly validate spacecraft or microgravity predictions.",
+    "candidate_files": 73,
+    "included_experiments": 54,
+    "excluded_experiments": 19,
+    "laboratories": 10,
+    "peak_hrr_range_kw_m2": [
+      379.1,
+      2908.98
+    ],
+    "hazard_labels_at_350_kw_m2": {
+      "below_350": 0,
+      "at_or_above_350": 54
+    }
+  },
+  "training_data": {
+    "csv_sha256": "de10787fd00d75a7aeeb9c07bcb182ab905bb55492f382abf92a55eb4341fe12",
+    "rows": 54,
+    "independent_group_column": "laboratory",
+    "independent_groups": 10,
+    "materials": [
+      "PMMA"
+    ],
+    "dataset_sources": [
+      "MaCFP/matl-db PMMA Calibration_Data"
+    ],
+    "unique_input_rows": 54,
+    "feature_ranges": {
+      "radiant_heat_flux_kw_m2": {
+        "min": 25.0,
+        "max": 65.0
+      },
+      "real_burn_duration_s": {
+        "min": 195.0,
+        "max": 1148.9000244140625
+      },
+      "real_mean_hrr_kw_m2": {
+        "min": 146.91358947753906,
+        "max": 1881.1949462890625
+      }
+    },
+    "peak_hrr_min_kw_m2": 379.1000061035156,
+    "peak_hrr_max_kw_m2": 2908.97998046875,
+    "hazard_class_counts": {
+      "below_threshold": 0,
+      "at_or_above_threshold": 54
+    }
+  },
+  "validation": {
+    "method": "5-fold GroupKFold by laboratory; scaler fitted inside each training fold",
+    "metrics": {
+      "Dummy_Baseline": {
+        "mae_kw_m2": 353.3210172299986,
+        "rmse_kw_m2": 453.612626327143,
+        "r2_score": -0.029059920308421416,
+        "balanced_accuracy": null,
+        "macro_f1": null
+      },
+      "Random_Forest": {
+        "mae_kw_m2": 174.58563683969007,
+        "rmse_kw_m2": 278.36850474683473,
+        "r2_score": 0.6124653069796633,
+        "balanced_accuracy": null,
+        "macro_f1": null
+      },
+      "TensorFlow_NN": {
+        "mae_kw_m2": 118.92782649287471,
+        "rmse_kw_m2": 180.53077610216977,
+        "r2_score": 0.8370055215062012,
+        "balanced_accuracy": null,
+        "macro_f1": null
+      }
+    },
+    "hazard_discrimination_validated": false,
+    "tensorflow_beats_dummy_mae": true,
+    "tensorflow_beats_random_forest_mae": true
+  },
+  "readiness": "experimental; not validated for spaceflight or unseen materials"
+}
