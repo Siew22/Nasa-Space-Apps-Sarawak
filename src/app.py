@@ -310,6 +310,10 @@ img.flame-card:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba
 .fchip.calm { color: #7CB6FF; border-color: rgba(57,135,229,.55); background: rgba(57,135,229,.12); }
 .fchip.none { color: #8f9ab8; border-color: rgba(143,154,184,.35); background: rgba(143,154,184,.08); }
 .fwhy { margin: 0; font-size: .84rem; color: #c3cbe0; line-height: 1.5; }
+.fwhatif { margin: 0 0 8px; padding: 6px 9px; border-radius: 8px; background: rgba(255,255,255,.04);
+  font-size: .78rem; color: #dfe5f5; }
+.fwhatif span { color: #8f9ab8; }
+img.flex-scene { display: block; width: 100%; height: auto; margin: 10px 0 2px; }
 
 /* Front page: crew fire-safety takeaways */
 .insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 4px 0 26px; }
@@ -887,15 +891,14 @@ def _svg_img(svg: str, cls: str) -> str:
     return f'<img class="{cls}" alt="" src="data:image/svg+xml;base64,{base64.b64encode(svg.encode("utf-8")).decode("ascii")}">'
 
 
-def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float, cycle: float,
-                end_text: str | None = None) -> str:
+def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float, cycle: float) -> str:
     """Free-floating fuel droplet inside its spherical microgravity flame (FLEX).
 
     Proportions follow NASA's FLEX description: a 2-4 mm droplet inside a flame ball
     "about the size of a large olive", so the flame is drawn ~6x the droplet diameter.
     Alkanes show a luminous yellow-orange soot shell with a blue rim; methanol burns
     with a faint, soot-free blue flame. The droplet shrinks from its measured start
-    diameter to the measured extinction diameter, where the flame goes out. `end_text` replaces the end label.
+    diameter to the measured extinction diameter, where the flame goes out.
     Relative speeds only; time is compressed. Illustration, not footage.
     """
     is_methanol = "methanol" in fuel.lower()
@@ -920,7 +923,7 @@ def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float
         soot = (f'<circle cx="110" cy="100" r="{flame_r * 0.5:.1f}" fill="none" stroke="#7a3b12" '
                 f'stroke-width="3" opacity="0.35" filter="url(#soft)"/>')
         liquid_hi, liquid_lo = "#FFF6DD", "#E2B86A"
-    ext_txt = end_text if end_text is not None else tr(f"EXTINCTION · {d_ext:.2f} mm", f"熄火 · {d_ext:.2f} mm")
+    ext_txt = tr(f"EXTINCTION · {d_ext:.2f} mm", f"熄火 · {d_ext:.2f} mm")
     size_txt = tr(f"droplet {d0:.1f} mm · flame ~ olive-sized", f"液滴 {d0:.1f} mm · 火焰约橄榄大小")
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 210" font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">
 <defs>
@@ -948,6 +951,155 @@ def droplet_svg(fuel: str, rate: float, rate_max: float, d0: float, d_ext: float
 </g>
 <text x="110" y="178" text-anchor="middle" fill="#8f9ab8" font-size="9.5">{size_txt}</text>
 <text class="ext" x="110" y="198" text-anchor="middle" fill="#FC3D21" font-size="11" font-weight="800" letter-spacing="1">{ext_txt}</text>
+</svg>"""
+
+
+def flex_flame_scene_svg(heptane: bool, o2: float, d0: float, goes_out: bool, end_ratio: float,
+                         burnout_s: float) -> str:
+    """The predicted FLEX run (right), next to the same droplet burning on Earth (left, for comparison).
+
+    Earth: hot gas rises, so the flame is a tall, flickering teardrop around a droplet hung on a fibre. ISS: nothing
+    rises, so a free-floating droplet sits in a steady ball of flame. The droplet is drawn to scale (1 cm bar); the
+    flame is ~6x the droplet's diameter in air and sits closer with more oxygen (NASA: a flame "about the size of a
+    large olive"). Heptane glows yellow from hot soot inside a blue edge, more strongly with more oxygen; methanol
+    burns a faint, soot-free blue. The droplet shrinks by the d²-law (d² falls linearly in time) at the predicted K and
+    the run ends the way the flame-out model says, at the median diameter where NASA's flames went out.
+    Played at real speed when the run lasts 3-8 s, otherwise sped up or slowed down (labelled). Illustration, not footage.
+    """
+    px_mm, cx, cy = 4.4, 290.0, 128.0
+    r_drop = d0 / 2 * px_mm
+    r_flame = min(80.0, r_drop * max(4.0, min(9.0, 6.0 * math.sqrt(0.21 / max(o2, 0.05)))))
+    soot = max(0.1, min(1.0, (o2 - 0.12) / 0.12)) if heptane else 0.0
+    s_end = max(0.2, min(0.95, end_ratio)) if goes_out else 0.0
+    real_s = burnout_s * (1 - s_end ** 2)
+    burn_s = max(3.0, min(8.0, real_s))
+    speed = real_s / burn_s
+    cycle = burn_s + 2.4  # the end state stays on screen for 2.4 s before the run restarts
+    pe = 100 * burn_s / cycle
+
+    steps = [i / 10 for i in range(11)]
+    d_sc = [math.sqrt(max(0.0, 1 - t * (1 - s_end ** 2))) for t in steps]
+    drop_kf = " ".join(f"{pe * t:.2f}% {{ transform: scale({d:.3f}) }}" for t, d in zip(steps, d_sc))
+    drop_kf += f" 100% {{ transform: scale({d_sc[-1]:.3f}) }}"
+    ign = 4.0  # % of the cycle for the flame ball to grow after ignition
+    flame_kf = [f"0% {{ transform: scale(0.25); opacity: 0 }}", f"{ign:.2f}% {{ transform: scale(1); opacity: 1 }}"]
+    flame_kf += [f"{pe * t:.2f}% {{ transform: scale({0.35 + 0.65 * d:.3f}); opacity: 1 }}"
+                 for t, d in zip(steps[1:], d_sc[1:])]
+    if goes_out:  # radiative extinction: the big, dim flame fades away and leaves fuel behind
+        flame_kf.append(f"{pe + 3:.2f}% {{ transform: scale({(0.35 + 0.65 * s_end) * 1.12:.3f}); opacity: 0 }}")
+    else:
+        flame_kf.append(f"{pe + 1.5:.2f}% {{ transform: scale(0.3); opacity: 0 }}")
+    flame_kf.append("100% { transform: scale(0.3); opacity: 0 }")
+
+    if heptane:
+        earth_stops = ('<stop offset="0" stop-color="#ff6a1a" stop-opacity="0"/>'
+                       '<stop offset="0.12" stop-color="#ff8a2a" stop-opacity="0.55"/>'
+                       '<stop offset="0.4" stop-color="#ffc04d" stop-opacity="0.95"/>'
+                       '<stop offset="0.7" stop-color="#fff0b0" stop-opacity="0.95"/>'
+                       '<stop offset="0.86" stop-color="#ffd27a" stop-opacity="0.7"/>'
+                       '<stop offset="0.93" stop-color="#6fa0ff" stop-opacity="0.6"/>'
+                       '<stop offset="1" stop-color="#3f6dff" stop-opacity="0.15"/>')
+        edge_op = 0.5
+    else:
+        earth_stops = ('<stop offset="0" stop-color="#3f6dff" stop-opacity="0"/>'
+                       '<stop offset="0.3" stop-color="#5c8dff" stop-opacity="0.25"/>'
+                       '<stop offset="0.85" stop-color="#8fb8ff" stop-opacity="0.55"/>'
+                       '<stop offset="1" stop-color="#3f6dff" stop-opacity="0.2"/>')
+        edge_op = 0.42
+    soot_ball = "" if not heptane else (
+        f'<circle cx="{cx}" cy="{cy}" r="{r_flame * 0.8:.1f}" fill="url(#soot)" filter="url(#glow)"/>')
+
+    if speed > 1.1:
+        speed_txt = tr(f"sped up {speed:.0f}×" if speed >= 2 else f"sped up {speed:.1f}×",
+                       f"加速 {speed:.0f} 倍" if speed >= 2 else f"加速 {speed:.1f} 倍")
+    elif speed < 0.9:
+        speed_txt = tr(f"slowed down {1 / speed:.1f}×", f"放慢 {1 / speed:.1f} 倍")
+    else:
+        speed_txt = tr("real speed", "实际速度")
+    if goes_out:
+        end_big, end_small, end_color = tr("FLAME WENT OUT", "火焰熄灭"), tr("fuel left over", "仍有燃料剩余"), "#7CB6FF"
+        bar_end = tr("flame goes out early", "火焰提前熄灭")
+    else:
+        end_big, end_small, end_color = tr("ALL FUEL BURNED", "燃料全部烧完"), tr("the droplet is gone", "液滴已消失"), "#FF9A4D"
+        bar_end = tr(f"all burned · {burnout_s:.1f} s", f"全部烧完 · {burnout_s:.1f} 秒")
+    lx, ly = cx + r_flame * 0.707, cy - r_flame * 0.707  # flame label: leader from the edge, up and right
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 292" font-family="Inter, Segoe UI, Microsoft YaHei, Arial, sans-serif">
+<defs>
+  <linearGradient id="earth" x1="0" y1="0" x2="0" y2="1">{earth_stops}</linearGradient>
+  <radialGradient id="space" cx="50%" cy="48%" r="70%"><stop offset="0" stop-color="#0b1126"/><stop offset="1" stop-color="#03050c"/></radialGradient>
+  <radialGradient id="edge">
+    <stop offset="0.78" stop-color="#4f7dff" stop-opacity="0"/><stop offset="0.9" stop-color="#4f7dff" stop-opacity="{edge_op * 0.6:.2f}"/>
+    <stop offset="0.97" stop-color="#9cc0ff" stop-opacity="{edge_op:.2f}"/><stop offset="1" stop-color="#9cc0ff" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="soot">
+    <stop offset="0" stop-color="#ff7a1a" stop-opacity="{0.1 * soot:.2f}"/><stop offset="0.6" stop-color="#ff8a2a" stop-opacity="{0.32 * soot:.2f}"/>
+    <stop offset="0.85" stop-color="#ffb347" stop-opacity="{0.9 * soot:.2f}"/><stop offset="0.95" stop-color="#ffe08a" stop-opacity="{0.85 * soot:.2f}"/>
+    <stop offset="1" stop-color="#ffe08a" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="liq" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#F4F8FF"/><stop offset="1" stop-color="#8fa9c8"/></radialGradient>
+  <filter id="glow"><feGaussianBlur stdDeviation="1.4"/></filter>
+</defs>
+<style>
+  .ef {{ transform-box: view-box; transform-origin: 71px 182px; animation: flick .42s ease-in-out infinite alternate; }}
+  .rise {{ animation: rise 1.6s linear infinite; }}
+  .fl {{ transform-box: view-box; transform-origin: {cx:.0f}px {cy:.0f}px; animation: fl {cycle:.2f}s linear infinite; }}
+  .dr {{ transform-box: view-box; transform-origin: {cx:.0f}px {cy:.0f}px; animation: dr {cycle:.2f}s linear infinite; }}
+  .lbl {{ animation: lbl {cycle:.2f}s linear infinite; }}
+  .end {{ opacity: 0; animation: end {cycle:.2f}s linear infinite; }}
+  .tb {{ transform-box: view-box; transform-origin: 146px 270px; animation: tb {cycle:.2f}s linear infinite; }}
+  @keyframes flick {{ 0% {{ transform: scale(1, 1) }} 50% {{ transform: scale(.96, 1.07) }} 100% {{ transform: scale(1.03, .95) }} }}
+  @keyframes rise {{ 0% {{ transform: translateY(0); opacity: 0 }} 25% {{ opacity: .8 }} 100% {{ transform: translateY(-16px); opacity: 0 }} }}
+  @keyframes fl {{ {" ".join(flame_kf)} }}
+  @keyframes dr {{ {drop_kf} }}
+  @keyframes lbl {{ 0% {{ opacity: 1 }} {pe:.2f}% {{ opacity: 1 }} {pe + 2:.2f}% {{ opacity: 0 }} 100% {{ opacity: 0 }} }}
+  @keyframes end {{ 0% {{ opacity: 0 }} {pe + 1:.2f}% {{ opacity: 0 }} {pe + 4:.2f}% {{ opacity: 1 }} 97% {{ opacity: 1 }} 100% {{ opacity: 0 }} }}
+  @keyframes tb {{ 0% {{ transform: scaleX(0) }} {pe:.2f}% {{ transform: scaleX(1) }} 100% {{ transform: scaleX(1) }} }}
+</style>
+<rect x="6" y="6" width="130" height="250" rx="12" fill="#070b18" stroke="rgba(255,255,255,0.12)"/>
+<text x="71" y="25" text-anchor="middle" fill="#c9d2ea" font-size="10" font-weight="700" letter-spacing="1">{tr("ON EARTH", "在地球上")}</text>
+<text x="71" y="38" text-anchor="middle" fill="#8f9ab8" font-size="8.5">{tr("for comparison", "对照")}</text>
+<g fill="none" stroke="#8f9ab8" stroke-width="1.2" stroke-linecap="round">
+  <path class="rise" d="M54,62 l4,-4 l4,4"/><path class="rise" d="M67,56 l4,-4 l4,4" style="animation-delay:-.55s"/>
+  <path class="rise" d="M80,62 l4,-4 l4,4" style="animation-delay:-1.1s"/>
+</g>
+<line x1="20" y1="182" x2="122" y2="182" stroke="#6b7390" stroke-width="0.8"/>
+<g class="ef"><path d="M71,64 C86,102 98,150 92,178 C88,200 54,200 50,178 C44,150 56,102 71,64 Z" fill="url(#earth)" filter="url(#glow)"/></g>
+<circle cx="71" cy="182" r="5.5" fill="url(#liq)"/>
+<text x="71" y="222" text-anchor="middle" fill="#aab3cc" font-size="8.5">{tr("hot gas rises, so the", "热气上升，")}</text>
+<text x="71" y="234" text-anchor="middle" fill="#aab3cc" font-size="8.5">{tr("flame stretches up", "火焰被向上拉长")}</text>
+
+<rect x="146" y="6" width="308" height="250" rx="12" fill="url(#space)" stroke="rgba(255,255,255,0.12)"/>
+<text x="160" y="25" fill="#c9d2ea" font-size="10" font-weight="700" letter-spacing="1">{tr("ON THE ISS · FLEX", "在国际空间站 · FLEX")}</text>
+<text x="160" y="38" fill="#8f9ab8" font-size="8.5">{tr("nothing rises: a steady ball of flame", "没有“向上”：稳定的球形火焰")}</text>
+<text x="444" y="25" text-anchor="end" fill="#8f9ab8" font-size="8.5">{speed_txt}</text>
+<g class="fl">
+  <circle cx="{cx}" cy="{cy}" r="{r_flame:.1f}" fill="url(#edge)"/>
+  {soot_ball}
+</g>
+<g class="dr">
+  <circle cx="{cx}" cy="{cy}" r="{r_drop:.2f}" fill="url(#liq)"/>
+  <circle cx="{cx - r_drop * 0.3:.2f}" cy="{cy - r_drop * 0.3:.2f}" r="{max(0.6, r_drop * 0.25):.2f}" fill="#FFFFFF" opacity="0.85"/>
+</g>
+<g class="lbl" fill="#c9d2ea" font-size="9">
+  <line x1="{lx:.1f}" y1="{ly:.1f}" x2="{lx + 16:.1f}" y2="{ly - 14:.1f}" stroke="#8f9ab8" stroke-width="0.8"/>
+  <text x="{lx + 19:.1f}" y="{ly - 16:.1f}" font-weight="700">{tr("flame", "火焰")}</text>
+  <text x="{lx + 19:.1f}" y="{ly - 5:.1f}" fill="#8f9ab8" font-size="8.5">{tr("(a steady ball)", "（稳定的球形）")}</text>
+  <line x1="{cx}" y1="{cy + r_drop + 1.5:.1f}" x2="{cx}" y2="{cy + r_flame + 8:.1f}" stroke="#8f9ab8" stroke-width="0.8" stroke-dasharray="2 2"/>
+  <text x="{cx}" y="{cy + r_flame + 19:.1f}" text-anchor="middle" font-weight="700">{tr(f"fuel droplet · {d0:.1f} mm", f"燃料液滴 · {d0:.1f} mm")}</text>
+</g>
+<g class="end" text-anchor="middle">
+  <text x="{cx}" y="{cy - 20:.1f}" fill="{end_color}" font-size="13" font-weight="800" letter-spacing="1">{end_big}</text>
+  <text x="{cx}" y="{cy + 30:.1f}" fill="#c9d2ea" font-size="9.5">{end_small}</text>
+</g>
+<g stroke="#aab3cc" stroke-width="1"><line x1="160" y1="244" x2="{160 + 10 * px_mm:.1f}" y2="244"/>
+  <line x1="160" y1="240" x2="160" y2="248"/><line x1="{160 + 10 * px_mm:.1f}" y1="240" x2="{160 + 10 * px_mm:.1f}" y2="248"/></g>
+<text x="{160 + 5 * px_mm:.1f}" y="237" text-anchor="middle" fill="#aab3cc" font-size="8.5">1 cm</text>
+
+<rect x="146" y="267" width="308" height="6" rx="3" fill="rgba(255,255,255,0.1)"/>
+<rect class="tb" x="146" y="267" width="308" height="6" rx="3" fill="{end_color}"/>
+<text x="146" y="287" fill="#8f9ab8" font-size="8.5">{tr("ignition", "点火")}</text>
+<text x="454" y="287" text-anchor="end" fill="#8f9ab8" font-size="8.5">{bar_end}</text>
+<text x="139" y="273" text-anchor="end" fill="#8f9ab8" font-size="8.5">{tr("time ▶", "时间 ▶")}</text>
 </svg>"""
 
 
@@ -2560,51 +2712,124 @@ def _flex_result_figure(pred: dict, near: dict, k_meta: dict) -> go.Figure:
     return fig
 
 
-def _factor_cards_html(pred: dict, inputs: dict, means: list) -> str:
-    """One card per input: its value, its push on each model's result in this test, and the physics behind it."""
-    k_c, e_c = pred["burning_rate_contributions"], pred["extinction_contributions"]
+def _sigmoid(x: float) -> float:
+    return 1.0 / (1.0 + math.exp(-x))
+
+
+def _flex_what_if(inputs: dict, means: list) -> dict:
+    """The AI's answer with one input changed: numeric inputs set to the average NASA test, the fuel swapped.
+    None where that changed test is one the models refuse (outside the tested range)."""
+    alts = {}
+    for col, avg in zip(flex.FEATURES, means):
+        try:
+            alts[col] = flex.predict({**inputs, col: 1.0 - inputs[col] if col == "is_heptane" else float(avg)})
+        except ValueError:
+            alts[col] = None
+    return alts
+
+
+def _factor_cards_html(pred: dict, inputs: dict, means: list, alts: dict) -> str:
+    """One card per input: its value, what it does in this test in plain words (compared with the AI's answer when
+    only that input is changed, `alts` from _flex_what_if), and the physics behind it."""
+    k_now, s_now = pred["burning_rate_mm2_s"], pred["extinction_score"]
+    now_txt = tr(f"(this test: {k_now:.3f} · {s_now:.2f})", f"（本次：{k_now:.3f} · {s_now:.2f}）")
     cards = []
-    for (col, avg) in zip(k_c, means):
+    for (col, avg) in zip(flex.FEATURES, means):
         icon, name, why = FLEX_FACTOR_WHY[col]
-        value = (tr(f"This test: {_flex_shown(col, inputs[col])}", f"本次试验：{_flex_shown(col, inputs[col])}")
-                 if col == "is_heptane" else
-                 tr(f"This test: {_flex_shown(col, inputs[col])} · average NASA test: {_flex_shown(col, avg)}",
-                    f"本次试验：{_flex_shown(col, inputs[col])} · NASA 平均试验：{_flex_shown(col, avg)}"))
-        k, e = k_c[col], e_c[col]
-        chips = [
-            ("none", tr("≈ no effect on speed", "对速度几乎无影响")) if abs(k) < 0.005 else
-            ("fire", tr(f"▲ burns faster {k:+.3f}", f"▲ 燃烧更快 {k:+.3f}")) if k > 0 else
-            ("calm", tr(f"▼ burns slower {k:+.3f}", f"▼ 燃烧更慢 {k:+.3f}")),
-            ("none", tr("≈ no effect on flame-out", "对熄火几乎无影响")) if abs(e) < 0.05 else
-            ("calm", tr(f"pushes toward going out {e:+.2f}", f"推向熄灭 {e:+.2f}")) if e > 0 else
-            ("fire", tr(f"helps it keep burning {e:+.2f}", f"帮助持续燃烧 {e:+.2f}")),
-        ]
+        if col == "is_heptane":
+            value = tr(f"This test: {_flex_shown(col, inputs[col])}", f"本次试验：{_flex_shown(col, inputs[col])}")
+            alt = _flex_shown(col, 1 - inputs[col])
+            what_if = tr(f"With {alt} instead", f"若改用{alt}")
+        else:
+            value = tr(f"This test: {_flex_shown(col, inputs[col])} · average NASA test: {_flex_shown(col, avg)}",
+                       f"本次试验：{_flex_shown(col, inputs[col])} · NASA 平均试验：{_flex_shown(col, avg)}")
+            what_if = tr(f"At the average ({_flex_shown(col, avg)})", f"若取平均值（{_flex_shown(col, avg)}）")
+        chips, line = [], ""
+        if alts.get(col):
+            k_alt, s_alt = alts[col]["burning_rate_mm2_s"], alts[col]["extinction_score"]
+            pct = 100 * (k_now / k_alt - 1)
+            d_score = s_now - s_alt
+            chips = [
+                ("none", tr("≈ no effect on speed", "对速度几乎无影响")) if abs(pct) < 1 else
+                ("fire", tr(f"▲ burns {pct:.0f}% faster", f"▲ 燃烧快 {pct:.0f}%")) if pct > 0 else
+                ("calm", tr(f"▼ burns {-pct:.0f}% slower", f"▼ 燃烧慢 {-pct:.0f}%")),
+                ("none", tr("≈ no effect on flame-out", "对熄火几乎无影响")) if abs(d_score) < 0.01 else
+                ("calm", tr("pushes it toward going out", "推向熄灭")) if d_score > 0 else
+                ("fire", tr("helps it keep burning", "帮助持续燃烧")),
+            ]
+            line = (f'<div class="fwhatif">{html.escape(what_if)}: '
+                    + html.escape(tr(f"K {k_alt:.3f} mm²/s · flame-out score {s_alt:.2f}",
+                                     f"K {k_alt:.3f} mm²/s · 熄火得分 {s_alt:.2f}"))
+                    + f" <span>{html.escape(now_txt)}</span></div>")
         cards.append(
             f'<div class="fcard"><div class="fhead"><span class="ficon">{icon}</span><div><b>{html.escape(tr(*name))}</b>'
             f'<div class="fval">{html.escape(value)}</div></div></div><div class="fchips">'
             + "".join(f'<span class="fchip {cls}">{html.escape(t)}</span>' for cls, t in chips)
-            + f'</div><p class="fwhy">{html.escape(tr(*why))}</p></div>')
+            + f'</div>{line}<p class="fwhy">{html.escape(tr(*why))}</p></div>')
     return f'<div class="factors">{"".join(cards)}</div>'
 
 
-def _contribution_chart(contrib: dict, inputs: dict, means: list, title: str, unit: str,
-                        more_fire_positive: bool) -> go.Figure:
-    """Signed bars, one per input. Orange = more fire (faster burning / keeps burning), blue = less fire."""
+def _build_up_chart(start: float, contrib: dict, inputs: dict, means: list, title: str,
+                    flameout: bool, threshold: float = 0.5) -> go.Figure:
+    """How the AI reaches its answer, read top to bottom: an average NASA test, one push per input, then this test.
+
+    Orange = more fire (faster burning / keeps burning), blue = less fire. For the flame-out model the pushes add up
+    in log-odds, so the axis is drawn in log-odds but labelled with the flame-out score, and the decision line splits
+    'burns to the end' from 'goes out early'."""
+    ORANGE, BLUE, MUTED, TEXT = "#d95926", "#3987e5", "#8f9ab8", "#c9d2ea"
+    start_lbl, end_lbl = tr("Average NASA test", "NASA 平均试验"), tr("<b>This test</b>", "<b>本次试验</b>")
     names = [_flex_input_label(c, inputs[c], m) for c, m in zip(contrib, means)]
-    vals = list(contrib.values())
-    colors = ["#d95926" if (v > 0) == more_fire_positive else "#3987e5" for v in vals]
-    fig = go.Figure(go.Bar(x=vals, y=names, orientation="h", marker_color=colors,
-                           text=[f"{v:+.3f}" for v in vals], textposition="outside", cliponaxis=False,
-                           hovertemplate="%{y}: %{x:+.3f} " + unit + "<extra></extra>"))
-    span = max(abs(v) for v in vals) * 1.35 or 1.0
-    fig.add_vline(x=0, line=dict(color="#8f9ab8", width=1))
+    rows = [start_lbl] + names + [end_lbl]
+    totals = [start]
+    for v in contrib.values():
+        totals.append(totals[-1] + v)
+
+    def shown(x: float) -> str:
+        return tr(f"score {_sigmoid(x):.2f}", f"得分 {_sigmoid(x):.2f}") if flameout else f"{x:.3f}"
+
+    fig = go.Figure()
+    for i, (name, v) in enumerate(zip(names, contrib.values())):
+        more_fire = (v < 0) if flameout else (v > 0)
+        fig.add_trace(go.Bar(
+            y=[name], x=[v], base=[totals[i]], orientation="h", width=0.6, marker_color=ORANGE if more_fire else BLUE,
+            text=[f"{v:+.3f}" if not flameout else ""], textposition="outside", cliponaxis=False,
+            textfont=dict(color=TEXT, size=11),
+            hovertemplate=f"{name}: {shown(totals[i])} → {shown(totals[i + 1])}<extra></extra>"))
+    for i, x in enumerate(totals):  # dotted link from each row's end to where the next row starts
+        fig.add_shape(type="line", x0=x, x1=x, y0=i + 0.3, y1=i + 0.7, line=dict(color=MUTED, width=1, dash="dot"))
+    for y, x, color in ((start_lbl, start, MUTED), (end_lbl, totals[-1], "#ffffff")):
+        fig.add_trace(go.Scatter(
+            y=[y], x=[x], mode="markers+text", marker=dict(symbol="diamond", size=14, color=color,
+                                                           line=dict(color="#0B1020", width=1)),
+            text=[f"  {shown(x)}" + ("" if flameout else " mm²/s")], textposition="middle right",
+            textfont=dict(color=TEXT, size=12), cliponaxis=False, hoverinfo="skip"))
+
+    lo, hi = min(totals), max(totals)
+    if flameout:
+        line = math.log(threshold / (1 - threshold))
+        lo, hi = min(lo, line), max(hi, line)
+    pad = 0.3 * (hi - lo) or 0.05
+    lo, hi = lo - pad, hi + 0.9 * pad + (0.6 if flameout else 0.08 * (hi - lo) + 0.02)  # room for the end label
+    xaxis = dict(range=[lo, hi], zeroline=False, gridcolor="rgba(255,255,255,0.06)", tickfont=dict(color=MUTED, size=10))
+    if flameout:
+        fig.add_vrect(x0=lo, x1=line, fillcolor="rgba(217,89,38,0.10)", line_width=0, layer="below")
+        fig.add_vrect(x0=line, x1=hi, fillcolor="rgba(57,135,229,0.10)", line_width=0, layer="below")
+        fig.add_vline(x=line, line=dict(color=MUTED, width=1))
+        for x, anchor, text in ((line, "right", tr("burns to the end ◀ ", "燃烧至耗尽 ◀ ")),
+                                (line, "left", tr(" ▶ goes out early", " ▶ 提前熄灭"))):
+            fig.add_annotation(x=x, xanchor=anchor, y=1.0, yref="paper", yanchor="bottom", showarrow=False, text=text,
+                               font=dict(size=11, color=MUTED))
+        ticks = [p for p in (0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 0.98) if lo <= math.log(p / (1 - p)) <= hi]
+        xaxis.update(tickvals=[math.log(p / (1 - p)) for p in ticks], ticktext=[f"{p:g}" for p in ticks],
+                     title=dict(text=tr("flame-out score", "熄火得分"), font=dict(size=11, color=MUTED)))
+    else:
+        xaxis.update(title=dict(text=tr("burning rate K (mm²/s)", "燃烧速率 K (mm²/s)"), font=dict(size=11, color=MUTED)))
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=290,
-        title=dict(text=title, font=dict(size=13, color="#c9d2ea"), x=0, xanchor="left"),
-        margin=dict(l=10, r=20, t=44, b=30), showlegend=False, font=dict(color="#c9d2ea"),
-        xaxis=dict(range=[-span, span], zeroline=False, gridcolor="rgba(255,255,255,0.06)",
-                   title=dict(text=unit, font=dict(size=11, color="#8f9ab8")), tickfont=dict(color="#8f9ab8", size=10)),
-        yaxis=dict(autorange="reversed", automargin=True, tickfont=dict(color="#c9d2ea", size=12)),
+        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=360,
+        title=dict(text=title, font=dict(size=13, color=TEXT), x=0, xanchor="left", y=0.98, yanchor="top"),
+        margin=dict(l=10, r=20, t=64, b=36), showlegend=False, font=dict(color=TEXT), barmode="overlay", xaxis=xaxis,
+        yaxis=dict(categoryorder="array", categoryarray=rows, autorange="reversed", automargin=True,
+                   tickfont=dict(color=TEXT, size=12)),
     )
     return fig
 
@@ -2683,18 +2908,19 @@ def render_flex_predictor() -> None:
             f'<div class="tele"><div class="tele-v">{html.escape(v)}</div><div class="tele-l">{html.escape(l)}</div></div>'
             for v, l in cards) + "</div>", unsafe_allow_html=True)
 
-        anim, rulers = st.columns([1, 1.6])
-        k_max = float(k_meta["training_data"]["target_max"])
-        end_frac = flex_extinction_ratio(heptane) if goes_out else 0.2
-        anim.markdown(_svg_img(droplet_svg(
-            "Heptane" if heptane else "Methanol", pred["burning_rate_mm2_s"], k_max, float(d0), float(d0) * end_frac,
-            4.0 + 4.0 * (1 - min(1.0, pred["burning_rate_mm2_s"] / k_max)),
-            end_text=tr("FLAME GOES OUT EARLY", "火焰提前熄灭") if goes_out else tr("BURNED TO THE END", "燃烧至耗尽")),
-            "rank-obj"), unsafe_allow_html=True)
-        anim.caption(tr("Illustration, sped up. A bigger, brighter flame means faster burning.",
-                        "示意动画（已加速）。火焰越大越亮，表示燃烧越快。"))
-        rulers.plotly_chart(_flex_result_figure(pred, near, k_meta), use_container_width=True,
-                            config={"displayModeBar": False})
+        st.markdown(_svg_img(flex_flame_scene_svg(
+            heptane, o2 / 100, float(d0), goes_out, flex_extinction_ratio(heptane), pred["burnout_time_s"]),
+            "flex-scene"), unsafe_allow_html=True)
+        st.caption(tr(
+            "Drawn from the AI's numbers, not footage. On the ISS the droplet floats free and shrinks at the predicted "
+            "burning rate (d² falls steadily), and the run ends the way the flame-out model predicts. Droplet to scale; "
+            "flame size approximate (closer to the droplet with more oxygen). Colours follow NASA's FLEX photos: heptane "
+            "glows yellow from hot soot inside a blue edge, brighter with more oxygen; methanol burns a faint blue.",
+            "根据 AI 的数字绘制，并非实拍。在国际空间站上，液滴自由悬浮，按预测的燃烧速率缩小（d² 匀速下降），"
+            "结局与熄火模型的预测一致。液滴按比例绘制；火焰大小为近似（氧气越多，火焰离液滴越近）。颜色参照 NASA FLEX 照片："
+            "正庚烷火焰内部因炽热烟粒发出黄光、外缘为蓝色，氧气越多越亮；甲醇火焰为淡蓝色。"))
+        st.plotly_chart(_flex_result_figure(pred, near, k_meta), use_container_width=True,
+                        config={"displayModeBar": False})
 
         with st.expander(tr("ℹ️ How to read these results, and how good the AI is", "ℹ️ 如何阅读结果，以及 AI 的准确度")):
             st.markdown(tr(
@@ -2738,28 +2964,32 @@ def render_flex_predictor() -> None:
 
     st.markdown(tr(
         f"**Biggest pushes in this test:** {factor(k_top)} "
-        + ("speeds the burning up" if k_c[k_top] > 0 else "slows the burning down") + f" ({k_c[k_top]:+.3f} mm²/s), and "
-        + f"{factor(e_top)} " + ("pushes the flame toward going out" if e_c[e_top] > 0 else "helps the flame keep burning")
-        + f" ({e_c[e_top]:+.2f}).",
+        + ("speeds the burning up" if k_c[k_top] > 0 else "slows the burning down") + " the most, and "
+        + f"{factor(e_top)} " + ("pushes hardest toward the flame going out" if e_c[e_top] > 0
+                                 else "does the most to keep the flame burning") + ".",
         f"**本次试验中影响最大的因素：** {factor(k_top)}"
-        + ("使燃烧加快" if k_c[k_top] > 0 else "使燃烧减慢") + f"（{k_c[k_top]:+.3f} mm²/s）；"
-        + f"{factor(e_top)}" + ("把火焰推向熄灭" if e_c[e_top] > 0 else "帮助火焰持续燃烧") + f"（{e_c[e_top]:+.2f}）。"))
-    st.caption(tr("Orange = more fire (faster burning, or keeps burning) · blue = less fire. Each bar is measured from an "
-                  "average NASA test.",
-                  "橙色 = 火更强（燃烧更快或持续燃烧）· 蓝色 = 火更弱。每根柱子都以 NASA 平均试验为起点。"))
+        + ("使燃烧加快最多" if k_c[k_top] > 0 else "使燃烧减慢最多") + "；"
+        + f"{factor(e_top)}" + ("最强烈地把火焰推向熄灭" if e_c[e_top] > 0 else "最有助于火焰持续燃烧") + "。"))
+    st.caption(tr("Read each chart from top to bottom: it starts at an average NASA test (◆), each input then pushes the "
+                  "answer left or right, and the last row (◆) is this test. Orange = more fire (faster burning, or keeps "
+                  "burning) · blue = less fire.",
+                  "每张图从上往下读：从 NASA 平均试验（◆）出发，每个输入把结果向左或向右推，最后一行（◆）就是本次试验。"
+                  "橙色 = 火更强（燃烧更快或持续燃烧）· 蓝色 = 火更弱。"))
     ch1, ch2 = st.columns(2)
-    ch1.plotly_chart(_contribution_chart(
-        k_c, inputs, k_meta["scaler_mean"],
-        tr(f"Burning rate: change from the average test ({pred['burning_rate_at_average_test']:.3f} mm²/s)",
-           f"燃烧速率：相对平均试验（{pred['burning_rate_at_average_test']:.3f} mm²/s）的变化"),
-        "mm²/s", more_fire_positive=True), use_container_width=True, config={"displayModeBar": False})
-    ch2.plotly_chart(_contribution_chart(
-        e_c, inputs, e_meta["scaler_mean"],
-        tr("Flame-out: push toward going out (+) or burning to the end (−)", "熄火：推向熄灭 (+) 或燃烧至耗尽 (−)"),
-        tr("log-odds", "对数几率"), more_fire_positive=False), use_container_width=True, config={"displayModeBar": False})
+    ch1.plotly_chart(_build_up_chart(
+        pred["burning_rate_at_average_test"], k_c, inputs, k_meta["scaler_mean"],
+        tr("How fast it burns: how the AI gets its answer", "燃烧有多快：AI 如何得出答案"), flameout=False),
+        use_container_width=True, config={"displayModeBar": False})
+    ch2.plotly_chart(_build_up_chart(
+        pred["extinction_logit_at_average_test"], e_c, inputs, e_meta["scaler_mean"],
+        tr("Does it go out: how the AI gets its answer", "会不会熄灭：AI 如何得出答案"), flameout=True,
+        threshold=pred["extinction_threshold"]), use_container_width=True, config={"displayModeBar": False})
 
     st.markdown(tr("**What each factor does, and why**", "**每个因素的作用及原因**"))
-    st.markdown(_factor_cards_html(pred, inputs, k_meta["scaler_mean"]), unsafe_allow_html=True)
+    st.caption(tr("Each card compares this test with the AI's answer when only that one input is changed.",
+                  "每张卡片把本次试验与只改变这一个输入时 AI 的答案进行对比。"))
+    st.markdown(_factor_cards_html(pred, inputs, k_meta["scaler_mean"], _flex_what_if(inputs, k_meta["scaler_mean"])),
+                unsafe_allow_html=True)
 
     td = e_meta["training_data"]["class_counts"]
     with st.expander(tr("📐 How the AI works, and its limits", "📐 AI 的工作方式与局限")):

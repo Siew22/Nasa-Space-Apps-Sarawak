@@ -140,10 +140,13 @@ Exact means, spreads and every fold are in `reports/cv_summary.json` and `report
      regression), plus the d²-law burn-out time d₀²/K.
    - **Why:** both models are linear, so each prediction is split exactly into one push per input, measured from the average
      NASA test.
-   - **Pictures, not just numbers:** an animated droplet burns at the predicted rate and ends the way the model says;
-     three meters place the burning rate on NASA's measured range, the flame-out score on its 0–1 scale, and show what
-     happened in the closest real tests. A card per input gives its push in this test and the physics behind it
-     (a test checks each card's stated direction against the fitted weights). Longer notes sit in folded boxes.
+   - **Pictures, not just numbers:** the same droplet burning on Earth (a tall, flickering flame) next to the ISS run
+     (a free-floating droplet in a steady ball of flame), drawn to scale with NASA FLEX colours. The droplet shrinks
+     at the predicted rate (d²-law) and the run ends the way the flame-out model says. Three meters place the burning
+     rate on NASA's measured range, the flame-out score on its 0–1 scale, and show what happened in the closest real
+     tests. Two step charts build each answer from an average NASA test, one push per input. A card per input says in
+     plain words what it does, gives the AI's answer with only that input changed, and the physics behind it (a test
+     checks each card's stated direction against the fitted weights). Longer notes sit in folded boxes.
    - **Real NASA tests close to this:** same fuel, pressure within 10 %, each gas within 2–5 points; if there are none, the
      tab says the model is combining other conditions.
    - **Accuracy and limits:** the nested-CV scores are shown next to the prediction. Inputs outside the tested ranges are

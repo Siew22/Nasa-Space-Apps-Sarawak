@@ -134,8 +134,11 @@ def ask_local_research_ai(question: str, use_fine_tuned: bool = True) -> dict[st
 
     _lazy_init()
     passages = retrieve_relevant_passages(question)
+    # Supporting passages only need similarity_threshold, but answering at all needs one strong match: an off-topic
+    # question sharing a word like "flame" scores ~0.35, the sample and benchmark questions 0.42 or more.
+    min_top = read_ai_config()["retrieval"].get("min_top_similarity_to_answer", 0.0)
 
-    if not passages:
+    if not passages or max(p["similarity_score"] for p in passages) < min_top:
         return {
             "question": question,
             "answer": "INSUFFICIENT EVIDENCE: The local NASA research database does not contain sufficient verified experimental passages matching this query.",
